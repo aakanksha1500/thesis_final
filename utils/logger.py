@@ -9,7 +9,7 @@ DEBUG=true  -> DEBUG + above
 DEBUG=false -> INFO + above
 """
 
-from _future_ import annotations
+from __future__ import annotations
 import logging
 import os
 import sys
