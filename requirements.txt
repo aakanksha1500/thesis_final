@@ -1,0 +1,9 @@
+# --- Phase 1: core utilities ---
+python-dotenv>=1.0.0          # .env loading
+
+# --- Testing (present from day 1) ---
+pytest>=8.2.0
+pytest-asyncio>=0.23.0
+
+# --- Linting ---
+ruff>=0.4.0
