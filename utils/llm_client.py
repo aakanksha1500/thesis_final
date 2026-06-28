@@ -16,7 +16,7 @@ class LLMResponse:
     Standardised response envelope returned by every LLMClient.chat() call.
     Agents depend on this type - not a provider spefic response objects.
     """
-    content: str
+    content: str 
     tokens_used: int
     model: str
 
@@ -81,3 +81,73 @@ class LLMClient:
                 "[LLMClient] OpenAI package not installed. LLMClient will run in mock mode."
                 "Add it to requirements.txt and run pip install -r requirements.txt."
             )
+
+    def chat(
+            self,
+            system: str,
+            messages: list[dict],
+            temprature: float | None = None,
+    ) -> LLMResponse:
+        """
+        Send a chat completion request.
+        
+        Args:
+            system: System prmpt string (agent-specific, from config/prompts.py)
+            messages: List of {"role": "user"|"assistant", "content": str} dicts.
+            temprature: Per-call override. If None, uses client default.
+
+        Returns:
+            LLMResponse with content, tokens_used, and model name.
+        
+        Raises:
+            Exception: Only in REAL mode if the API call fails. Mock mode never raises.
+        """
+        temp = temprature if temprature is not None else self.temprature
+
+        if self._mode == "mock" or self._client is None:
+            return self._mock_response(system, messages)
+        
+        all_messages = [{"role": "system", "content": system}] + messages
+        try:
+            response = self._client.chat.completions.create(
+                model=self.model,
+                messages=all_messages,
+                temperature=temp,
+                max_tokens=self.max_tokens,
+            )
+            content = response.choices[0].message.content
+            tokens_used = response.usage.total_tokens
+            logger.debug(f"[LLMClient] {tokens} tokens used -  model = {self.model}")
+            return LLMResponse(content=content, tokens_used=tokens_used, model=self.model)
+        except Exception as e:
+            logger.error(f"[LLMClient] API call failed: {e}")
+            raise
+
+    def _mock_response(self, system: str, messages: list[dict]) -> LLMResponse:
+            """
+            Return a clearly labelled mock response for development and testing.
+            Content encodes the system prompt role so tests can assert routing 
+            without any API calls.
+            """
+            # Extarct first 60 chars of system prompt to identify which agent called
+            role_hint = system[:60].replace("\n", " ")
+            last_user = next(
+                (m["content"][:40] for m in reversed(messages) if m.get("role") == "user"),
+                "no user message",
+            )
+            mock_content = (
+                f"[MOCK RESPONSE] "
+                f"Agent role: '{role_hint}...' | "
+                f"User said: '{last_user}...' | "
+                f"Set OPENAI_API_KEY in .env for real API responses."
+            )
+            return LLMResponse(content=mock_content, tokens_used=0, model="mock")
+    
+    @property
+    def mode(self) -> str:
+        """Returns 'mock' or 'openai' - useful for test assertions."""
+        return self._mode
+    
+    def __repr__(self) -> str:
+        return f"LLMClient(model={self.model!r}, mode={self._mode!r})"
+    
