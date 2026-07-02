@@ -64,7 +64,7 @@ class TestLLMClientMock:
     def test_chat_returns_llm_response_type(self):
         result = self.client.chat(
             system="You are a test agent.",
-            messgaes=[{"role": "user", "content": "Hello"}]
+            messages=[{"role": "user", "content": "Hello"}]
         )
         assert isinstance(result, LLMResponse)
 
