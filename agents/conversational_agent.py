@@ -176,7 +176,7 @@ class ConversationalAgent(BaseAgent):
     
     # Slot extraction from LLM response
 
-    def extract_slots_from_response(self, llm_response: str) -> dict[str, Any]:
+    def _extract_slots_from_response(self, llm_response: str) -> dict[str, Any]:
         """
         Attempt to extract slot values the user revealed in their message.
         Uses a lightweighted JSON extraction (not a. seperate NLU model)
@@ -235,7 +235,7 @@ class ConversationalAgent(BaseAgent):
         return{
             "escalate": True,
             "intent": intent,
-            "collected_slots": dict[self._slots],
+            "collected_slots": dict(self._slots),
             "user_message": user_message,
         }
     
@@ -310,7 +310,8 @@ class ConversationalAgent(BaseAgent):
         )
 
         # Step 2 - Extract any slots revealed in the user's message
-        new_slots = self.update_slots(new_slots)
+        new_slots = self._extract_slots_from_response(user_message)
+        self.update_slots(new_slots)
 
         # Step 3 - Decide if esclation is warranted
         needs_escalation = self._needs_escalation(intent, confidence)
@@ -337,7 +338,7 @@ class ConversationalAgent(BaseAgent):
 
         payload = {
             "intent": intent,
-            "confidence": round[confidence, 4],
+            "confidence": round(confidence, 4),
             "escalation_needed": needs_escalation,
             "response": response_text,
             "collected_slots": dict(self._slots),

@@ -73,9 +73,12 @@ class LLMClient:
         
         try:
             import openai
-            self._client = openai.OpenAI(api_key=api_key)
+            self._client = openai.OpenAI(
+                api_key=api_key,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            )
             self._mode = "openai"
-            logger.info(f"[LLMClient] Initialised in real mode - model {self.model}.")
+            logger.info(f"[LLMClient] Initialised in REAL mode — model={self.model}")
         except ImportError:
             logger.warning(
                 "[LLMClient] OpenAI package not installed. LLMClient will run in mock mode."

@@ -42,7 +42,7 @@ class AgentResult:
     agent_name: str
     step_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     success: bool = True
-    playload: dict[str, Any] =field(default_factory=dict)
+    payload: dict[str, Any] =field(default_factory=dict)
     raw_llm_output: str = ""
     duration_ms: float = 0.0
     tokens_used: int = 0
@@ -159,7 +159,7 @@ class BaseAgent(abc.ABC):
             self,
             payload: dict,
             raw: str = "",
-            duratin_ms: float = 0.0,
+            duration_ms: float = 0.0,
             tokens: int = 0,
             rag_sources: list[str] | None = None,
             routing_context: dict | None = None,
@@ -173,7 +173,7 @@ class BaseAgent(abc.ABC):
             success = error is None,
             payload = payload,
             raw_llm_output = raw,
-            duration_ms = duratin_ms,
+            duration_ms = duration_ms,
             tokens_used = tokens,
             error = error,
             rag_sources_used = rag_sources or [],

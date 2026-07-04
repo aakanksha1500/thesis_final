@@ -37,7 +37,7 @@ class ConversationalConfig:
             "investment",
             "risk_profiling",
             "budget",
-            "financial_advisor",
+            "financial_advice",
             "savings",
             "card",
             "loan",
@@ -62,15 +62,15 @@ class ConversationalConfig:
 
     dataset_path: Path = ROOT_DIR / "data" / "raw" / "banking77"
 
-    @dataclass
-    class Settings:
-        llm: LLMConfig = field(default_factory=LLMConfig)
-        conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
-        debug: bool = field(
-            default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true"
-        )
-        environment: str = field(
-            default_factory=lambda: os.getenv("ENVIRONMENT", "development")
-        )
+@dataclass
+class Settings:
+    llm: LLMConfig = field(default_factory=LLMConfig)
+    conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
+    debug: bool = field(
+        default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true"
+    )
+    environment: str = field(
+        default_factory=lambda: os.getenv("ENVIRONMENT", "development")
+    )
 
-    settings = Settings()
+settings = Settings()
