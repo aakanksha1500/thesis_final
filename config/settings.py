@@ -19,6 +19,9 @@ class LLMConfig:
         default_factory=lambda: os.getenv("ORCHESTRATOR_MODEL", "gpt-4o-mini")
     )
     specialist_model: str = field(
+        default_factory=lambda: os.getenv("SPECIALIST_MODEL", "gpt-4o-mini")
+    )
+    judge_model: str = field(
         default_factory=lambda: os.getenv("JUDGE_MODEL", "gpt-4o-mini")
     )
     temprature: float = 0.2
