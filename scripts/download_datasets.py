@@ -37,9 +37,33 @@ def phase1_check() -> None:
         print(f" OK data/{subdir}/")
     print("[Phase 1] Structure check complete. No downloads required yet\n.")
 
+def phase2_download() -> None:
+    """
+    Phase 2: ConversationalAgent.
+    Downloads Banking77 via HuggingFace datasets library.
+    MultiWOZ is used as a reference architecture - not trained on directly.
+    """
+    print("[Phase 2] Downloading Banking77 - intent classification dataset...")
+    try:
+        from datasets import load_dataset   
+        ds = load_dataset("banking77", split="train")
+        save_path = DATA_RAW / "banking77"
+        ds.save_to_disk(str(save_path))
+        print(f" OK Banking77 saved to {save_path} ({len(ds)} samples)")
+    except ImportError:
+        print(" SKIP 'datasets' package not installed. "
+              "Add datasets>=2.19.0 to requirements.txt and re-run.")
+    except Exception as e:
+        print(f" FAIL Banking77 download failed: {e}")
+    
+    print("[Phase 2] - used as a dialogue reference architecture.")
+    print()
+
+
 
 PHASE_FUNCTIONS = {
     1: [phase1_check],
+    2: [phase1_check, phase2_download],
 }
 
 def main() -> None:
