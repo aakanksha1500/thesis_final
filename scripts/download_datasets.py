@@ -46,7 +46,7 @@ def phase2_download() -> None:
     print("[Phase 2] Downloading Banking77 - intent classification dataset...")
     try:
         from datasets import load_dataset   
-        ds = load_dataset("banking77", split="train")
+        ds = load_dataset("mteb/banking77", split="train")
         save_path = DATA_RAW / "banking77"
         ds.save_to_disk(str(save_path))
         print(f" OK Banking77 saved to {save_path} ({len(ds)} samples)")
