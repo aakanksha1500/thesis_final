@@ -45,6 +45,7 @@ class LLMClient:
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        force_mock: bool = False,
     ):
         self.model = model or os.getenv("ORCHESTRATOR_MODEL", self.DEFAULT_MODEL)
         self.temperature = temperature if temperature is not None else self.DEFAULT_TEMPERATURE
@@ -52,6 +53,7 @@ class LLMClient:
         
         self._client = None
         self._mode = "mock"
+        self._force_mock = force_mock
         self._init_client()
     
     _PROVIDER_BASE_URLS = {
@@ -75,6 +77,9 @@ class LLMClient:
           together   -> TOGETHER_API_KEY
           openrouter -> OPENROUTER_API_KEY
         """
+        if self._force_mock:
+            logger.info("[LLMClient] force_mock=True — running in MOCK mode regardless of environment.")
+            return
         provider = os.getenv("LLM_PROVIDER", "openai").lower()
 
         if provider not in self._PROVIDER_BASE_URLS:

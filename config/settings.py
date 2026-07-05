@@ -71,7 +71,7 @@ class RiskConfig:
     ml_weight: float = 0.6
     rule_weight: float = 0.4
     risk_classes: list = field(default_factory=lambda: [
-        "convervative", "moderately_conservative", "moderate", 
+        "conservative", "moderately_conservative", "moderate", 
         "moderately_aggressive", "aggressive", 
     ])
     required_features: list = field(default_factory=lambda: [

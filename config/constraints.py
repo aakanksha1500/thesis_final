@@ -49,7 +49,7 @@ class FinancialConstraints:
         if claimed_return > self.MAX_ANNUAL_RETURN_PCT:
             return ConstraintViolation(
                 rule_id="R001",
-                decription=f"Claimed return {claimed_return}% exceeds ceiling {self.MAX_ANNUAL_RETURN_PCT}%",
+                description=f"Claimed return {claimed_return}% exceeds ceiling {self.MAX_ANNUAL_RETURN_PCT}%",
                 severity="hard_block", field="expected_return_pct", value=claimed_return,
             )
         return None

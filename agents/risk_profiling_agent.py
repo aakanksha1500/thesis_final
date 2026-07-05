@@ -229,7 +229,7 @@ class RiskProfilingAgent(BaseAgent):
         Map continuous [0, 1] hybrid score to 5-class risk tier.
         Thresholds divide [0, 1] into 5 equal bands of width 0.2
         """
-        classes = settings.risk_classes
+        classes = settings.risk.risk_classes
         thresholds = [0.2, 0.4, 0.6, 0.8]
         for i, threshold in enumerate(thresholds):
             if score < threshold:
@@ -255,7 +255,7 @@ class RiskProfilingAgent(BaseAgent):
         confidence = min(min_distance / 0.1, 1.0)
         return round(float(confidence), 4)
     
-    def _comute_shap_proxy(
+    def _compute_shap_proxy(
             self,
             features: dict[str, Any],
             ml_score: float,

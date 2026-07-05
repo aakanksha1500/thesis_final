@@ -187,7 +187,7 @@ def risk_alignment_rate(
     for p, g in zip(predictions, ground_truth):
         tier_stats.setdefault(g, {"total": 0, "aligned": 0})
         tier_stats[g]["total"] += 1
-        if abs(tier_idx.get(p, 2) - tier_idx(g, 2)) <= 1:
+        if abs(tier_idx.get(p, 2) - tier_idx.get(g, 2)) <= 1:
             tier_stats[g]["aligned"] += 1
     
     per_tier = {

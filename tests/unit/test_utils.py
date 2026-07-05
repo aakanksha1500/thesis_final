@@ -56,7 +56,8 @@ class TestLogger:
 class TestLLMClientMock:
     def setup_method(self):
         os.environ.pop("OPENAI_API_KEY", None)
-        self.client = LLMClient()
+        os.environ.pop("ORCHESTRATOR_MODEL", None)
+        self.client = LLMClient(force_mock=True)
 
     def test_initialises_in_mock_mode_without_api_key(self):
         assert self.client._mode == "mock"
@@ -115,11 +116,11 @@ class TestLLMClientMock:
         )
         assert isinstance(result, LLMResponse)
 
-    def test_temprature_override_accepted(self):
+    def test_temperature_override_accepted(self):
         result = self.client.chat(
             system="System.",
             messages=[{"role": "user", "content": "Query"}],
-            temprature=0.0,
+            temperature=0.0,
         )
         assert isinstance(result, LLMResponse)
 
