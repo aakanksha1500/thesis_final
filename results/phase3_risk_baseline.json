@@ -1,0 +1,308 @@
+{
+  "phase": 3,
+  "agent": "RiskProfilingAgent",
+  "dataset": "hand_labelled_fixture_15_profiles",
+  "model_mode": "heuristic_proxy",
+  "metrics": {
+    "risk_alignment_rate": {
+      "metric": "risk_alignment_rate",
+      "value": 1.0,
+      "details": {
+        "n": 15,
+        "aligned": 15,
+        "per_tier_alignment": {
+          "conservative": 1.0,
+          "moderately_conservative": 1.0,
+          "moderate": 1.0,
+          "moderately_aggressive": 1.0,
+          "aggressive": 1.0
+        }
+      }
+    },
+    "f1_macro": {
+      "metric": "f1_risk_classification",
+      "value": 1.0,
+      "details": {
+        "per_class": {
+          "conservative": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "moderately_conservative": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "moderate": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "moderately_aggressive": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "aggressive": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        }
+      }
+    },
+    "hybrid_vs_rule_only_delta": {
+      "metric": "hybrid_vs_rule_only_delta",
+      "value": 0.2667,
+      "details": {
+        "hybrid_rar": 1.0,
+        "rule_only_rar": 0.7333,
+        "improvement": "+0.2667",
+        "interpretation": "Hybrid outperforms rule-only baseline"
+      }
+    }
+  },
+  "per_profile": [
+    {
+      "features": {
+        "age": 68,
+        "income": 28000,
+        "employment_status": "retired",
+        "dependents": 0,
+        "existing_debt": 2000,
+        "investment_horizon": 3,
+        "loss_tolerance": 1,
+        "financial_knowledge_score": 2
+      },
+      "expected": "conservative",
+      "hybrid_pred": "conservative",
+      "rule_pred": "moderately_conservative",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 55,
+        "income": 35000,
+        "employment_status": "employed",
+        "dependents": 3,
+        "existing_debt": 25000,
+        "investment_horizon": 2,
+        "loss_tolerance": 1,
+        "financial_knowledge_score": 1
+      },
+      "expected": "conservative",
+      "hybrid_pred": "conservative",
+      "rule_pred": "conservative",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 62,
+        "income": 22000,
+        "employment_status": "part_time",
+        "dependents": 1,
+        "existing_debt": 15000,
+        "investment_horizon": 3,
+        "loss_tolerance": 2,
+        "financial_knowledge_score": 2
+      },
+      "expected": "conservative",
+      "hybrid_pred": "conservative",
+      "rule_pred": "conservative",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 50,
+        "income": 48000,
+        "employment_status": "employed",
+        "dependents": 2,
+        "existing_debt": 10000,
+        "investment_horizon": 6,
+        "loss_tolerance": 2,
+        "financial_knowledge_score": 2
+      },
+      "expected": "moderately_conservative",
+      "hybrid_pred": "moderately_conservative",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 45,
+        "income": 55000,
+        "employment_status": "employed",
+        "dependents": 1,
+        "existing_debt": 12000,
+        "investment_horizon": 7,
+        "loss_tolerance": 2,
+        "financial_knowledge_score": 3
+      },
+      "expected": "moderately_conservative",
+      "hybrid_pred": "moderately_conservative",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 38,
+        "income": 65000,
+        "employment_status": "employed",
+        "dependents": 1,
+        "existing_debt": 8000,
+        "investment_horizon": 10,
+        "loss_tolerance": 3,
+        "financial_knowledge_score": 3
+      },
+      "expected": "moderate",
+      "hybrid_pred": "moderate",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 42,
+        "income": 72000,
+        "employment_status": "employed",
+        "dependents": 2,
+        "existing_debt": 15000,
+        "investment_horizon": 8,
+        "loss_tolerance": 3,
+        "financial_knowledge_score": 3
+      },
+      "expected": "moderate",
+      "hybrid_pred": "moderate",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 35,
+        "income": 60000,
+        "employment_status": "employed",
+        "dependents": 0,
+        "existing_debt": 5000,
+        "investment_horizon": 10,
+        "loss_tolerance": 3,
+        "financial_knowledge_score": 3
+      },
+      "expected": "moderate",
+      "hybrid_pred": "moderate",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 30,
+        "income": 85000,
+        "employment_status": "employed",
+        "dependents": 0,
+        "existing_debt": 5000,
+        "investment_horizon": 15,
+        "loss_tolerance": 4,
+        "financial_knowledge_score": 4
+      },
+      "expected": "moderately_aggressive",
+      "hybrid_pred": "moderately_aggressive",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 33,
+        "income": 95000,
+        "employment_status": "employed",
+        "dependents": 1,
+        "existing_debt": 8000,
+        "investment_horizon": 12,
+        "loss_tolerance": 4,
+        "financial_knowledge_score": 4
+      },
+      "expected": "moderately_aggressive",
+      "hybrid_pred": "moderately_aggressive",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 28,
+        "income": 78000,
+        "employment_status": "employed",
+        "dependents": 0,
+        "existing_debt": 3000,
+        "investment_horizon": 20,
+        "loss_tolerance": 4,
+        "financial_knowledge_score": 3
+      },
+      "expected": "moderately_aggressive",
+      "hybrid_pred": "moderately_aggressive",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 25,
+        "income": 120000,
+        "employment_status": "employed",
+        "dependents": 0,
+        "existing_debt": 0,
+        "investment_horizon": 30,
+        "loss_tolerance": 5,
+        "financial_knowledge_score": 5
+      },
+      "expected": "aggressive",
+      "hybrid_pred": "aggressive",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 27,
+        "income": 100000,
+        "employment_status": "employed",
+        "dependents": 0,
+        "existing_debt": 2000,
+        "investment_horizon": 25,
+        "loss_tolerance": 5,
+        "financial_knowledge_score": 5
+      },
+      "expected": "aggressive",
+      "hybrid_pred": "aggressive",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 29,
+        "income": 110000,
+        "employment_status": "self_employed",
+        "dependents": 0,
+        "existing_debt": 1000,
+        "investment_horizon": 20,
+        "loss_tolerance": 5,
+        "financial_knowledge_score": 4
+      },
+      "expected": "aggressive",
+      "hybrid_pred": "aggressive",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    },
+    {
+      "features": {
+        "age": 31,
+        "income": 90000,
+        "employment_status": "employed",
+        "dependents": 0,
+        "existing_debt": 4000,
+        "investment_horizon": 22,
+        "loss_tolerance": 5,
+        "financial_knowledge_score": 5
+      },
+      "expected": "aggressive",
+      "hybrid_pred": "aggressive",
+      "rule_pred": "moderate",
+      "hybrid_correct": true
+    }
+  ]
+}

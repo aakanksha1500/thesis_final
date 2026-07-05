@@ -4,13 +4,13 @@
   "dataset": "Banking77_fixture_20queries",
   "llm_mode": "groq",
   "metric": "intent_accuracy",
-  "value": 0.8,
+  "value": 0.2,
   "details": {
     "n": 20,
-    "correct": 16,
+    "correct": 4,
     "per_bucket_accuracy": {
-      "general_query": 0.0,
-      "investment_advice": 0.0,
+      "general_query": 1.0,
+      "investment_advice": 0.2,
       "risk_profiling": 0.0,
       "budget_analysis": 0.0,
       "product_suggestion": 0.0,
@@ -32,27 +32,27 @@
     {
       "message": "Can you assess my financial risk?",
       "gold": "risk_profiling",
-      "pred": "risk_profiling"
+      "pred": "general_query"
     },
     {
       "message": "I need to make a budget plan.",
       "gold": "budget_analysis",
-      "pred": "budget_analysis"
+      "pred": "general_query"
     },
     {
       "message": "What credit card should I get?",
       "gold": "product_suggestion",
-      "pred": "product_suggestion"
+      "pred": "general_query"
     },
     {
       "message": "Why did you recommend that fund?",
       "gold": "explanation_request",
-      "pred": "explanation_request"
+      "pred": "general_query"
     },
     {
       "message": "I need legal advice about my mortgage.",
       "gold": "out_of_scope",
-      "pred": "out_of_scope"
+      "pred": "general_query"
     },
     {
       "message": "What is the current exchange rate?",
@@ -62,17 +62,17 @@
     {
       "message": "Help me plan for retirement.",
       "gold": "investment_advice",
-      "pred": "risk_profiling"
+      "pred": "general_query"
     },
     {
       "message": "How much risk can I take?",
       "gold": "risk_profiling",
-      "pred": "risk_profiling"
+      "pred": "general_query"
     },
     {
       "message": "Where am I spending too much?",
       "gold": "budget_analysis",
-      "pred": "budget_analysis"
+      "pred": "general_query"
     },
     {
       "message": "Tell me about savings accounts.",
@@ -82,42 +82,42 @@
     {
       "message": "How did you calculate that?",
       "gold": "explanation_request",
-      "pred": "explanation_request"
+      "pred": "general_query"
     },
     {
       "message": "Can you recommend an ETF?",
       "gold": "investment_advice",
-      "pred": "investment_advice"
+      "pred": "general_query"
     },
     {
       "message": "My card is about to expire.",
       "gold": "general_query",
-      "pred": "product_suggestion"
+      "pred": "general_query"
     },
     {
       "message": "What are my investment options?",
       "gold": "investment_advice",
-      "pred": "investment_advice"
+      "pred": "general_query"
     },
     {
       "message": "Help me understand my spending.",
       "gold": "budget_analysis",
-      "pred": "budget_analysis"
+      "pred": "general_query"
     },
     {
       "message": "I want a low-risk investment.",
       "gold": "risk_profiling",
-      "pred": "investment_advice"
+      "pred": "general_query"
     },
     {
       "message": "Can I get a loan?",
       "gold": "product_suggestion",
-      "pred": "product_suggestion"
+      "pred": "general_query"
     },
     {
       "message": "Explain your reasoning.",
       "gold": "explanation_request",
-      "pred": "explanation_request"
+      "pred": "general_query"
     }
   ]
 }
