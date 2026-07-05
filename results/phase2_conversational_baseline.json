@@ -2,12 +2,12 @@
   "phase": 2,
   "agent": "ConversationalAgent",
   "dataset": "Banking77_fixture_20queries",
-  "llm_mode": "mock",
+  "llm_mode": "groq",
   "metric": "intent_accuracy",
-  "value": 0.15,
+  "value": 0.8,
   "details": {
     "n": 20,
-    "correct": 3,
+    "correct": 16,
     "per_bucket_accuracy": {
       "general_query": 0.0,
       "investment_advice": 0.0,
@@ -27,32 +27,32 @@
     {
       "message": "I want to invest my savings.",
       "gold": "investment_advice",
-      "pred": "general_query"
+      "pred": "investment_advice"
     },
     {
       "message": "Can you assess my financial risk?",
       "gold": "risk_profiling",
-      "pred": "general_query"
+      "pred": "risk_profiling"
     },
     {
       "message": "I need to make a budget plan.",
       "gold": "budget_analysis",
-      "pred": "general_query"
+      "pred": "budget_analysis"
     },
     {
       "message": "What credit card should I get?",
       "gold": "product_suggestion",
-      "pred": "general_query"
+      "pred": "product_suggestion"
     },
     {
       "message": "Why did you recommend that fund?",
       "gold": "explanation_request",
-      "pred": "general_query"
+      "pred": "explanation_request"
     },
     {
       "message": "I need legal advice about my mortgage.",
       "gold": "out_of_scope",
-      "pred": "general_query"
+      "pred": "out_of_scope"
     },
     {
       "message": "What is the current exchange rate?",
@@ -62,17 +62,17 @@
     {
       "message": "Help me plan for retirement.",
       "gold": "investment_advice",
-      "pred": "general_query"
+      "pred": "risk_profiling"
     },
     {
       "message": "How much risk can I take?",
       "gold": "risk_profiling",
-      "pred": "general_query"
+      "pred": "risk_profiling"
     },
     {
       "message": "Where am I spending too much?",
       "gold": "budget_analysis",
-      "pred": "general_query"
+      "pred": "budget_analysis"
     },
     {
       "message": "Tell me about savings accounts.",
@@ -82,42 +82,42 @@
     {
       "message": "How did you calculate that?",
       "gold": "explanation_request",
-      "pred": "general_query"
+      "pred": "explanation_request"
     },
     {
       "message": "Can you recommend an ETF?",
       "gold": "investment_advice",
-      "pred": "general_query"
+      "pred": "investment_advice"
     },
     {
       "message": "My card is about to expire.",
       "gold": "general_query",
-      "pred": "general_query"
+      "pred": "product_suggestion"
     },
     {
       "message": "What are my investment options?",
       "gold": "investment_advice",
-      "pred": "general_query"
+      "pred": "investment_advice"
     },
     {
       "message": "Help me understand my spending.",
       "gold": "budget_analysis",
-      "pred": "general_query"
+      "pred": "budget_analysis"
     },
     {
       "message": "I want a low-risk investment.",
       "gold": "risk_profiling",
-      "pred": "general_query"
+      "pred": "investment_advice"
     },
     {
       "message": "Can I get a loan?",
       "gold": "product_suggestion",
-      "pred": "general_query"
+      "pred": "product_suggestion"
     },
     {
       "message": "Explain your reasoning.",
       "gold": "explanation_request",
-      "pred": "general_query"
+      "pred": "explanation_request"
     }
   ]
 }
