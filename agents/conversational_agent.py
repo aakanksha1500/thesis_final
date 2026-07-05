@@ -154,7 +154,7 @@ class ConversationalAgent(BaseAgent):
             f"{{\"intent\": \"<bucket_name>\", \"confidence\": <float 0.0-1.0>}}"
         )
         try:
-            raw, _ = self._call_llm(prompt, temprature=0.0)
+            raw, _ = self._call_llm(prompt, temperature=0.0)
             # Extract JSON even if LLM adds surrounding text
             match = re.search(r'\{[^}]+\}', raw)
             if match:
@@ -192,7 +192,7 @@ class ConversationalAgent(BaseAgent):
             f"No other text."
         ) 
         try:
-            raw, _ = self._call_llm(prompt, temprature=0.0)
+            raw, _ = self._call_llm(prompt, temperature=0.0)
             match = re.search(r'\{[^}]*\}', raw, re.DOTALL)
             if match:
                 return json.loads(match.group())
@@ -321,20 +321,20 @@ class ConversationalAgent(BaseAgent):
             response_text = self._generate_response(user_message, intent, needs_escalation)
         except Exception as exc: 
             logger.error(f"[ConversationalAgent] Response generation failed: {exc}")
-            response_text = {
+            response_text = (
                 "I'm sorry, I encountered an issue processing your request. "
                 "Please try again."
-            }
+            )
 
         # Step 5 - Update conversation history
         self._history.append({"role": "user", "content": user_message})
         self._history.append({"role": "assistant", "content": response_text})
 
         # Step 6 - Build payload
-        escalation_block = {
+        escalation_block = (
             self._build_escalation_block(intent, user_message)
             if needs_escalation else None
-        }
+        )
 
         payload = {
             "intent": intent,

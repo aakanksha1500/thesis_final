@@ -31,54 +31,77 @@ class LLMClient:
     Args:
         model: Override the default model string. If None, reads from 
                ORCHESTRATOR_MODEL env var, else falls back to gpt-4o-mini.
-        temprature: Default sampling temprature. Agents may override
+        temperature: Default sampling temperature. Agents may override
                     per-call by passing trmprature = to chat().
                     max_tokens: HArd calling on response length.   
     """
 
     DEFAULT_MODEL = "gpt-4o-mini"
-    DEFAULT_TEMPRATURE = 0.2
+    DEFAULT_TEMPERATURE = 0.2
     DEFAULT_MAX_TOKENS = 1024
 
     def __init__(
         self,
         model: str | None = None,
-        temprature: float | None = None,
+        temperature: float | None = None,
         max_tokens: int | None = None,
     ):
         self.model = model or os.getenv("ORCHESTRATOR_MODEL", self.DEFAULT_MODEL)
-        self.temprature = temprature if temprature is not None else self.DEFAULT_TEMPRATURE
+        self.temperature = temperature if temperature is not None else self.DEFAULT_TEMPERATURE
         self.max_tokens = max_tokens or self.DEFAULT_MAX_TOKENS
         
         self._client = None
         self._mode = "mock"
         self._init_client()
+    
+    _PROVIDER_BASE_URLS = {
+        "openai": "https://generativelanguage.googleapis.com/v1beta/openai/",  # default OpenAI endpoint
+        "groq": "https://api.groq.com/openai/v1",
+        "together": "https://api.together.xyz/v1",
+        "openrouter": "https://openrouter.ai/api/v1",
+    }
 
     def _init_client(self) -> None:
         """
-        Attempt to initialise the real OpenAI client.
+        Attempt to initialise the real LLM client.
         Falls back to mode silently if:
             - OpenAI package not installed yet
-            - OPENAI_API_KEY not set in .env
+            - relevant API key not set in .env
+            - LLM_PROVIDER names an unknown provider
+        Provider is selected via the LLM_PROVIDER env var (default: "openai").
+        Each provider reads its key from a provider-specific env var:
+          openai     -> OPENAI_API_KEY
+          groq       -> GROQ_API_KEY
+          together   -> TOGETHER_API_KEY
+          openrouter -> OPENROUTER_API_KEY
         """
+        provider = os.getenv("LLM_PROVIDER", "openai").lower()
 
-        api_key = os.getenv("OPENAI_API_KEY", "")
+        if provider not in self._PROVIDER_BASE_URLS:
+            logger.warning(
+                f"[LLMClient] Unknown LLM_PROVIDER={provider!r} — running in MOCK mode. "
+                f"Known providers: {list(self._PROVIDER_BASE_URLS)}"
+            )
+            return
+        key_env_var = f"{provider.upper()}_API_KEY"
+        api_key = os.getenv(key_env_var, "")
 
         if not api_key:
             logger.warning(
-                "[LLMClient] OPENAI_API_KEY not set. LLMClient will run in mock mode."
-                "Set it in .env to activate real LLM API calls."
+                f"[LLMClient] {key_env_var} not set — running in MOCK mode. "
+                f"Set it in .env to activate real LLM calls via {provider}."
             )
             return
         
         try:
             import openai
+            base_url = self._PROVIDER_BASE_URLS[provider]
             self._client = openai.OpenAI(
                 api_key=api_key,
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                base_url=base_url,
             )
-            self._mode = "openai"
-            logger.info(f"[LLMClient] Initialised in REAL mode — model={self.model}")
+            self._mode = provider
+            logger.info(f"[LLMClient] Initialised in REAL mode — provider={provider} model={self.model}")
         except ImportError:
             logger.warning(
                 "[LLMClient] OpenAI package not installed. LLMClient will run in mock mode."
@@ -89,7 +112,7 @@ class LLMClient:
             self,
             system: str,
             messages: list[dict],
-            temprature: float | None = None,
+            temperature: float | None = None,
     ) -> LLMResponse:
         """
         Send a chat completion request.
@@ -97,7 +120,7 @@ class LLMClient:
         Args:
             system: System prmpt string (agent-specific, from config/prompts.py)
             messages: List of {"role": "user"|"assistant", "content": str} dicts.
-            temprature: Per-call override. If None, uses client default.
+            temperature: Per-call override. If None, uses client default.
 
         Returns:
             LLMResponse with content, tokens_used, and model name.
@@ -105,7 +128,7 @@ class LLMClient:
         Raises:
             Exception: Only in REAL mode if the API call fails. Mock mode never raises.
         """
-        temp = temprature if temprature is not None else self.temprature
+        temp = temperature if temperature is not None else self.temperature
 
         if self._mode == "mock" or self._client is None:
             return self._mock_response(system, messages)
@@ -118,9 +141,9 @@ class LLMClient:
                 temperature=temp,
                 max_tokens=self.max_tokens,
             )
-            content = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens
-            logger.debug(f"[LLMClient] {tokens} tokens used -  model = {self.model}")
+            content = response.choices[0].message.content or ""
+            tokens_used = response.usage.total_tokens if response.usage else 0
+            logger.debug(f"[LLMClient] {tokens_used} tokens used -  model = {self.model}")
             return LLMResponse(content=content, tokens_used=tokens_used, model=self.model)
         except Exception as e:
             logger.error(f"[LLMClient] API call failed: {e}")
@@ -133,7 +156,7 @@ class LLMClient:
             without any API calls.
             """
             # Extarct first 60 chars of system prompt to identify which agent called
-            role_hint = system[:60].replace("\n", " ")
+            role_hint = system[:60].replace("\n", " ").strip()
             last_user = next(
                 (m["content"][:40] for m in reversed(messages) if m.get("role") == "user"),
                 "no user message",

@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import sys
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,13 @@ def make_agent(mock_response: str = "[MOCK RESPONSE]") -> ConversationalAgent:
     """Return a ConversationalAgent in mock mode (no API key required)."""
     client = LLMClient()
     assert client.mode == "mock", "Tests must run in mock mode without API key"
+    return ConversationalAgent(client)
+
+def make_real_agent() -> ConversationalAgent:
+    """Return a ConversationalAgent using the real API key from .env."""
+    from dotenv import load_dotenv
+    load_dotenv()
+    client = LLMClient()
     return ConversationalAgent(client)
 
 
@@ -315,11 +323,12 @@ class TestIntentAccuracyEvaluation:
         In mock mode: accuracy will be low (LLM can't classify without real API).
         In real mode: expected accuracy 0.70+ based on GPT-4o-mini benchmark.
         """
-        agent = make_agent()
+        agent = make_real_agent()
 
         predictions = []
         for item in BANKING77_FIXTURE:
             result = agent.run({"user_message": item["message"]})
+            time.sleep(2)
             predictions.append(result.payload.get("intent", "general_query"))
 
         gold = [item["bucket"] for item in BANKING77_FIXTURE]
