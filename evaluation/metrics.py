@@ -2,7 +2,8 @@
 This file is grown phase-by-phase alongside each agent.
 Only the metrics needed for the current agent are defined here.
 
-Phase 2 (this commit): intent_accuracy, slot_fill_rate
+Phase 2 (last commit): intent_accuracy, slot_fill_rate
+Phase 3 (RQ1, this commit): risk_alignment_rate, f1_risk_classification, auc_roc
 
 All metric functions return EvalResult(metric_name, value, details).
 """
@@ -68,6 +69,8 @@ def intent_accuracy(
         if gold not in bucket_stats:
             bucket_stats[gold] = {"total": 0, "correct": 0}
         bucket_stats[gold]["total"] += 1
+        if pred == gold:
+            bucket_stats[gold]["correct"] += 1
     
     per_bucket = {
         bucket: round(v["correct"] / v["total"], 3)
@@ -81,7 +84,7 @@ def intent_accuracy(
             "n": len(predictions),
             "correct": correct,
             "per_bucket_accuracy": per_bucket,
-        }
+        },
     )
 
 def slot_fill_rate(
@@ -140,5 +143,145 @@ def slot_fill_rate(
             "escalated_sessions": len(escalated_sessions),
             "per_slot_fill_rate": per_slot,
             "required_slots": required_slots,
+        },
+    )
+
+# Phase 3 - RiskProfilingAgent evaluation (RQ1)
+
+def risk_alignment_rate(
+        predictions: list[str],
+        ground_truth: list[str],
+) -> EvalResult:
+    """
+    Risk Alignment Rate (RAR) - primary RQ1 metric.
+    
+    Fraction of predictions within 1 tier of ground_truth.
+    Used instead of exact match because risk profiling has inherent
+    subjectivity - adjacent tier predictions are clinically acceptable
+    (e.g. predicting 'moderate' when true label is 'moderately_conservative').
+    
+    Args:
+        predictions: list of predicted risk class strings
+        ground_truth: list of labelled risk class strings (from test fixtures)
+    """
+    TIERS = [
+        "conservative", "moderately_conservative", "moderate",
+        "moderately_aggressive", "aggressive",
+    ]
+    tier_idx = {t: i for i, t in enumerate(TIERS)}
+
+    if not predictions:
+        return EvalResult("risk_alignment_rate", 0.0, {"error": "empty predictions"})
+    if len(predictions) != len(ground_truth):
+        return EvalResult("risk_alignment_rate", 0.0,
+                          {"error": "length mismatch"})
+    
+    aligned = sum(
+        abs(tier_idx.get(p, 2) - tier_idx.get(g, 2)) <= 1
+        for p, g in zip(predictions, ground_truth)
+    )
+    rar = aligned / len(predictions)
+
+    # Per-tier breakdown for qualitative analysis
+    tier_stats: dict = {}
+    for p, g in zip(predictions, ground_truth):
+        tier_stats.setdefault(g, {"total": 0, "aligned": 0})
+        tier_stats[g]["total"] += 1
+        if abs(tier_idx.get(p, 2) - tier_idx(g, 2)) <= 1:
+            tier_stats[g]["aligned"] += 1
+    
+    per_tier = {
+        tier: round(v["aligned"] / v["total"], 3)
+        for tier, v in tier_stats.items()
+    }
+
+    return EvalResult(
+        metric_name="risk_alignment_rate",
+        value=round(rar, 4),
+        details={
+            "n": len(predictions),
+            "aligned": aligned,
+            "per_tier_alignment": per_tier,
+        },
+    )
+
+def f1_risk_classification(
+        predictions: list[str],
+        ground_truth: list[str],
+) -> EvalResult:
+    """
+    Macro-averaged F1 score for 5-class risk classification (RQ1).
+    
+    Uses macro averaging (equal weight per class) rather than weighted,
+    because all five risk tiers are equally important to classify correctly - 
+    we do not want the dominant class to inflate the score.
+    """
+
+    if not predictions or len(predictions) != len(ground_truth):
+        return EvalResult("f1_risk_classification", 0.0,
+                          {"error": "empty or mismatched inputs"})
+    
+    labels = list(dict.fromkeys(ground_truth))
+    from collections import defaultdict
+    tp: dict = defaultdict(int)
+    fp: dict = defaultdict(int)
+    fn: dict = defaultdict(int)
+
+    for p, g in zip(predictions, ground_truth):
+        if p == g:
+            tp[g] += 1
+        else:
+            fp[p] += 1
+            fn[g] += 1
+    
+    f1s = []
+    per_class = {}
+    for label in labels:
+        precision = tp[label] / (tp[label] + fp[label]) if (tp[label] + fp[label]) else 0.0
+        recall = tp[label] / (tp[label] + fn[label]) if (tp[label] + fn[label]) else 0.0
+        f1 = (2 * precision * recall / (precision + recall)
+              if (precision + recall) else 0.0)
+        f1s.append(f1)
+        per_class[label] = {
+            "precision": round(precision, 3),
+            "recall": round(recall, 3),
+            "f1": round(f1, 3),
+        }
+    
+    macro_f1 = float(sum(f1s) / len(f1s)) if f1s else 0.0
+    return EvalResult(
+        metric_name="f1_risk_classification",
+        value=round(macro_f1, 4),
+        details={"per_class": per_class},
+    )
+
+def hybrid_vs_rule_only_delta(
+    hybrid_predictions: list[str],
+    rule_only_predictions: list[str],
+    ground_truth: list[str],
+) -> EvalResult:
+    """
+    Delta metric comparing hybrid model to rule-only baseline (RQ1).
+
+    Returns the RAR improvement of hybrid over rule-only.
+    Positive value = hybrid is better. Zero or negative = ML adds no value.
+    Written to results/phase3_risk_baseline.json alongside individual scores.
+    """
+    hybrid_rar = risk_alignment_rate(hybrid_predictions, ground_truth).value
+    rule_rar = risk_alignment_rate(rule_only_predictions, ground_truth).value
+    delta = hybrid_rar - rule_rar
+
+    return EvalResult(
+        metric_name="hybrid_vs_rule_only_delta",
+        value=round(delta, 4),
+        details={
+            "hybrid_rar": hybrid_rar,
+            "rule_only_rar": rule_rar,
+            "improvement": f"{delta:+.4f}",
+            "interpretation": (
+                "Hybrid outperforms rule-only baseline"
+                if delta > 0
+                else "Rule-only baseline matches or exceeds hybrid"
+            ),
         },
     )

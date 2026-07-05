@@ -37,7 +37,7 @@ def phase1_check() -> None:
         print(f" OK data/{subdir}/")
     print("[Phase 1] Structure check complete. No downloads required yet\n.")
 
-def phase2_download() -> None:
+def phase2_downloads() -> None:
     """
     Phase 2: ConversationalAgent.
     Downloads Banking77 via HuggingFace datasets library.
@@ -59,11 +59,56 @@ def phase2_download() -> None:
     print("[Phase 2] - used as a dialogue reference architecture.")
     print()
 
+def phase3_downloads() -> None:
+    """
+    Phase 3 — RiskProfilingAgent training data.
+    German Credit (D7), GiveMeSomeCredit (D8), Bank Marketing (D9).
+    """
+    print("[Phase 3] Downloading risk profiling datasets...")
+
+    # D7 — German Credit Data (UCI ML Repository)
+    print("  [D7] German Credit Data...")
+    try:
+        import urllib.request
+        url = "https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/german/german.data"
+        dest = DATA_RAW / "german_credit.data"
+        if not dest.exists():
+            urllib.request.urlretrieve(url, dest)
+            print(f"  OK  German Credit saved to {dest}")
+        else:
+            print(f"  SKIP  {dest} already exists")
+    except Exception as e:
+        print(f"  FAIL  German Credit: {e}")
+
+    # D9 — Bank Marketing (UCI ML Repository)
+    print("  [D9] Bank Marketing Dataset...")
+    try:
+        import urllib.request
+        url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank.zip"
+        dest = DATA_RAW / "bank.zip"
+        if not dest.exists():
+            urllib.request.urlretrieve(url, dest)
+            import zipfile
+            with zipfile.ZipFile(dest, "r") as z:
+                z.extractall(DATA_RAW / "bank_marketing")
+            print(f"  OK  Bank Marketing extracted to data/raw/bank_marketing/")
+        else:
+            print(f"  SKIP  {dest} already exists")
+    except Exception as e:
+        print(f"  FAIL  Bank Marketing: {e}")
+
+    # D8 — GiveMeSomeCredit (Kaggle — requires manual download)
+    print("  [D8] GiveMeSomeCredit — requires Kaggle account.")
+    print("       Manual download: https://www.kaggle.com/c/GiveMeSomeCredit")
+    print("       Place cs-training.csv in data/raw/give_me_some_credit/")
+    print()
+
 
 
 PHASE_FUNCTIONS = {
     1: [phase1_check],
-    2: [phase1_check, phase2_download],
+    2: [phase1_check, phase2_downloads],
+    3: [phase1_check, phase2_downloads, phase3_downloads],
 }
 
 def main() -> None:
