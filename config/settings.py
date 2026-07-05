@@ -63,9 +63,32 @@ class ConversationalConfig:
     dataset_path: Path = ROOT_DIR / "data" / "raw" / "banking77"
 
 @dataclass
+class RiskConfig:
+    """
+    Context-Aware Hybrid scoring weights
+    hybrid_score = ml_weight * ml_score + rule_weight * rule_score
+    """
+    ml_weight: float = 0.6
+    rule_weight: float = 0.4
+    risk_classes: list = field(default_factory=lambda: [
+        "convervative", "moderately_conservative", "moderate", 
+        "moderately_aggressive", "aggressive", 
+    ])
+    required_features: list = field(default_factory=lambda: [
+        "age", "income", "employment_status", "dependents", 
+        "existing_debt", "investment_horizon",
+        "loss_tolerance", "financial_knowledge_score",
+    ])
+    min_confidence: float = 0.6
+    model_path: Path = ROOT_DIR / "data" / "processed" / "risk_model.pkl"
+    german_credit_path: Path = ROOT_DIR / "data" / "raw" / "german_credit.data"
+    bank_marketing_path: Path = ROOT_DIR / "data" / "raw" / "bank_marketing"
+
+@dataclass
 class Settings:
     llm: LLMConfig = field(default_factory=LLMConfig)
     conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
+    risk: RiskConfig = field(default_factory=RiskConfig)
     debug: bool = field(
         default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true"
     )
