@@ -13,6 +13,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
+from sklearn.metrics import roc_auc_score
+
 @dataclass
 class EvalResult:
     """
@@ -253,6 +256,95 @@ def f1_risk_classification(
         metric_name="f1_risk_classification",
         value=round(macro_f1, 4),
         details={"per_class": per_class},
+    )
+
+def auc_roc(
+        hybrid_scores: list[float],
+        ground_truth: list[str],
+        risk_classes: list[str] | None = None,
+) -> EvalResult:
+    """
+    Macro-averaged one-vs-rest AUC-ROC for 5-tier risk classification (RQ1).
+    Args:
+        hybrid_scores: continuous hybrid scores in [0, 1], one per profile
+                        (output of RiskProfilingAgent._hybrid_score()).
+        ground_truth: labelled risk class strings, same order/length.
+        risk_classes: ordered tier names low->high risk. Defaults to the 
+                        five standard tiers.
+    """
+    TIERS = risk_classes or [
+        "conservative", "moderately_conservative", "moderate",
+        "moderately_aggressive", "aggressive",
+    ]
+
+    if not hybrid_scores or len(hybrid_scores) != len(ground_truth):
+        return EvalResult("auc_roc", 0.0, {"error": "empty or mismatched inputs"})
+    
+    present_classes = sorted(set(ground_truth), key=TIERS.index)
+    if len(present_classes) < 2:
+        return EvalResult("auc_roc", 0.0, {
+            "error": "need >= 2 distinct classes in ground_truth to compute AUC-ROC",
+            "classes_present": present_classes,
+        })
+    
+    counts = {c: ground_truth.count(c) for c in present_classes}
+    if any(n < 2 for n in counts.values()):
+        return EvalResult("auc_roc", 0.0, {
+            "error": "each class needs >= 2 samples for stable AUC-ROC",
+            "class_counts": counts,
+        })
+    
+    n_tiers = len(TIERS)
+    tier_centers = np.array([(i + 0.5) / n_tiers for i in range(n_tiers)])
+
+    y_true = np.array([TIERS.index(g) for g in ground_truth])
+    scores = np.clip(np.array(hybrid_scores, dtype=float), 0.0, 1.0)
+
+    # Distance-based softmax: closer tier centers get higher pseudo-probability.
+    # Temperature tuned so a score exactly on a tier boundary splits mass
+    # mostly between the two adjacent tiers, not uniformly across all five.
+    temperature = 1.0 / n_tiers
+    dists = np.abs(scores[:, None] - tier_centers[None, :])
+    logits = -dists / temperature
+    logits -= logits.max(axis=1, keepdims=True)  # numerical stability
+    exp_logits = np.exp(logits)
+    proba = exp_logits / exp_logits.sum(axis=1, keepdims=True)
+
+    # Macro AUC is averaged only over classes that actually appear in this
+    # ground_truth sample (with >= 2 examples). Passing sklearn a fixed
+    # 5-class label set when a fixture only contains 3 tiers produces NaN
+    # for the absent classes and poisons a built-in macro average — so
+    # per-class AUC is computed directly and averaged manually instead.
+    per_class_auc: dict = {}
+    for i, tier in enumerate(TIERS):
+        if tier not in present_classes:
+            continue
+        y_bin = (y_true == i).astype(int)
+        if len(set(y_bin.tolist())) < 2:
+            continue
+        try:
+            per_class_auc[tier] = round(float(roc_auc_score(y_bin, proba[:, i])), 4)
+        except ValueError:
+            continue
+
+    if not per_class_auc:
+        return EvalResult("auc_roc", 0.0, {
+            "error": "no class had both positive and negative examples",
+            "class_counts": counts,
+        })
+
+    macro_auc = sum(per_class_auc.values()) / len(per_class_auc)
+
+    return EvalResult(
+        metric_name="auc_roc",
+        value=round(macro_auc, 4),
+        details={
+            "method": "one_vs_rest_macro",
+            "n": len(hybrid_scores),
+            "classes_evaluated": list(per_class_auc.keys()),
+            "per_class_auc": per_class_auc,
+            "class_counts": counts,
+        },
     )
 
 def hybrid_vs_rule_only_delta(

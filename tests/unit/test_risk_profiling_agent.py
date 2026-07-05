@@ -47,6 +47,7 @@ from agents.risk_profiling_agent import RiskProfilingAgent
 from config.constraints import FinancialConstraints, financial_constraints
 from evaluation.metrics import (
     EvalResult,
+    auc_roc,
     f1_risk_classification,
     hybrid_vs_rule_only_delta,
     risk_alignment_rate,
@@ -447,6 +448,39 @@ class TestRQ1Evaluation:
         gold = ["aggressive", "moderate"]
         result = f1_risk_classification(preds, gold)
         assert result.value < 0.5
+    
+    def test_auc_perfect_separation(self):
+        scores = [0.05, 0.1, 0.5, 0.55, 0.95, 0.9]
+        gold = ["conservative", "conservative", "moderate",
+                "moderate", "aggressive", "aggressive"]
+        result = auc_roc(scores, gold)
+        assert isinstance(result, EvalResult)
+        assert result.value == pytest.approx(1.0, abs=0.01)
+
+    def test_auc_random_scores_near_half(self):
+        # Scores uncorrelated with ground truth should sit near chance level.
+        scores = [0.9, 0.1, 0.5, 0.05, 0.95, 0.55, 0.15, 0.85, 0.45, 0.6]
+        gold = ["conservative", "conservative", "moderately_conservative",
+                "moderately_conservative", "moderate", "moderate",
+                "moderately_aggressive", "moderately_aggressive",
+                "aggressive", "aggressive"]
+        result = auc_roc(scores, gold)
+        assert 0.0 <= result.value <= 1.0
+
+    def test_auc_insufficient_classes_returns_error_detail(self):
+        result = auc_roc([0.2, 0.3], ["conservative", "conservative"])
+        assert result.value == 0.0
+        assert "error" in result.details
+
+    def test_auc_mismatched_length_returns_error_detail(self):
+        result = auc_roc([0.2, 0.3, 0.4], ["conservative", "moderate"])
+        assert result.value == 0.0
+        assert "error" in result.details
+
+    def test_auc_single_sample_per_class_returns_error_detail(self):
+        result = auc_roc([0.1, 0.9], ["conservative", "aggressive"])
+        assert result.value == 0.0
+        assert "error" in result.details
 
     def test_rq1_full_fixture_evaluation_and_write_results(self):
         """
@@ -458,6 +492,7 @@ class TestRQ1Evaluation:
         agent = make_agent()
 
         hybrid_preds = []
+        hybrid_scores = []
         rule_only_preds = []
         ground_truth = []
 
@@ -469,6 +504,7 @@ class TestRQ1Evaluation:
             ml, rule, hybrid = agent._hybrid_score(features)
             hybrid_class = agent._score_to_class(hybrid)
             hybrid_preds.append(hybrid_class)
+            hybrid_scores.append(hybrid)
 
             # Rule-only prediction (for ablation comparison)
             rule_class = agent._score_to_class(rule)
@@ -479,6 +515,7 @@ class TestRQ1Evaluation:
         # Compute all RQ1 metrics
         rar_result = risk_alignment_rate(hybrid_preds, ground_truth)
         f1_result = f1_risk_classification(hybrid_preds, ground_truth)
+        auc_result = auc_roc(hybrid_scores, ground_truth)
         delta_result = hybrid_vs_rule_only_delta(
             hybrid_preds, rule_only_preds, ground_truth
         )
@@ -493,6 +530,7 @@ class TestRQ1Evaluation:
             "metrics": {
                 "risk_alignment_rate": rar_result.to_dict(),
                 "f1_macro": f1_result.to_dict(),
+                "auc_roc": auc_result.to_dict(),
                 "hybrid_vs_rule_only_delta": delta_result.to_dict(),
             },
             "per_profile": [
@@ -500,10 +538,11 @@ class TestRQ1Evaluation:
                     "features": item["features"],
                     "expected": item["expected"],
                     "hybrid_pred": hp,
+                    "hybrid_score": round(hs, 4),
                     "rule_pred": rp,
                     "hybrid_correct": hp == item["expected"],
                 }
-                for item, hp, rp in zip(RQ1_FIXTURE, hybrid_preds, rule_only_preds)
+                for item, hp, hs, rp in zip(RQ1_FIXTURE, hybrid_preds, hybrid_scores, rule_only_preds)
             ],
         }
         results_path = RESULTS_DIR / "phase3_risk_baseline.json"
@@ -512,11 +551,13 @@ class TestRQ1Evaluation:
 
         print(f"\n[Phase 3 RQ1] Risk Alignment Rate: {rar_result.value:.3f}")
         print(f"[Phase 3 RQ1] Macro F1:            {f1_result.value:.3f}")
+        print(f"[Phase 3 RQ1] AUC-ROC (macro OVR):  {auc_result.value:.3f}")
         print(f"[Phase 3 RQ1] Hybrid vs Rule delta: {delta_result.value:+.3f}")
         print(f"[Phase 3 RQ1] Results written to {results_path}")
 
         assert 0.0 <= rar_result.value <= 1.0
         assert 0.0 <= f1_result.value <= 1.0
+        assert 0.0 <= auc_result.value <= 1.0
 
 
 # GROUP E: Constraint checker tests
