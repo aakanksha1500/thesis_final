@@ -85,6 +85,30 @@ class RiskConfig:
     bank_marketing_path: Path = ROOT_DIR / "data" / "raw" / "bank_marketing"
 
 @dataclass
+class InvestmentConfig:
+    """
+    Hybrid product recommendation configuration. (rule filter + scoring + LLM synthesis).
+    
+    Layer 1 (_filter_by_risk_class) reuses config.constraints.FinancialConstraints
+    .RISK_PRODUCT_ALLOW as the single source of truth for CBI suitability rules,
+    so the same rule set backs both response validation and product
+    filtering.
+    
+    Layer 2 (_rank_products) scoring weights. Must sum to 1.0.
+        return_weight       -   favours higher expected_return_pct
+        cost_weight         -   favours lower expense_ratio_pct
+        horizon_fit_weight  -   favours products whose typical holding period
+                                matches the user's stated investment_horizon
+    """
+    return_weight: float = 0.4
+    cost_weight: float = 0.3
+    horizon_fit_weight: float = 0.3
+    top_k: int = 3
+    min_products_after_filter: int = 1
+    max_claimed_return_pct: float = 30.0
+    
+
+@dataclass
 class Settings:
     llm: LLMConfig = field(default_factory=LLMConfig)
     conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
