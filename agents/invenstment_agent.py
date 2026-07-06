@@ -219,3 +219,66 @@ IRISH_PRODUCT_CATALOGUE: list[dict[str, Any]] = [
                         "catalogue, long lock-up periods.",
     },
 ]
+
+class InvestmentAgent(BaseAgent):
+    """
+    Context-Aware hybrid investment product recommender
+    
+    Pipeline :
+        Layer 1 _filter_by_risk_class()   rule-based CBI suitability filter
+        Layer 2 _rank_products()          feature-based scoring, no LLM
+        Layer 3 LLM synthesis             explain the ranke shortlist
+        
+    The LLM never sees the full catalogue and never sees rejected products -
+    it only ever synthesises over what has already survived Layers 1 and 2.
+    """
+
+    def __init__(self, llm_client: LLMClient):
+        super().__init__(llm_client, name="InvestmentAgent")
+
+    @property
+    def system_prompt(self) -> str:
+        return INVESTMENT_SYSTEM
+    
+    def _parse_response(self, raw: str) -> dict[str, Any]:
+        """
+        InvestmentAgent LLM output is a plain-English sythensis paragraph.
+        No JSON parsing needed - wrap it directly, matching the RiskProfiling rationnale"""
+        return {"synthesis": raw.strip()}
+    
+    def _filter_by_risk_class(self, risk_class: str) -> list[dict[str, Any]]:
+        """
+        Filter the catalogue to products whose category is suitable for 
+        the given risk_class, per config.constraints.FinanccialConstraints.
+        RISK_PRODUCT_ALLOW 
+        
+        Args: 
+            risk_class: one of the five tiers in settings.risk.risk_classes.
+        
+        Returns:
+            List of product dicts whose category is in the allow-set for 
+            risk_class. Empty list if risk_class is unrecognised or no 
+            catalogue products match (both are treated as caller errors 
+            to surface explicitly rather than silently returning nothing)
+        """
+
+        allowed_categories = financial_constraints.RISK_PRODUCT_ALLOW.get(
+            risk_class, set()
+        )
+        if not allowed_categories:
+            logger.warning(
+                f"[InvestmentAgent] No allowed categories for risk_class="
+                f"'{risk_class}' — check settings.risk.risk_classes spelling."
+            )
+            return []
+
+        filtered = [
+            product for product in self.catalogue
+            if product["category"] in allowed_categories
+        ]
+        logger.debug(
+            f"[InvestmentAgent] Filtered catalogue for risk_class="
+            f"'{risk_class}': {len(filtered)}/{len(self.catalogue)} products "
+            f"survive (categories: {sorted(allowed_categories)})"
+        )
+        return filtered
