@@ -2,8 +2,9 @@
 This file is grown phase-by-phase alongside each agent.
 Only the metrics needed for the current agent are defined here.
 
-Phase 2 (last commit): intent_accuracy, slot_fill_rate
-Phase 3 (RQ1, this commit): risk_alignment_rate, f1_risk_classification, auc_roc
+Phase 2: intent_accuracy, slot_fill_rate
+Phase 3 (RQ1, last commit): risk_alignment_rate, f1_risk_classification, auc_roc
+Phase 4 (RQ2 this commit): ndcg_at_k, precision_at_k
 
 All metric functions return EvalResult(metric_name, value, details).
 """
@@ -375,5 +376,116 @@ def hybrid_vs_rule_only_delta(
                 if delta > 0
                 else "Rule-only baseline matches or exceeds hybrid"
             ),
+        },
+    )
+
+def precision_at_k(
+    ranked_ids: list[str],
+    relevant_ids: set[str],
+    k: int = 3,
+) -> EvalResult:
+    """
+    Precision@k — primary RQ2 ranking-quality metric.
+
+    Fraction of the top-k ranked product IDs that are members of the
+    ground-truth relevant set for a given query. Unlike NDCG, this ignores
+    the *order* within the top-k — it only asks whether the right products
+    made the cut at all, which is the more forgiving first-pass check
+    before the order-sensitive NDCG metric is applied.
+
+    Used in: tests/unit/test_investment_agent.py
+    Written to: results/rq2_investment_baseline.json
+
+    Args:
+        ranked_ids:   product_id strings in ranked order (best first),
+                      already truncated to length k by the caller or not —
+                      only the first k entries are considered either way.
+        relevant_ids: set of product_id strings considered ground-truth
+                      correct/suitable for this query.
+        k: cutoff rank to evaluate at (default 3, matching top_k default).
+
+    Returns:
+        EvalResult with value in [0, 1].
+    """
+    if not ranked_ids:
+        return EvalResult("precision_at_k", 0.0, {"error": "empty ranked_ids", "k": k})
+
+    top_k = ranked_ids[:k]
+    hits = sum(1 for pid in top_k if pid in relevant_ids)
+    precision = hits / len(top_k) if top_k else 0.0
+
+    return EvalResult(
+        metric_name="precision_at_k",
+        value=round(precision, 4),
+        details={
+            "k": k,
+            "top_k_ids": top_k,
+            "hits": hits,
+            "relevant_ids": sorted(relevant_ids),
+        },
+    )
+
+def ndcg_at_k(
+    ranked_ids: list[str],
+    relevance_scores: dict[str, float],
+    k: int = 3,
+) -> EvalResult:
+    """
+    Normalised Discounted Cumulative Gain @ k — secondary RQ2 metric.
+
+    Unlike precision_at_k, NDCG is order-sensitive: placing the most
+    relevant product first scores higher than placing it third, even if
+    both rankings contain the same top-k set. This directly evaluates
+    the _rank_products() scoring/sorting logic (hybrid layer 2), not
+    just the _filter_by_risk_class() suitability gate (hybrid layer 1).
+
+    DCG@k = sum_{i=1}^{k} relevance_i / log2(i + 1)
+    IDCG@k = DCG@k computed on the ideal (sorted-descending) ordering
+    NDCG@k = DCG@k / IDCG@k   (0.0 if IDCG@k is 0, i.e. no relevant items)
+
+    Used in: tests/unit/test_investment_agent.py
+    Written to: results/rq2_investment_baseline.json
+
+    Args:
+        ranked_ids:       product_id strings in ranked order (best first).
+        relevance_scores: product_id -> graded relevance (e.g. 0/1/2, or
+                          continuous). product_ids absent from this dict
+                          are treated as relevance 0.
+        k: cutoff rank to evaluate at.
+
+    Returns:
+        EvalResult with value in [0, 1].
+    """
+    import math
+
+    if not ranked_ids:
+        return EvalResult("ndcg_at_k", 0.0, {"error": "empty ranked_ids", "k": k})
+
+    top_k = ranked_ids[:k]
+
+    def dcg(ids: list[str]) -> float:
+        return sum(
+            relevance_scores.get(pid, 0.0) / math.log2(i + 2)
+            for i, pid in enumerate(ids)
+        )
+
+    actual_dcg = dcg(top_k)
+
+    ideal_order = sorted(
+        relevance_scores.keys(), key=lambda pid: relevance_scores[pid], reverse=True
+    )[:k]
+    ideal_dcg = dcg(ideal_order)
+
+    ndcg = actual_dcg / ideal_dcg if ideal_dcg > 0 else 0.0
+
+    return EvalResult(
+        metric_name="ndcg_at_k",
+        value=round(ndcg, 4),
+        details={
+            "k": k,
+            "top_k_ids": top_k,
+            "dcg": round(actual_dcg, 4),
+            "idcg": round(ideal_dcg, 4),
+            "ideal_order": ideal_order,
         },
     )
