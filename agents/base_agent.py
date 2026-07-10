@@ -30,14 +30,26 @@ logger = get_logger(__name__)
 @dataclass
 class AgentResult:
     """
-    Standardised result envelope returned by every agent's run method
-    
-    Fields used by the evaluation layer:
-        - step_id: Unique per run() call; links to AgentBoard step records
-        - duration_ms: wall-clock time for this agent's full execution
-        - tokens_used: LLM tokens consumed; tracked for cost analysis
-        - routing_context - metadata the Orchestrator reads for routing decisions
+    Standard envelope every agent.run() returns, regardless of what the
+    agent actually computed. Keeping this identical across agents is what
+    lets the evaluation layer (AgentBoard-style step metrics) and the
+    Orchestrator process any agent's output the same way.
     """
+
+    # agent_name        -> which agent produced this (for step_records/logs)
+    # step_id           -> unique per-call id; links this result to a step
+    #                      record for process-level evaluation (E1/E2)
+    # success           -> False only if something raised; run() itself
+    #                      never raises, it captures the error here instead
+    # payload           -> the actual agent-specific output (risk_class,
+    #                      recommendation text, etc.)
+    # duration_ms       -> wall-clock latency, used for cost/latency analysis
+    # tokens_used       -> LLM token spend, used for cost analysis
+    # rag_sources_used  -> citations, feeds the RAG explainability layer (X2b)
+    #                      (currently always empty — no RAG layer exists yet)
+    # routing_context   -> small dict the Orchestrator would read to decide
+    #                      what to call next (not consumed anywhere yet,
+    #                      since there's no Orchestrator)
 
     agent_name: str
     step_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
@@ -52,8 +64,10 @@ class AgentResult:
 
     def to_step_record(self) -> dict:
         """
-        Serialise to the format expected by evaluation.
-        Called by the Orchestrator after each agent execution.
+        Converts this result into the flat dict format the (planned)
+        AgentBoard-style step evaluator expects: one record per agent
+        invocation, so failures can be localised to a specific step
+        instead of only seeing a wrong final answer.
         """
         return {
             "step_id": self.step_id,
@@ -65,7 +79,10 @@ class AgentResult:
         }
 class BaseAgent(abc.ABC):
     """
-    Abstract base class for all specialist agents.
+    Abstract parent for every specialist agent. Subclasses MUST implement
+    system_prompt, _parse_response(), and run() — Python raises TypeError
+    at instantiation time if any is missing, which catches an incomplete
+    agent before it's ever run.
     
     Subclass must implement:
         - system_prompt: property returning the agent's system prompt string
@@ -122,7 +139,10 @@ class BaseAgent(abc.ABC):
             temperature: float | None = None,
     ) -> tuple[str, int]:
         """
-        Invoke the LLM with timing and error capture.
+        The only path an agent should use to talk to the LLM. Centralising
+        this means latency timing and error handling happen in exactly one
+        place instead of being duplicated (and inconsistently applied) in
+        every agent.
         
         Args:
             user_message: The primary user-turn content for this call.
@@ -166,7 +186,9 @@ class BaseAgent(abc.ABC):
             error: str | None = None,
     ) -> AgentResult:
         """
-        Conveniance constructor for AgentResult - keeps run() method clean.
+        Convenience constructor so run() methods don't have to build an
+        AgentResult by hand every time — keeps each agent's run() focused
+        on its own logic instead of envelope bookkeeping.
         """
         return AgentResult(
             agent_name = self.name,

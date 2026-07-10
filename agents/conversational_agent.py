@@ -83,14 +83,13 @@ _CLASS_TO_BUCKET: dict[str, str] = {
 class ConversationalAgent(BaseAgent):
     """
     User-facing conversational interface.
+
+    Owns its own session state (slots + history) rather than relying on
+    the Orchestrator to track it — one instance per user session.
     
     State management:
         self._slots - dict of slot_name -> value, persists across turns
         self._history - list of {"role": str, "content": str} dicts
-        
-    Both are pre-session (one instance per user session). The Orchestrator
-    passes context dicts in, but the agent owns its own slot state so that
-    the Orchestrator never needs to track individual conversation fields.
     """
 
     def __init__(self, llm_client: LLMClient):
@@ -105,10 +104,9 @@ class ConversationalAgent(BaseAgent):
     
     def update_slots(self, new_slots: dict[str, Any]) -> None:
         """
-        Merge newly extracted slots into session state.
-        Called after every turn where the LLM response contains slot data.
-        Slots expire after settings.conversational.slot_TTL_turns turns of
-        non-reference - preventing stale data from influencing later advice.
+        Merges any newly-extracted slot values into session state, but
+        only for slots that are in the tracked list — this stops the LLM
+        from injecting arbitrary keys into long-lived session state.
         """
 
         for key, value in new_slots.items():
@@ -118,13 +116,13 @@ class ConversationalAgent(BaseAgent):
 
     def get_missing_slots(self, required: list[str]) -> list[str]:
         """
-        Return which required slots are not yet collected
+        Returns which of a specialist agent's required slots we don't have yet.
         """
         return [s for s in required if s not in self._slots]
     
     def _slot_context_string(self) -> str:
         """
-        Format current slot state for injection into LLM prompt.
+        Formats current slots as plain text to inject into the next LLM prompt.
         """
         if not self._slots:
             return "No user information collected yet"
@@ -134,10 +132,11 @@ class ConversationalAgent(BaseAgent):
 
     def _classify_intent(self, user_message: str) -> tuple[str, float]:
         """
-        Classify user message into one of the 7 routing buckets.
-        
-        Strategy: ask the LLM to output JSON with intent and confidence.
-        This gives us a structured signal without a separate classifier model.
+        Asks the LLM to classify the message into one of 7 buckets as
+        JSON. There's no separate classifier model — the LLM does double
+        duty as both classifier and responder. Falls back to
+        ("general_query", 0.5) on any parse failure so a malformed LLM
+        reply can never crash the turn.
         
         Returns:
             (bucket_name, confidence_float)
@@ -178,9 +177,9 @@ class ConversationalAgent(BaseAgent):
 
     def _extract_slots_from_response(self, llm_response: str) -> dict[str, Any]:
         """
-        Attempt to extract slot values the user revealed in their message.
-        Uses a lightweighted JSON extraction (not a. seperate NLU model)
-        Returns empty dict if nothing found (safe default).
+        Second LLM call that tries to pull slot values (age, income, etc.)
+        out of what the user just said. Returns {} on failure — a safe,
+        silent no-op rather than raising.
         """
 
         prompt = (
@@ -204,15 +203,16 @@ class ConversationalAgent(BaseAgent):
 
     def _parse_response(self, raw: str) -> dict:
         """
-        ConversationalAgent responses are free-from natural language.
-        Structured outputs (intent, slots) are parsed by dedicated methods.
+        Conversational replies are free text, so this just wraps the raw string.
         """
         return {"response": raw}
     
     def _needs_escalation(self, intent: str, confidence: float) -> bool:
         """
-        Determine whether to escalate to a specialist agent.
-        Handles both full bucket names and short aliases from settings.
+        True only if the (alias-resolved) intent is in the escalation set
+        AND confidence clears the configured threshold — low-confidence
+        classifications stay in-conversation instead of routing to a
+        specialist on a guess.
         """
         resolved = INTENT_ALIASES.get(intent, intent)
         escalation_buckets = {
@@ -228,9 +228,9 @@ class ConversationalAgent(BaseAgent):
             self, intent: str, user_message: str
     ) -> dict[str, Any]:
         """
-        Structured escalation signal appended to responses.
-        The Orchestrator reads this to decide routing.
-        Committed here so that tests can assert its structure now
+        The structured signal a Orchestrator would read to decide
+        which specialist agent to call next, and with what slots already
+        collected.
         """
         return{
             "escalate": True,
@@ -245,8 +245,9 @@ class ConversationalAgent(BaseAgent):
             self, user_message: str, intent: str, needs_escalation: bool
     ) -> str:
         """
-        Generate the natural-language response to the user.
-        If escalation is needed, appends the JSON escalation block.
+        Builds the final reply prompt from slot state + recent history,
+        and — if escalating — instructs the LLM to append a JSON
+        escalation block on its own line at the end of the reply.
         """
         slot_ctx = self._slot_context_string()
         history_ctx = "\n".join(
@@ -276,15 +277,10 @@ class ConversationalAgent(BaseAgent):
 
     def run(self, context: dict[str, Any]) -> AgentResult:
         """
-        Process one conversational turn.
-        
-        Context keys used:
-        'user_message'      (str, required)
-        'conversation_history' (list, optional - external history)
-        
-        Returns AgentResult with payload:
-            intent, confidence, escalation_needed, response,
-            collected_slots, escalation_block (if needed)
+        One conversational turn: classify intent -> extract slots ->
+        decide on escalation -> generate reply -> update history ->
+        return everything in a payload dict. Never raises; a failed reply
+        generation falls back to a generic apology message instead.
         """
         start_time = time.perf_counter()
         self._turn_count += 1

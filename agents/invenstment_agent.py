@@ -242,15 +242,16 @@ class InvestmentAgent(BaseAgent):
     
     def _parse_response(self, raw: str) -> dict[str, Any]:
         """
-        InvestmentAgent LLM output is a plain-English sythensis paragraph.
-        No JSON parsing needed - wrap it directly, matching the RiskProfiling rationnale"""
+        Investment recommendations are free text, so this just wraps the raw string."""
         return {"synthesis": raw.strip()}
     
+    # Hybrid layer 1 — rule-based filtering
     def _filter_by_risk_class(self, risk_class: str) -> list[dict[str, Any]]:
         """
-        Filter the catalogue to products whose category is suitable for 
-        the given risk_class, per config.constraints.FinanccialConstraints.
-        RISK_PRODUCT_ALLOW 
+        Layer 1: keeps only catalogue products whose category is in the
+        CBI-suitability allow-list for this risk_class (from
+        config/constraints.py), so the ranking layer never even sees an
+        unsuitable product. 
         
         Args: 
             risk_class: one of the five tiers in settings.risk.risk_classes.
@@ -282,3 +283,133 @@ class InvestmentAgent(BaseAgent):
             f"survive (categories: {sorted(allowed_categories)})"
         )
         return filtered
+    
+    # Hybrid layer 2 — feature-based ranking
+
+    def _normalised(self, value: float, low: float, high: float) -> float:
+        """Min-max nomalise value into [0, 1]; guards against a zero range."""
+        if high <= low:
+            return 0.5
+        return float(min(max((value - low) / (high - low), 0.0), 1.0))
+    
+    def _horizon_fit_score(
+            self, product_horizon: int, user_horizon: int 
+    ) -> float:
+        """
+        Score in [0, 1] for how closely a product's typical holding period
+        matches the user's stated investment horizon; 1.0 = exact match,
+        decaying linearly to 0 at a 10-year gap.
+        """
+        gap = abs(product_horizon - user_horizon)
+        return float(max(1.0 - gap / 10.0, 0.0))
+    
+    def _rank_products(
+        self,
+        products: list[dict[str, Any]],
+        context: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """
+        Layer 2: scores each filtered product on return, cost (inverted —
+        lower cost is better) and horizon fit, combines them with weights
+        from settings.investment, and returns the list sorted best-first.
+
+        Scoring components (weights from settings.investment, sum to 1.0):
+          return_score       — normalised expected_return_pct across shortlist
+          cost_score         — normalised (1 - expense_ratio_pct); lower cost
+                                is better, so the ratio is inverted before
+                                normalisation
+          horizon_fit_score  — from _horizon_fit_score() against the user's
+                                investment_horizon (default 5 years if absent)
+                                
+        Args:
+            products: output of _filter_by_risk_class() — already suitable.
+            context:  run() context; reads 'user_features.investment_horizon'.
+
+        Returns:
+            Products (each with an added 'score' and 'score_breakdown' key)
+            sorted descending by score. Empty list in, empty list out.
+        """
+        if not products:
+            return []
+        
+        user_features = context.get("user_features", {}) or {}
+        user_horizon = int(user_features.get("investment_hprizon", 5))
+
+        returns = [p["expected_return_pct"] for p in products]
+        costs = [p["expense_ratio_pct"] for p in products]
+        min_return, max_return = min(returns), max(returns)
+        min_cost, max_cost = min(costs), max(costs)
+
+        weights = settings.investment
+        scored: list[dict[str, Any]] = []
+        for product in products:
+            return_score = self._normalise(
+                product["expected_return_pct"], min_return, max_return
+            )
+            # Invert cost so that lower expense_ratio_pct scores higher.
+            cost_score = 1.0 - self._normalise(
+                product["expense_ratio_pct"], min_cost, max_cost
+            )
+            horizon_score = self._horizon_fit_score(
+                product["typical_horizon_years"], user_horizon
+            )
+
+            total = (
+                weights.return_weight * return_score
+                + weights.cost_weight * cost_score
+                + weights.horizon_fit_weight * horizon_score
+            )
+
+            enriched = dict(product)
+            enriched["score"] = round(float(total), 4)
+            enriched["score_breakdown"] = {
+                "return_score": round(return_score, 4),
+                "cost_score": round(cost_score, 4),
+                "horizon_fit_score": round(horizon_score, 4),
+                "user_investment_horizon": user_horizon,
+            }
+            scored.append(enriched)
+
+        scored.sort(key=lambda p: p["score"], reverse=True)
+        logger.debug(
+            f"[InvestmentAgent] Ranked {len(scored)} products — top: "
+            f"{scored[0]['product_id']} (score={scored[0]['score']})"
+            if scored else "[InvestmentAgent] No products to rank"
+        )
+        return scored
+
+    # Hybrid layer 3 — LLM synthesis
+
+    def _build_synthesis_prompt(
+        self,
+        risk_class: str,
+        shortlist: list[dict[str, Any]],
+        user_features: dict[str, Any],
+    ) -> str:
+        """
+        Builds the LLM prompt using ONLY the already-filtered, already-
+        ranked shortlist — the model is never shown the full catalogue or
+        any rejected product, so it has no way to reference something it
+        wasn't given (a concrete anti-hallucination guardrail for this
+        agent).
+        """
+        horizon = user_features.get("investment_horizon", "not stated")
+        lines = [
+            f"User risk classification: {risk_class}",
+            f"User stated investment horizon: {horizon} years",
+            "",
+            "Ranked shortlist (already filtered for suitability, already "
+            "scored — present these, do not add or remove any):",
+        ]
+        for rank, product in enumerate(shortlist, start=1):
+            lines.append(
+                f"{rank}. {product['name']} ({product['category']}) — "
+                f"expected_return_pct={product['expected_return_pct']}, "
+                f"expense_ratio_pct={product['expense_ratio_pct']}, "
+                f"typical_horizon_years={product['typical_horizon_years']}, "
+                f"score={product['score']}"
+            )
+        lines.append(
+            "\nWrite the recommendation now, per your system instructions."
+        )
+        return "\n".join(lines)
