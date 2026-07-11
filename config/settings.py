@@ -107,6 +107,32 @@ class InvestmentConfig:
     min_products_after_filter: int = 1
     max_claimed_return_pct: float = 30.0
     
+@dataclass
+class BudgetConfig:
+    """
+    Ireland HouseholdBudget Survey 2022-2023 spending bemchmarks.
+    Values represent fraction of gross monthly income.
+    Source: CSO Ireland HBS 2022-23.
+    
+    Benchmarks used by BudgetAgent.compare_to_benchmarks() to classify
+    eaxh spending category as above / below / inline vs national average.
+    inline_tolerance: within ±10% of benchmark = inline (avoids false precision).
+    min_healthy_savings_rate_pct: below this the agent flags a concern (CBI guidance).
+    """
+    ireland_hbs_benchmarks: dict = field(default_factory=lambda: {
+        "housing":       0.28,
+        "food":          0.14,
+        "transport":     0.13,
+        "utilities":     0.07,
+        "healthcare":    0.05,
+        "entertainment": 0.06,
+        "savings":       0.10,
+        "other":         0.17,
+    })
+    inline_tolerance: float = 0.10
+    min_healthy_savings_rate_pct: float = 10.0
+    personal_finance_path: str = "data/raw/personal_finance"
+    ireland_hbs_path: str = "data/raw/ireland_hbs"
 
 @dataclass
 class Settings:
