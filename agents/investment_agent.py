@@ -235,6 +235,7 @@ class InvestmentAgent(BaseAgent):
 
     def __init__(self, llm_client: LLMClient):
         super().__init__(llm_client, name="InvestmentAgent")
+        self.catalogue = IRISH_PRODUCT_CATALOGUE
 
     @property
     def system_prompt(self) -> str:
@@ -286,7 +287,7 @@ class InvestmentAgent(BaseAgent):
     
     # Hybrid layer 2 — feature-based ranking
 
-    def _normalised(self, value: float, low: float, high: float) -> float:
+    def _normalise(self, value: float, low: float, high: float) -> float:
         """Min-max nomalise value into [0, 1]; guards against a zero range."""
         if high <= low:
             return 0.5
@@ -333,7 +334,7 @@ class InvestmentAgent(BaseAgent):
             return []
         
         user_features = context.get("user_features", {}) or {}
-        user_horizon = int(user_features.get("investment_hprizon", 5))
+        user_horizon = int(user_features.get("investment_horizon", 5))
 
         returns = [p["expected_return_pct"] for p in products]
         costs = [p["expense_ratio_pct"] for p in products]
@@ -413,3 +414,132 @@ class InvestmentAgent(BaseAgent):
             "\nWrite the recommendation now, per your system instructions."
         )
         return "\n".join(lines)
+    
+    def run(self, context: dict[str, Any]) -> AgentResult:
+        """
+        Process one investment recommendation request.
+
+        context keys used:
+          'risk_class'            (str, required)  — from RiskProfilingAgent
+          'user_features'         (dict, optional) — reads investment_horizon
+          'conversation_history'  (list, optional) — unused in Phase 4
+
+        Returns AgentResult with payload:
+          status, risk_class, shortlist (ranked, top_k), synthesis,
+          constraint_violations, deliverable
+        """
+        start_time = time.perf_counter()
+
+        risk_class: str | None = context.get("risk_class")
+        user_features: dict = context.get("user_features", {})
+
+        if not risk_class:
+            payload = {
+                "status": "incomplete",
+                "message": (
+                    "Cannot recommend products without a risk_class. "
+                    "Run RiskProfilingAgent first and pass its output "
+                    "forward via the Orchestrator."
+                ),
+            }
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            logger.warning("[InvestmentAgent] Missing risk_class in context")
+            return self._make_result(
+                payload=payload,
+                duration_ms=duration_ms,
+                error="Missing risk_class",
+            )
+
+        # Layer 1 — rule-based filter
+        filtered = self._filter_by_risk_class(risk_class)
+        if len(filtered) < settings.investment.min_products_after_filter:
+            payload = {
+                "status": "no_suitable_products",
+                "risk_class": risk_class,
+                "message": (
+                    f"No products in the catalogue are suitable for "
+                    f"risk_class='{risk_class}'."
+                ),
+            }
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            logger.warning(
+                f"[InvestmentAgent] No suitable products for '{risk_class}'"
+            )
+            return self._make_result(
+                payload=payload,
+                duration_ms=duration_ms,
+                error="No suitable products after filtering",
+            )
+
+        # Layer 2 — ranking
+        ranked = self._rank_products(filtered, context)
+        shortlist = ranked[: settings.investment.top_k]
+
+        # Layer 3 — LLM synthesis over the shortlist only
+        prompt = self._build_synthesis_prompt(risk_class, shortlist, user_features)
+        try:
+            raw_synthesis, tokens = self._call_llm(prompt)
+            synthesis = raw_synthesis.strip()
+        except Exception as exc:
+            logger.warning(
+                f"[InvestmentAgent] Synthesis generation failed: {exc} "
+                f"— using fallback"
+            )
+            top = shortlist[0]
+            synthesis = (
+                f"Based on your '{risk_class}' risk profile, the top-ranked "
+                f"suitable product is {top['name']} ({top['category']}), with "
+                f"an indicative expected return of {top['expected_return_pct']}% "
+                f"and an expense ratio of {top['expense_ratio_pct']}%. "
+                f"This is not regulated financial advice — please consult a "
+                f"qualified advisor. Past performance is not indicative of "
+                f"future results."
+            )
+            tokens = 0
+
+        # Post-hoc deterministic validation of the LLM's own text — the same
+        # FinancialConstraints layer used by RiskProfilingAgent's response
+        # checking (Raza et al. [1]; O3 audit-trace principle).
+        top_product = shortlist[0]
+        deliverable, violations = financial_constraints.validate_response(
+            response_text=synthesis,
+            risk_class=risk_class,
+            product_category=top_product["category"],
+            claimed_return=top_product["expected_return_pct"],
+        )
+
+        payload = {
+            "status": "complete",
+            "risk_class": risk_class,
+            "shortlist": shortlist,
+            "synthesis": synthesis,
+            "deliverable": deliverable,
+            "constraint_violations": [
+                {
+                    "rule_id": v.rule_id,
+                    "description": v.description,
+                    "severity": v.severity,
+                }
+                for v in violations
+            ],
+        }
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        logger.info(
+            f"[InvestmentAgent] risk_class={risk_class} "
+            f"top_product={top_product['product_id']} "
+            f"deliverable={deliverable} duration={duration_ms:.0f}ms"
+        )
+
+        return self._make_result(
+            payload=payload,
+            raw=synthesis,
+            duration_ms=duration_ms,
+            tokens=tokens,
+            error=None if deliverable else "Constraint hard-block on synthesis output",
+            routing_context={
+                "risk_class": risk_class,
+                "top_product_id": top_product["product_id"],
+                "top_product_score": top_product["score"],
+            },
+        )

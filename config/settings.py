@@ -112,6 +112,7 @@ class InvestmentConfig:
 class Settings:
     llm: LLMConfig = field(default_factory=LLMConfig)
     conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
+    investment: InvestmentConfig = field(default_factory=InvestmentConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
     debug: bool = field(
         default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true"
