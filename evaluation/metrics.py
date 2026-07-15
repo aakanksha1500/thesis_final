@@ -3,8 +3,9 @@ This file is grown phase-by-phase alongside each agent.
 Only the metrics needed for the current agent are defined here.
 
 Phase 2: intent_accuracy, slot_fill_rate
-Phase 3 (RQ1, last commit): risk_alignment_rate, f1_risk_classification, auc_roc
-Phase 4 (RQ2 this commit): ndcg_at_k, precision_at_k
+Phase 3 (RQ1): risk_alignment_rate, f1_risk_classification, auc_roc
+Phase 4 (RQ2 last commit): ndcg_at_k, precision_at_k
+Phase 6 (RQ3 this commit): transparency_perception_score, trust_calibration_index
 
 All metric functions return EvalResult(metric_name, value, details).
 """
@@ -487,5 +488,131 @@ def ndcg_at_k(
             "dcg": round(actual_dcg, 4),
             "idcg": round(ideal_dcg, 4),
             "ideal_order": ideal_order,
+        },
+    )
+
+# Phase 6 metrics — ExplainabilityAgent evaluation
+
+def transparency_perception_score(
+    survey_responses: list[dict],
+) -> EvalResult:
+    """
+    Transparency Perception Score (TPS) — RQ3 primary metric.
+
+    Aggregates simulated Likert-scale survey responses across three
+    explanation quality dimensions. In the full dissertation study,
+    these come from a pilot study (n≥20 participants). In Phase 6,
+    they come from synthetic fixtures that represent the expected
+    distribution of responses per ablation condition.
+
+    Each survey_response dict:
+      {
+        "clarity":              int (1-5) — how clear was the explanation?
+        "source_visible":       int (0/1) — could you see where info came from?
+        "counterfactual_useful":int (1-5) — was the 'what if' useful?
+        "trust_appropriate":    int (1-5) — did explanation help calibrate trust?
+      }
+
+    TPS = mean of normalised scores across all dimensions and responses.
+    Range [0, 1]; higher = better perceived transparency.
+
+    Written to: results/rq3_*.json (one per ablation condition)
+    """
+    if not survey_responses:
+        return EvalResult(
+            "transparency_perception_score", 0.0,
+            {"error": "no survey responses provided"}
+        )
+
+    clarity_scores   = [r.get("clarity", 3) / 5.0 for r in survey_responses]
+    source_scores    = [float(r.get("source_visible", 0)) for r in survey_responses]
+    cf_scores        = [r.get("counterfactual_useful", 3) / 5.0 for r in survey_responses]
+    trust_scores     = [r.get("trust_appropriate", 3) / 5.0 for r in survey_responses]
+
+    import statistics
+    dim_means = [
+        statistics.mean(clarity_scores),
+        statistics.mean(source_scores),
+        statistics.mean(cf_scores),
+        statistics.mean(trust_scores),
+    ]
+    tps = statistics.mean(dim_means)
+
+    return EvalResult(
+        metric_name="transparency_perception_score",
+        value=round(tps, 4),
+        details={
+            "n_responses": len(survey_responses),
+            "mean_clarity": round(dim_means[0], 3),
+            "mean_source_visible": round(dim_means[1], 3),
+            "mean_counterfactual_useful": round(dim_means[2], 3),
+            "mean_trust_appropriate": round(dim_means[3], 3),
+        },
+    )
+
+
+def trust_calibration_index(
+    user_trust_scores: list[float],
+    advice_quality_scores: list[float],
+) -> EvalResult:
+    """
+    Trust Calibration Index (TCI) — RQ3 secondary metric.
+
+    Takayanagi et al. [7] (2025): users express high trust in AI financial
+    advice even when advice quality is objectively poor — trust-quality
+    decoupling. TCI directly measures whether the ExplainabilityAgent's
+    X3 design goal is achieved: does trust track quality?
+
+    TCI = 1 - mean(|trust - quality| / max_scale)
+    Range [0, 1]:
+      1.0 = perfectly calibrated (trust always matches quality)
+      0.0 = maximally miscalibrated (trust inversely correlates with quality)
+
+    Args:
+      user_trust_scores:    list of user-reported trust scores (1-5 scale)
+      advice_quality_scores: list of objective quality scores (1-5 scale,
+                             from Agent-as-Judge evaluator — Phase 7)
+
+    The Takayanagi et al. finding: without XAI, TCI is low (users trust
+    regardless of quality). With full 3-layer XAI, TCI increases because
+    users can now assess quality through the explanation and calibrate
+    accordingly. The ablation table should show TCI increasing across
+    conditions A → B → C.
+
+    Written to: results/rq3_*.json alongside TPS.
+    """
+    if not user_trust_scores:
+        return EvalResult(
+            "trust_calibration_index", 0.0,
+            {"error": "empty trust scores"}
+        )
+    if len(user_trust_scores) != len(advice_quality_scores):
+        return EvalResult(
+            "trust_calibration_index", 0.0,
+            {"error": "length mismatch between trust and quality scores"}
+        )
+
+    MAX_SCALE = 4.0   # range is 1-5, so max deviation is 4
+    deviations = [
+        abs(t - q) / MAX_SCALE
+        for t, q in zip(user_trust_scores, advice_quality_scores)
+    ]
+    import statistics
+    tci = 1.0 - statistics.mean(deviations)
+
+    return EvalResult(
+        metric_name="trust_calibration_index",
+        value=round(tci, 4),
+        details={
+            "n": len(user_trust_scores),
+            "mean_trust": round(statistics.mean(user_trust_scores), 3),
+            "mean_quality": round(statistics.mean(advice_quality_scores), 3),
+            "mean_deviation": round(statistics.mean(deviations), 3),
+            "interpretation": (
+                "Well-calibrated: trust tracks advice quality"
+                if tci >= 0.7
+                else "Poorly calibrated: trust does not track advice quality "
+                     "(Takayanagi et al. trust-quality decoupling)"
+            ),
         },
     )
