@@ -140,6 +140,7 @@ class Settings:
     conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
     investment: InvestmentConfig = field(default_factory=InvestmentConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
+    budget: BudgetConfig = field(default_factory=BudgetConfig)
     debug: bool = field(
         default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true"
     )
