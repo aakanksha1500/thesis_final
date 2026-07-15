@@ -103,12 +103,40 @@ def phase3_downloads() -> None:
     print("       Place cs-training.csv in data/raw/give_me_some_credit/")
     print()
 
+def phase5_downloads() -> None:
+    """
+    Phase 5 — BudgetAgent data.
+    Personal Finance Dataset (D10) via HuggingFace.
+    Ireland HBS (D11) — manual download from data.gov.ie.
+    """
+    print("[Phase 5] Downloading budget agent datasets...")
+
+    # D10 — Personal Finance Dataset
+    print("  [D10] Personal Finance Dataset (HuggingFace)...")
+    try:
+        from datasets import load_dataset  # noqa: PLC0415
+        ds = load_dataset("mihirinamdar/personal-finance-dataset", split="train")
+        save_path = DATA_RAW / "personal_finance"
+        ds.save_to_disk(str(save_path))
+        print(f"  OK  Personal Finance saved ({len(ds)} examples)")
+    except ImportError:
+        print("  SKIP  'datasets' package not installed.")
+    except Exception as e:
+        print(f"  FAIL  Personal Finance: {e}")
+
+    # D11 — Ireland Household Budget Survey (manual — data.gov.ie)
+    print("  [D11] Ireland Household Budget Survey 2022–23.")
+    print("        Manual download: https://data.gov.ie/dataset/hbs07-average-weekly-household-expenditure")
+    print("        Place the CSV in data/raw/ireland_hbs/")
+    print()
+
 
 
 PHASE_FUNCTIONS = {
     1: [phase1_check],
     2: [phase1_check, phase2_downloads],
     3: [phase1_check, phase2_downloads, phase3_downloads],
+    5: [phase1_check, phase2_downloads, phase3_downloads, phase5_downloads],
 }
 
 def main() -> None:
