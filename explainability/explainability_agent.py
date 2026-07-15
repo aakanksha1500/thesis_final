@@ -51,7 +51,7 @@ class ExplainabilityAgent(BaseAgent):
     not by constructor arguments, so ablation conditions are reproducible 
     from config alone
     """
-    def __inti__(self, llm_client: LLMClient):
+    def __init__(self, llm_client: LLMClient):
         super().__init__(llm_client, name="ExplainabilityAgent")
 
     @property
@@ -82,7 +82,7 @@ class ExplainabilityAgent(BaseAgent):
     # Layer A - SHAP feature attribution narrative
     # always active across all ablation conditions.
 
-    def _generate_shap_narratice(
+    def _generate_shap_narrative(
             self,
             shap_summary: dict[str, dict],
             risk_class: str,
@@ -306,7 +306,7 @@ class ExplainabilityAgent(BaseAgent):
             shortlist[0]["name"] if shortlist else "the recomended product"
         )
 
-        layers_applied: list[str] = {}
+        layers_applied: list[str] = []
         tokens_total: int = 0
 
     
@@ -330,7 +330,7 @@ class ExplainabilityAgent(BaseAgent):
         # Layer C: Counterfactual
         counterfactual: str | None = None
         if cfg.use_counterfactual and shap_summary:
-            top_feat, top_info = self._gettop_shap_feature(shap_summary)
+            top_feat, top_info = self._get_top_shap_feature(shap_summary)
             if top_feat:
                 counterfactual = self._generate_counterfactual(
                     risk_class=risk_class,
