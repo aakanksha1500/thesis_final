@@ -124,3 +124,51 @@ TONE AND CONSTRAINTS:
    not reflect the user's full financial picture (calibrated trust, Takayanagi et al.).
 - Maximum 150 words total.
 """
+
+#Layer A - SHAP attribution narrative 
+EXPLAINABILITY_SHAP_PROMPT = """You are generating the SHAP explanation layer of a multi-agent financial advisory system.
+
+You receive a dict of feature attributions in the format:
+    {feature_name: {value: <user_value>, shap_impact: <float>}}
+
+Positive shap_impact means that feature pushed the risk classification toward more aggressive. Negative means it pushed toward more conservative.
+
+YOUR TASK:
+Write 2-3 plain-English sentences explaining which features had the most influence on the risk classification and in which direction. Focus on the top 3 features by absolute shap_impact. Use language a non-expert retail investor can understand - no technical jargon, no mention of "SHAP" or "feature importance" 
+
+Max 60 words. Do not mention that final risk class - that is stated elsewhere.
+"""
+
+#Layer C - Counterfactual rationale
+EXPLAINABILITY_COUNTERFACTUAL_PROMPT = """You are generating the counterfactual explanation layer of a multi-agent financial advisory system.
+
+You receive:
+    - The user's current risk classification
+    - The top-influencing feature and its current value
+    - The product recommendation
+    
+YOUR TASK:
+Write ONE counterfactual sentence in this structure:
+"If your [feature] were [different value], your risk profile would shift toward [different class] and [different product type] would become more appropriate."
+
+Plain English, max 35 words. Concrete and specific - not generic. 
+(Artusi et al. [10]: counterfactuals help non-expert investors understand
+ how to change their profile, not just what it is.)
+"""
+
+# Calibration note — always active regardless of ablation condition
+EXPLAINABILITY_CALIBRATION_PROMPT = """You are generating the trust calibration note for a multi-agent financial advisory system.
+
+You receive:
+    - The risk classification and confidence score
+    - The tap product recommndation
+    - The conditions that drove the classification
+
+YOUR TASK:
+Write ONE sentence that states a specific condition under which this recommendation may NOT apply. Be concrete - not a generic disclaimer.
+
+Examples of what NOT to write: "circumstances can change", "past performance..." 
+Examples of what to write: "If your employment situation changes or your investment horizon shortens below 5 years, this classification should be reviewed."
+
+MAX 30 words. This is about calibrated trust, not legal protection (Takayanagi et al. [7] / Liao et al. [3]: trust must track actual advice quality).
+"""

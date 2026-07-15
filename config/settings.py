@@ -135,12 +135,26 @@ class BudgetConfig:
     ireland_hbs_path: str = "data/raw/ireland_hbs"
 
 @dataclass
+class ExplainabilityConfig:
+    """
+    Ablation switches — changing these booleans is the only code change
+    needed to switch ablation conditions. Calibration note (X3) always on.
+    """
+    use_shap: bool = True
+    use_rag_citation: bool = False  # off until Phase 8 RAG is built
+    use_counterfactual: bool = True
+    use_calibration_note: bool = True  # X3 — never ablated
+    prompt_version: str = "v1.0"
+    low_confidence_threshold: float = 0.6
+
+@dataclass
 class Settings:
     llm: LLMConfig = field(default_factory=LLMConfig)
     conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
     investment: InvestmentConfig = field(default_factory=InvestmentConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
     budget: BudgetConfig = field(default_factory=BudgetConfig)
+    explainability: ExplainabilityConfig = field(default_factory=ExplainabilityConfig)
     debug: bool = field(
         default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true"
     )
