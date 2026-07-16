@@ -130,6 +130,48 @@ def phase5_downloads() -> None:
     print("        Place the CSV in data/raw/ireland_hbs/")
     print()
 
+def phase8_downloads() -> None:
+    """
+    Phase 8 — RAG knowledge base + FinQA for RQ5 hallucination evaluation.
+    [D1] FinQA Verified, [D2] FinQA Original, [D3] CBI Open Data, [D4] EU Digital Finance.
+    """
+    print("[Phase 8] Downloading RAG and evaluation datasets...")
+
+    # D1 — FinQA Verified
+    print("  [D1] FinQA Verified (HuggingFace)...")
+    try:
+        from datasets import load_dataset  # noqa: PLC0415
+        ds = load_dataset("Aiera/finqa-verified", split="train")
+        save_path = DATA_RAW / "finqa_verified"
+        ds.save_to_disk(str(save_path))
+        print(f"  OK  FinQA Verified saved ({len(ds)} examples)")
+    except Exception as e:
+        print(f"  FAIL  FinQA Verified: {e}")
+
+    # D2 — FinQA Original
+    print("  [D2] FinQA Original...")
+    try:
+        import urllib.request, zipfile  # noqa: PLC0415
+        url = "https://github.com/czyssrs/FinQA/raw/main/dataset/train.json"
+        dest = DATA_RAW / "finqa_original_train.json"
+        if not dest.exists():
+            urllib.request.urlretrieve(url, dest)
+            print(f"  OK  FinQA Original train split saved")
+        else:
+            print(f"  SKIP  {dest} already exists")
+    except Exception as e:
+        print(f"  FAIL  FinQA Original: {e}")
+
+    # D3 — CBI Open Data (automated via their API)
+    print("  [D3] CBI Open Data Portal — Irish interest rates.")
+    print("       API: https://opendata.centralbank.ie")
+    print("       Automated fetch implemented in scripts/build_knowledge_base.py (Phase 8).")
+
+    # D4 — EU Digital Finance Platform
+    print("  [D4] EU Digital Finance Platform Datasets.")
+    print("       Manual download: https://digital-finance-platform.ec.europa.eu/data-hub/datasets")
+    print("       Place downloaded CSVs in data/raw/eu_digital_finance/")
+    print()
 
 
 PHASE_FUNCTIONS = {
@@ -137,6 +179,7 @@ PHASE_FUNCTIONS = {
     2: [phase1_check, phase2_downloads],
     3: [phase1_check, phase2_downloads, phase3_downloads],
     5: [phase1_check, phase2_downloads, phase3_downloads, phase5_downloads],
+    8: [phase1_check, phase2_downloads, phase3_downloads, phase5_downloads, phase8_downloads],
 }
 
 def main() -> None:
