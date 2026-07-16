@@ -616,3 +616,243 @@ def trust_calibration_index(
             ),
         },
     )
+
+# Phase 7 metrics - Orchestrator evaluation
+def step_progress_rate(
+        step_records: list[dict]
+) -> EvalResult:
+    """
+    Step-level Progress Rate - AgentBoard (E1)
+    
+    Measures fraction of agent execution steps successfully completed
+    across a sesson or scenario. Enables failure LOCALISATION within the 
+    pipeline (which agent failed?) rather than only end-task success/failure.
+    
+    This is the key methodological contribution of E1:
+    Esisting benchmarks only measured final task success. AgentBoard
+    showed that stage-level measurement reveals failure patterns invisible
+    at the taask level - e.g. an agent that partially completes and 
+    produces plausible-looking output before failing.
+    
+    step_records: list of dicts from AgentResult.to_step_record():
+        {"step_id": str, "agent": str, "completed": bool, "duration_ms": float}
+    
+    Written to: results/rq4_mas_coherence.json
+    """
+    if not step_records:
+        return EvalResult(
+            "step_progress_rate", 0.0,
+            {"error": "no step records provided"}
+        )
+    
+    total = len(step_records)
+    completed = sum(1 for s in step_records if s.get("completed", False))
+    rate = completed / total
+
+    # Per-agent breakdown - identifies which agent has the lowest completion rate
+    by_agent: dict[str, list[bool]] = {}
+    for s in step_records:
+        agent = s.get("agent", "unknown")
+        by_agent.setdefault(agent, [])
+        by_agent[agent].append(s.get("completed", False))
+    
+    per_agent_rate = {
+        agent: round(sum(completions) / len(completions), 3)
+        for agent, completions in by_agent.items()
+    }
+
+    # Identify bottleneck agent 
+    bottleneck = min(per_agent_rate, key=per_agent_rate.get) if per_agent_rate else None
+
+    return EvalResult(
+        metric_name="step_progress_rate",
+        value=round(rate, 4),
+        details={
+            "total_steps": total,
+            "completed_steps": completed,
+            "per_agent_rate": per_agent_rate,
+            "bottleneck_agent": bottleneck,
+        }
+    )
+
+def component_synergy_score(
+        audit_records: list[dict],
+) -> EvalResult:
+    """
+    Component Synergy Score (CSS)
+    
+    Measures how effectively the agents collaborate as a system.
+    Penalises conflicts and failures: rewards successful handoffs.
+    
+    CSS = (successful_calls - 0.5 * conflicts - failures) / total_calls
+    Range [0, 1]: clamped to [0, 1].
+    
+    The 0.5 penalty for conflicts (vs 1.0 for failures) reflrcts the 
+    ConflictResolver's ability to recover from conflicts gracefully - 
+    they reduce quality but do not break the pipelne.
+    
+    audit_records: JSONL records from Auditing.read_all().
+    Written to: results/rq4_mas_coherence.json
+    """
+    if not audit_records:
+        return EvalResult(
+            "component_synergy_score", 0.0,
+            {"error": "no audit records provided"}
+        )
+    
+    agent_calls = [
+        r for r in audit_records
+        if r.get("event_type") == "AGENT_CALL"
+    ]
+    failures = [
+        r for r in audit_records
+        if r.get("event_type") == "AGENT_FAILURE"
+    ]
+    conflicts = [
+        r for r in audit_records
+        if r.get("event_type") == "CONFLICT_DETECTED"
+    ]
+
+    total = len(agent_calls)
+    if total == 0:
+        return EvalResult(
+            "component_synergy_score", 0.0,
+            {"error": "no AGENT_CALL records in audit log"}
+        )
+
+    successful = sum(
+        1 for r in agent_calls
+        if r.get("payload", {}).get("success", False)
+    )
+
+    n_failures = len(failures)
+    n_conflicts = len(conflicts)
+
+    raw_css = (successful - 0.5 * n_conflicts - n_failures) / total
+    css = max(0.0, min(1.0, raw_css))
+
+    return EvalResult(
+        metric_name="component_synergy_score",
+        value=round(css, 4),
+        details={
+            "total_agent_calls": total,
+            "successful_calls": successful,
+            "conflicts": n_conflicts,
+            "failures": n_failures,
+            "raw_css": round(raw_css, 4),
+        }
+    )
+
+def tool_utilisation_efficacy(
+        audit_records: list[dict],
+        routing_plans: list[list[str]] | None = None,
+) -> EvalResult:
+    """
+    Tool Utilisation Efficacy
+    
+    Measures whether agents were invoked appropriately - not too many 
+    (wasteful), not too few (incomplete). The ideal is that every agent
+    invoked was necessary and every necessary agent was invoked.
+    
+    In Phase 7 without a ground-truth routing plan, TUE is computed as:
+      TUE = 1 - (redundant_calls / total_calls)
+
+    A call is redundant if the same agent was invoked more than once in
+    the same turn without a failure between invocations.
+
+    When routing_plans is provided (list of expected agent sequences per
+    turn), TUE measures alignment with the plan:
+      TUE = mean(matched_agents / union(planned, actual)) per turn
+
+    Written to: results/rq4_mas_coherence.json
+    """
+    if not audit_records:
+        return EvalResult(
+            "tool_utilisation_efficacy", 0.0,
+            {"error": "no audit records"}
+        )
+    
+    # Group agent calls by turn_id
+    turns: dict[str, list[str]] = {}
+    for r in audit_records:
+        if r.get("event_type") == "AGENT_CALL":
+            turn_id = r.get("turn_id", "unknown")
+            agent = r.get("payload", {}).get("agent", "unknown")
+            turns.setdefault(turn_id, []).append(agent)
+        
+    if not turns:
+        return EvalResult(
+            "tool_utilisation_efficacy", 0.0,
+            {"error": "no agent calls by turn found"}
+        )
+    
+    # Compute redundancy per turn
+    redundant_total = 0
+    total_calls = 0
+    for turn_id, agents in turns.items():
+        total_calls += len(agents)
+        seen = set()
+        for agent in agents:
+            if agent in seen:
+                redundant_total += 1
+            seen.add(agent)
+    
+    tue = 1.0 - (redundant_total / total_calls) if total_calls > 0 else 0.0
+
+    return EvalResult(
+        metric_name="tool_utilisation_efficacy",
+        value=round(tue, 4),
+        details={
+            "total_calls": total_calls,
+            "redundant_calls": redundant_total,
+            "turns_analysed": len(turns),
+        }
+    )
+
+def routing_accuracy(
+        predicted_routings: list[str],
+        expected_routings: list[str],
+) -> EvalResult:
+    """
+    Routing accuracy - fraction of turns where the Orchestrator chose
+    the correct agent sequence
+    
+    Directly measures the HALO layer 1 decomposition quality.
+    A wrong routing (e.g. CONVERSATIONAL_ONLY when  INVESTMENT was needed)
+    is the primary failure mode in muti-agent systems - the right answer
+    cannot be produced if the wrong agents are called.
+    
+    Written to: results/rq4_mas_coherence.json alongside CSS and TUE
+    """
+    if not predicted_routings:
+        return EvalResult("routing_accuracy", 0.0, {"error": "empty predictions"})
+    if len(predicted_routings) != len(expected_routings):
+        return EvalResult(
+            "routing_accuracy", 0.0,
+            {"error": "length mismatch"}
+        )
+
+    correct = sum(p == e for p, e in zip(predicted_routings, expected_routings))
+    accuracy = correct / len(predicted_routings)
+
+    per_routing: dict[str, dict] = {}
+    for pred, exp in zip(predicted_routings, expected_routings):
+        per_routing.setdefault(exp, {"total": 0, "correct": 0})
+        per_routing[exp]["total"] += 1
+        if pred == exp:
+            per_routing[exp]["correct"] += 1
+
+    per_routing_acc = {
+        r: round(v["correct"] / v["total"], 3)
+        for r, v in per_routing.items()
+    }
+
+    return EvalResult(
+        metric_name="routing_accuracy",
+        value=round(accuracy, 4),
+        details={
+            "n": len(predicted_routings),
+            "correct": correct,
+            "per_routing_accuracy": per_routing_acc,
+        },
+    )
