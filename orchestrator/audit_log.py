@@ -53,7 +53,7 @@ def _make_event(
     """
     return {
         "schema_version": SCHEMA_VERSION,
-        "event_id": str(uuid.uuid()),
+        "event_id": str(uuid.uuid4()),
         "session_id": session_id,
         "turn_id": turn_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -87,7 +87,7 @@ class AuditLog:
     }
 
     def __init__(self, session_id: str):
-        self.session_id = self.session_id
+        self.session_id = session_id
         self._log_dir = settings.orchestrator.audit_log_dir
         self._log_dir.mkdir(parents=True, exist_ok=True)
         self._log_path = self._log_dir / f"session_{session_id}.jsonl"
@@ -131,7 +131,7 @@ class AuditLog:
         GDPR: only messgae length is stored, not content.
         """
         self._write(_make_event(
-            session_id=self.session-id,
+            session_id=self.session_id,
             turn_id=turn_id,
             event_type="TURN_START",
             payload={

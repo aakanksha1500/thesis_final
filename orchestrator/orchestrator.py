@@ -165,12 +165,12 @@ class Orchestrator:
             logger.error(f"[Orchestrator] Intent classification failed: {exc}")
             return RoutingDecision.CONVERSATIONAL_ONLY, "general_query", 0.0
         
-        # Layer 2 - Agent selection and execution
+    # Layer 2 - Agent selection and execution
 
-        def _execute_agent(
-                self, agent_name: str, context: dict
-        ) -> tuple[AgentResult, bool]:
-            """
+    def _execute_agent(
+        self, agent_name: str, context: dict
+    ) -> tuple[AgentResult, bool]:
+        """
         Execute one agent with retry and failure recovery (O4).
         Returns (result, was_recovered).
         """

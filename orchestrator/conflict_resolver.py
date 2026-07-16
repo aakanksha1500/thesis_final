@@ -54,22 +54,23 @@ class ConflictResolver:
 
         # Check 1: Investment ran without risk class
         if inv_result and inv_result.success:
-            conflict = {
-                "type": "MISSING_RISK_BEFORE_INVESTMENT",
-                "description": (
-                    "InvestmentAgent produced output without a confirmed "
-                    "risk class from RiskProfilingAgent."
-                ),
-                "resolution": "InvestmentAgent output marked undeliverable.",
-            }
-            inv_result.payload["deliverable"] = False
-            inv_result.payload["undeliverable_reason"] = (
-                "Risk classification required before investment recommendation."
-            )
-            conflicts.append(conflict)
-            logger.warning(
-                "[ConflictResolver] MISSING_RISK_BEFORE_INVESTMENT detected"
-            )
+            if not risk_result or not risk_result.success:
+                conflict = {
+                    "type": "MISSING_RISK_BEFORE_INVESTMENT",
+                    "description": (
+                        "InvestmentAgent produced output without a confirmed "
+                        "risk class from RiskProfilingAgent."
+                    ),
+                    "resolution": "InvestmentAgent output marked undeliverable.",
+                }
+                inv_result.payload["deliverable"] = False
+                inv_result.payload["undeliverable_reason"] = (
+                    "Risk classification required before investment recommendation."
+                )
+                conflicts.append(conflict)
+                logger.warning(
+                    "[ConflictResolver] MISSING_RISK_BEFORE_INVESTMENT detected"
+                )
         
         # Check 2: Risk-product compatibility
         if (risk_result and risk_result.success and
