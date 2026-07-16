@@ -147,6 +147,43 @@ class ExplainabilityConfig:
     prompt_version: str = "v1.0"
     low_confidence_threshold: float = 0.6
 
+# Orchestrator configuration 
+# Addresses RQ4: multi-agent vs monolithic coherence.
+# O1 — HALO hierarchical orchestration (Hou et al.)
+# O3 — TRiSM audit log (Raza et al. [1])
+# O4 — Self-healing via FailureHandler (Wang et al. AgentFixer [12])
+@dataclass
+class OrchestratorConfig:
+    """
+    Routing and execution parameters for the HALO Orchestrator.
+
+    routing_confidence_threshold:
+      Below this, the Orchestrator treats the intent as ambiguous and
+      routes to ConversationalAgent for clarification rather than a
+      specialist. Prevents premature specialist invocation on uncertain
+      inputs (reduces unnecessary agent calls → improves TUE metric).
+
+    max_agent_retries:
+      O4 (AgentFixer — Wang et al. [12]): number of retry attempts before
+      invoking the FailureHandler. 1 retry catches transient API failures
+      without introducing significant latency (LR §7: 7s ceiling).
+
+    synthesis_max_words:
+      Hard ceiling on synthesis response length. Enforces the conversational
+      UX constraint from LR §7 — retail investors should not receive walls
+      of text from an AI advisor (Artusi et al. [10]).
+
+    audit_log_dir:
+      TRiSM (O3 — Raza et al. [1]) audit log location. JSONL format,
+      one record per event, per-session file.
+    """
+    routing_confidence_threshold: float = 0.65
+    max_agent_retries: int = 1
+    synthesis_max_words: int = 150
+    audit_log_dir: Path = ROOT_DIR / "logs" / "audit"
+    enable_conflict_resolution: bool = True
+    enable_failure_recovery: bool = True
+
 @dataclass
 class Settings:
     llm: LLMConfig = field(default_factory=LLMConfig)
@@ -155,6 +192,7 @@ class Settings:
     risk: RiskConfig = field(default_factory=RiskConfig)
     budget: BudgetConfig = field(default_factory=BudgetConfig)
     explainability: ExplainabilityConfig = field(default_factory=ExplainabilityConfig)
+    orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
     debug: bool = field(
         default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true"
     )
