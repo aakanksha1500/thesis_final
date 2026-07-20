@@ -185,6 +185,88 @@ class OrchestratorConfig:
     enable_failure_recovery: bool = True
 
 @dataclass
+class RAGConfig:
+    """
+    FAISS vector store + sentence-transformer embedding configuration.
+    
+    embedding_model:
+        sentence-transformers model id. Falss back to a deterministic hashing
+        embedder (rag/embedder.py) if sentence-transformers is not installed - 
+        mirrors LLMClient's mock-mode pattern (phase 1) so test never require
+        the heavy dependency to be present.
+        
+    top_k_citations:
+        Number of retrieved chunks attached as citations per Layer B call.
+        Kept small - in-pipeline explanations must stay concise, not overwhelm
+        the user with a source dump).
+    
+    min_relevance_score:
+        Cosine-similarity floor below which a retrieved chunk is dropped
+        rather than cited - an irrelevant "citation" would undermine the
+        trust-calibration goal rather than support it.
+        
+    index_dir:
+        Where the built FAISS index + document store are persisted.
+        Rebuilt via 'python scripts/build_knowledge_base.py'.
+        
+    document_sets:
+        The four corpora backing Layer B, per PDD dataset inventory.
+        D1/D2 are also the evaluation corpus for RQ5 (evaluation/metrics.py)
+    """
+    embedding_model: str =field(
+        default_factory=lambda: os.getenv(
+            "RAG_EMBEDDING_MODEL", "esntence-transformers/all-MiniLLM-L6-v2"
+        )
+    )
+    embedding_dim: int = 384
+    top_k_citations: int = 3
+    min_relevance_score: float = 0.15
+    index_dir: Path = ROOT_DIR / "data" / "embeddings" / "rag_index"
+    chunk_size_chars: int = 500
+    chunk_overlap_chars: int = 50
+    document_sets: list = field(default_factory=lambda: [
+        "cbi_open_data",
+        "eu_digital_finance",
+        "finqa_original",
+        "finqa_verified",
+    ])
+
+@dataclass
+class HallucinationConfig:
+    """
+    vectara/hallucination_evaluation_model (HHEM) configuration.
+
+    hhem_threshold:
+        claims scoring below this on the HHEM consistency scale (0=hallucinated,
+        1=fully grounded) are flagged. 0.85 follows Vectara's published
+        recommended operating threshold for factual/financial domains, where 
+        false negatives (missed hallucinations) are costlier than false positives (over-flagging).
+
+    model_id:
+        HugingFace model id. Falls back to a deterministic lexical-overlap
+        heuristic (rag/hallucination_detector.py) if transformers/torch are not 
+        installed, so unit tests run without the ~2.4GB model download - 
+        same rationale as the RAG embedder fallback above.
+    
+    run_inline:
+        When True, InvestmentAgent runs the detector n its wn synthesis
+        immediately after generation, before ExplainabilityAgent wraps it
+
+    max_claims_per_response:
+        Celling on how many sentence-level claims are scored per response - 
+        keeps evaluation latemcy bounded on log sysntheses.
+    """
+    hhem_threshold: float = 0.85
+    model_id: str = field(
+        default_factory=lambda: os.getenv(
+            "HHEM_MODEL_ID", "vectara/hallucination_evaluation_model"
+        )
+    )
+    run_inline: bool = True
+    max_claims_per_response: int = 10
+    log_flagged_to_audit: bool = True
+
+@dataclass
 class Settings:
     llm: LLMConfig = field(default_factory=LLMConfig)
     conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
@@ -193,6 +275,8 @@ class Settings:
     budget: BudgetConfig = field(default_factory=BudgetConfig)
     explainability: ExplainabilityConfig = field(default_factory=ExplainabilityConfig)
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
+    rag: RAGConfig = field(default_factory=RAGConfig)
+    hallucination: HallucinationConfig = field(default_factory=HallucinationConfig)
     debug: bool = field(
         default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true"
     )
