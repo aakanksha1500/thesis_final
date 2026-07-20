@@ -856,3 +856,138 @@ def routing_accuracy(
             "per_routing_accuracy": per_routing_acc,
         },
     )
+
+# Phase 8 - RAG + hallucination detection evaluation
+
+def _normalise_numeric_answer(raw: str) -> float | None:
+    """
+     Normalise a FinQA-style answer string to a float for comparison.
+    Strips currency symbols, percent signs, commas, and surrounding
+    whitespace; treats "15.4%" and "0.154" as comparable by leaving the
+    percent-scale conversion to the caller's tolerance (FinQA answers are
+    conventionally reported in the % scale they appear in the question).
+    Returns None if no numeric value can be extracted.
+    """
+    import re as _re
+
+    if raw is None:
+        return None
+    cleaned = str(raw).strip().replace(",", "").replace("$", "").replace("%","")
+    match = _re.search(r"-?\d+\.?\d*", cleaned)
+    if not match:
+        return None
+    try:
+        return float(match.group())
+    except ValueError:
+        return None
+    
+def finqa_exact_match(
+    predictions: list[str],
+    ground_truth: list[str],
+    tolerance: float = 0.01,
+) -> EvalResult:
+    """
+    FinQA numerical exact-match accuracy — RQ5 primary metric.
+
+    Follows the FinQA benchmark convention (Chen et al.): a prediction is
+    "correct" if its normalised numeric value matches the ground truth
+    answer within `tolerance` (absolute), not by string equality — FinQA
+    answers vary in formatting ("15.4%" vs "15.40%" vs "0.154") while
+    representing the same value.
+
+    Args:
+      predictions:  model-produced answer strings, one per FinQA question.
+      ground_truth: FinQA Verified [D1] ground truth answer strings.
+      tolerance:    absolute tolerance for numeric match. Default 0.01
+                    follows FinQA's own reported evaluation tolerance.
+
+    Used in: RQ5 baseline (no RAG, commit 38) vs RAG-grounded (commit 39)
+             comparison — the delta between the two runs is the RQ5
+             headline finding.
+    Written to: results/rq5_finqa_no_rag.json, results/rq5_finqa_with_rag.json
+    """
+    if not predictions:
+        return EvalResult("finqa_exact_match", 0.0, {"error": "empty predictions list"})
+    if len(predictions) != len(ground_truth):
+        return EvalResult(
+            "finqa_exact_match", 0.0,
+            {"error": f"length mismatch: {len(predictions)} vs {len(ground_truth)}"}
+        )
+    
+    correct = 0
+    unparseable = 0
+    for pred, gold in zip(predictions, ground_truth):
+        pred_val = _normalise_numeric_answer(pred)
+        gold_val = _normalise_numeric_answer(gold)
+        if pred_val is None or gold_val is None:
+            unparseable += 1
+            continue
+        if abs(pred_val - gold_val) <= tolerance:
+            correct += 1
+
+    accuracy = correct / len(predictions)
+
+    return EvalResult(
+        metric_name="finqa_exact_match",
+        value=round(accuracy, 4),
+        details={
+            "n": len(predictions),
+            "correct": correct,
+            "unparseable": unparseable,
+            "tolerance": tolerance,
+        },
+    )
+
+def hallucination_rate(
+    hallucination_reports: list[dict[str, Any]],    
+) -> EvalResult:
+    """
+    Hallucination rate — RQ5 secondary metric.
+
+    Aggregates per-response HHEM hallucination reports across an
+    evaluation run. Reports the fraction of *claims* flagged (not just
+    fraction of responses with >=1 flag) — a response with one flagged
+    figure among ten sound ones is a different failure profile than a
+    response where every claim is unsupported, and the claim-level rate
+    captures that distinction the response-level rate would hide.
+
+    Args:
+      hallucination_reports: list of HallucinationReport.to_dict() outputs,
+                              one per evaluated response.
+
+    Used alongside finqa_exact_match for the RQ5 before/after RAG
+    comparison (commits 38-39): hallucination_rate should decrease when
+    RAG grounding is enabled, corroborating the exact-match improvement
+    rather than the two metrics moving independently.
+
+    Written to: results/rq5_finqa_no_rag.json, results/rq5_finqa_with_rag.json
+    """
+    if not hallucination_reports:
+        return EvalResult(
+            "hallucination_rate", 0.0,
+            {"error": "no hallucination reports provided"}
+        )
+
+    total_claims = sum(r.get("n_claims", 0) for r in hallucination_reports)
+    total_flagged = sum(r.get("n_flagged", 0) for r in hallucination_reports)
+    responses_with_any_flag = sum(
+        1 for r in hallucination_reports if r.get("n_flagged", 0) > 0
+    )
+
+    claim_level_rate = (total_flagged / total_claims) if total_claims else 0.0
+    response_level_rate = responses_with_any_flag / len(hallucination_reports)
+
+    modes = {r.get("mode", "unknown") for r in hallucination_reports}
+
+    return EvalResult(
+        metric_name="hallucination_rate",
+        value=round(claim_level_rate, 4),
+        details={
+            "n_responses": len(hallucination_reports),
+            "total_claims": total_claims,
+            "total_flagged": total_flagged,
+            "response_level_hallucination_rate": round(response_level_rate, 4),
+            "detector_modes_seen": sorted(modes),
+        },
+    )
+    
