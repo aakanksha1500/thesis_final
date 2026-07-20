@@ -248,6 +248,35 @@ class AuditLog:
                 "response_blocked": blocked,
             },
         ))
+    
+    def record_hallucination_flag(
+        self,
+        turn_id: str,
+        agent_name: str,
+        claim: str,
+        score: float,
+        threshold: float,
+        mode: str,
+    ) -> None:
+        """
+        Log an HHEM-flagged claim (Phase 8 — E4 probabilistic layer,
+        alongside record_constraint_violation's deterministic layer above).
+        Mirrors the same "every decision traceable" TRiSM principle (O3):
+        a claim scoring below threshold is recorded with the score and
+        threshold that triggered the flag, not just a boolean.
+        """
+        self._write(_make_event(
+            session_id=self.session_id,
+            turn_id=turn_id,
+            event_type="HALLUCINATION_FLAG",
+            payload={
+                "agent": agent_name,
+                "claim": claim,
+                "score": round(score, 4),
+                "threshold": threshold,
+                "detector_mode": mode,
+            },
+        ))
 
     def record_turn_end(
         self,

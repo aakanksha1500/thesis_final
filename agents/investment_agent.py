@@ -508,6 +508,31 @@ class InvestmentAgent(BaseAgent):
             claimed_return=top_product["expected_return_pct"],
         )
 
+        hallucination_report = None
+        rag_sources: list[str] = []
+        if settings.hallucination.run_inline:
+            try:
+                from rag.knowledge_base import knowledge_base  
+                from rag.hallucination_detector import hallucination_detector  
+
+                grounding_query = f"{risk_class} {top_product['category']} {top_product['name']}"
+                grounding_contexts = knowledge_base.retrieve(grounding_query)
+                report = hallucination_detector.score_response(
+                    response_text=synthesis,
+                    grounding_contexts=grounding_contexts,
+                )
+                hallucination_report = report.to_dict()
+                rag_sources = [c["source"] for c in grounding_contexts]
+
+                if report.hallucination_rate > 0:
+                    logger.warning(
+                        f"[InvestmentAgent] HHEM flagged "
+                        f"{hallucination_report['n_flagged']}/{hallucination_report['n_claims']} "
+                        f"claims (mode={report.mode}) in synthesis"
+                    )
+            except Exception as exc:
+                logger.warning(f"[InvestmentAgent] Hallucination detection failed: {exc}")
+
         payload = {
             "status": "complete",
             "risk_class": risk_class,

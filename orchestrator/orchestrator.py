@@ -290,6 +290,19 @@ class Orchestrator:
                     self._session_state["risk_profile"] = result.payload
                 if agent_name == "InvestmentAgent":
                     self._session_state["prior_investment_output"] = result.payload
+            
+                    hreport = result.payload.get("hallucination_report")
+                    if hreport and settings.hallucination.log_flagged_to_audit:
+                        for claim_record in hreport.get("claims", []):
+                            if claim_record.get("flagged"):
+                                self.audit_log.record_hallucination_flag(
+                                    turn_id=context.get("_turn_id", "unknown"),
+                                    agent_name=agent_name,
+                                    claim=claim_record["claim"],
+                                    score=claim_record["score"],
+                                    threshold=settings.hallucination.hhem_threshold,
+                                    mode=hreport.get("mode", "fallback"),
+                                )
 
         return results, recovered
     
