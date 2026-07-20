@@ -37,11 +37,11 @@
     }
   },
   "sample_explanation": {
-    "shap_narrative": "The most influential factor in your risk classification was your loss tolerance (value: 3), which pushed toward a higher risk tier.",
+    "shap_narrative": "[MOCK RESPONSE] Agent role: 'You are generating the SHAP explanation layer of a multi-age...' | User said: 'Feature attributions for 'moderate' clas...' | Set OPENAI_API_KEY in .env for real API responses.",
     "rag_citations": [],
     "counterfactual": null,
-    "calibration_note": "This recommendation assumes stable employment and income. A significan change to either would warrant reassessment.",
-    "full_explanation": null
+    "calibration_note": "[MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses.",
+    "full_explanation": "[MOCK RESPONSE] Agent role: 'You are generating the SHAP explanation layer of a multi-age...' | User said: 'Feature attributions for 'moderate' clas...' | Set OPENAI_API_KEY in .env for real API responses. [MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses."
   },
   "survey_note": "Synthetic survey fixture \u2014 replace with real pilot study responses (n\u226520) before dissertation submission."
 }

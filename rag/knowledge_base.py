@@ -391,7 +391,7 @@ class KnowledgeBase:
     
     # Retrieval - the entry point ExplainabilityAgent Layer B calls 
 
-    def retrieval(
+    def retrieve(
         self,
         query: str,
         top_k: int | None = None,

@@ -57,7 +57,7 @@ class Embedder:
             from sentence_transformers import SentenceTransformer
 
             self._model = SentenceTransformer(self.model_name)
-            self._dim = self._model.get_sentence_embedding_dimension()
+            self._dim = self._model.get_embedding_dimension()
             self._mode = "sentence-transformers"
             logger.info(
                 f"[Embedder] Initialised in REAL mode — model={self.model_name} "

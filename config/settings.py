@@ -215,7 +215,7 @@ class RAGConfig:
     """
     embedding_model: str =field(
         default_factory=lambda: os.getenv(
-            "RAG_EMBEDDING_MODEL", "esntence-transformers/all-MiniLLM-L6-v2"
+            "RAG_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
         )
     )
     embedding_dim: int = 384

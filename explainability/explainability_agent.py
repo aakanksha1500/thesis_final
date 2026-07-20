@@ -62,7 +62,7 @@ class ExplainabilityAgent(BaseAgent):
         return {"explanation": raw.strip()}
     
     def _call_with_system(
-            self, system: str, user_message: str, temprature: float = 0.2
+            self, system: str, user_message: str, temperature: float = 0.2
     ) -> tuple[str, int]:
         """
         Variant of _Call_llm that accepts an explicit system prompt.
@@ -73,7 +73,7 @@ class ExplainabilityAgent(BaseAgent):
         response = self.llm.chat(
             system=system,
             messages=[{"role": "user", "content": user_message}],
-            temprature=temprature,
+            temperature=temperature,
         )
         self._call_count += 1
         return response.content, response.tokens_used
@@ -126,7 +126,7 @@ class ExplainabilityAgent(BaseAgent):
 
         try:
             raw, _ = self._call_with_system(
-                EXPLAINABILITY_SHAP_PROMPT, prompt, temprature=0.2
+                EXPLAINABILITY_SHAP_PROMPT, prompt, temperature=0.2
             )
             return raw.strip()
         except Exception as exc:
@@ -291,7 +291,7 @@ class ExplainabilityAgent(BaseAgent):
         )
         try:
             raw, _ = self._call_with_system(
-                EXPLAINABILITY_CALIBRATION_PROMPT, prompt, temprature=0.1
+                EXPLAINABILITY_CALIBRATION_PROMPT, prompt, temperature=0.1
             )
             return raw.strip() + confidence_flag + hallucination_flag
         except Exception as exc:
@@ -327,8 +327,9 @@ class ExplainabilityAgent(BaseAgent):
             sources = ", ".join(c.get("source", "unknown") for c in rag_citations[:2])
             parts.append(f"This analysis draws on: {sources}.")
         if counterfactual:
-            parts.append(calibration_note)
-            return " ".join(parts)
+            parts.append(counterfactual)
+        parts.append(calibration_note)
+        return " ".join(parts)
         
     
     # Main entry point
