@@ -153,25 +153,72 @@ class ExplainabilityAgent(BaseAgent):
     
 
     # Layer B - RG source citations - paused until phase 8
+    def _build_rag_query(self, context: dict[str, Any]) -> str:
+        """
+        Build the retrieval query from the recommendation being explained.
+
+        Combines the risk classification, the top recommended product, and
+        the InvestmentAgent's own synthesis text — the same fields a human
+        reader would need grounding for.
+        keeping the query focused on the claim-bearing parts (product
+        category + return figures) retrieves more relevant chunks than
+        embedding the whole paragraph, including its calibration language.
+        """
+        investment_payload: dict = context.get("investment_agent_payload") or {}
+        risk_payload: dict = context.get("risk_agent_payload") or {}
+
+        risk_class = risk_payload.get("risk_class", "")
+        shortlist = investment_payload.get("shortlist", [])
+        synthesis = investment_payload.get("synthesis", "")
+
+        parts = [p for p in (risk_class, synthesis) if p]
+        if shortlist:
+            top = shortlist[0]
+            parts.append(f"{top.get('category', '')} {top.get('name', '')}")
+        return " ".join(parts).strip()
+
     def _get_rag_citations(
             self, context: dict[str, Any]
     ) -> list[dict]:
         """
-        Retrieve source citations for factual claims in the recommendation
-        
-        The stub is intentional: it means the ablation condition B
-        (shap + rag_citation) can be committed now with use_rag_citation=True
-        and a real score of 0 citations — establishing the baseline before
-        Phase 8 replaces this with actual retrieval.
-        
+        Retrieve source citations for factual claims in the recommendation.
+
+        Phase 6: returned an empty list — RAG knowledge base not yet built.
+        Phase 8: retrieves real citations from
+          rag.knowledge_base.knowledge_base, a FAISS vector store over
+          CBI Open Data [D3], EU Digital Finance Platform [D4], and the
+          FinQA corpora [D1, D2].
+
+        Ablation condition B (shap + rag_citation) now returns real
+        citation counts instead of the Phase 6 baseline of 0 — this is
+        the change re-evaluated in commit 40
+        (tests/unit/test_explainability_agent.py::TestRQ3AblationEvaluation)
+        and committed to results/rq3_shap_rag.json.
+
         Returns:
-            List of {"claim": str, "source": str, "relevance": float} dicts.
+            List of {"claim": str, "source": str, "relevance": float,
+                      "text": str, "document_set": str} dicts, capped at
+            settings.rag.top_k_citations and filtered by
+            settings.rag.min_relevance_score.
         """
+        from rag.knowledge_base import knowledge_base  # noqa: PLC0415
+
+        query = self._build_rag_query(context)
+        if not query:
+            logger.debug("[ExplainabilityAgent] RAG citations: empty query, no context to ground")
+            return []
+
+        try:
+            citations = knowledge_base.retrieve(query)
+        except Exception as exc:
+            logger.warning(f"[ExplainabilityAgent] RAG retrieval failed: {exc} — returning []")
+            return []
+
         logger.debug(
-            "[ExplainabilityAgent] RAG citations: stub returning [] "
-            "(Phase 8 will populate with real retrieval)"
+            f"[ExplainabilityAgent] RAG citations: {len(citations)} retrieved "
+            f"for query={query[:60]!r}..."
         )
-        return []
+        return citations
     
     # Layer C - Counterfactual NL rationale
     def _generate_counterfactual(
@@ -220,12 +267,21 @@ class ExplainabilityAgent(BaseAgent):
             risk_class: str,
             confidence: float,
             top_product_name: str,
+            hallucination_flagged: bool = False,
     ) -> str:
         confidence_flag = ""
         if confidence < settings.explainability.low_confidence_threshold:
             confidence_flag = (
                 f" Note: this classification has low confidence ({confidence:.0%}) "
                 f"- it is near a tier boundary and should be treated as indicative only."
+            )
+        
+        hallucination_flag = ""
+        if hallucination_flagged:
+            hallucination_flag = (
+                " Note: one or more figures in this recommendation could not "
+                "be fully verified against source data — please confirm "
+                "specific numbers independently before acting on them."
             )
 
         prompt = (
@@ -237,15 +293,16 @@ class ExplainabilityAgent(BaseAgent):
             raw, _ = self._call_with_system(
                 EXPLAINABILITY_CALIBRATION_PROMPT, prompt, temprature=0.1
             )
-            return raw.strip() + confidence_flag
+            return raw.strip() + confidence_flag + hallucination_flag
         except Exception as exc:
             logger.warning(
-                f"[ExplainabilityAgent] Calibrton note failed: {exc}"
+                f"[ExplainabilityAgent] Calibration note failed: {exc}"
             )
             return(
                 f"This recommendation assumes stable employment and income. "
                 f"A significan change to either would warrant reassessment."
                 + confidence_flag
+                + hallucination_flag
             )
         
     
@@ -342,10 +399,12 @@ class ExplainabilityAgent(BaseAgent):
                 logger.debug("[ExplainabilityAgent] Layer C (counterfactual) applied")
 
         # Calibration note (X3 — always active
+        hallucination_flagged: bool = bool(investment_payload.get("hallucination_flagged", False))
         calibration_note = self._generate_calibration_note(
             risk_class=risk_class,
             confidence=confidence,
             top_product_name=top_product_name,
+            hallucination_flagged=hallucination_flagged,
         )
         if "calibration_note" not in layers_applied:
             layers_applied.append("calibration_note")
@@ -370,6 +429,8 @@ class ExplainabilityAgent(BaseAgent):
             "calibration_note": calibration_note,
             "confidence": confidence,
             "low_confidence_flagged": confidence < cfg.low_confidence_threshold,
+            "hallucination_flagged": hallucination_flagged,
+            "hallucination_flagged": hallucination_flagged,
             "full_explanation": full_explanation,
             "risk_class": risk_class,
             "top_product": top_product_name,
