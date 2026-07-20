@@ -13,8 +13,8 @@ Layer B calls.
 from __future__ import annotations
 import json
 import re
-import urlib.error
-import urlib.request
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -116,6 +116,27 @@ _SEED_EU_DIGITAL_FINANCE: list[dict[str, str]] = [
             "degree to which environmental or social characteristics are "
             "promoted, informing how mixed and equity funds may be "
             "represented to retail investors."
+        ),
+    },
+]
+
+_SEED_FINQA_ORIGINAL: list[dict[str, str]] = [
+    {
+        "doc_id": "finqa-orig-seed-001",
+        "text": (
+            "Context: Total revenue increased from $1,204 million in the "
+            "prior year to $1,389 million in the current year. Question: "
+            "what was the percentage increase in revenue year over year? "
+            "Reasoning: (1389 - 1204) / 1204 = 15.4%."
+        ),
+    },
+    {
+        "doc_id": "finqa-orig-seed-002",
+        "text": (
+            "Context: Operating expenses were $342 million, comprising "
+            "$210 million in personnel costs and the remainder in "
+            "administrative costs. Question: what portion of operating "
+            "expenses was administrative? Reasoning: (342 - 210) / 342 = 38.6%."
         ),
     },
 ]

@@ -141,7 +141,7 @@ def phase8_downloads() -> None:
     print("  [D1] FinQA Verified (HuggingFace)...")
     try:
         from datasets import load_dataset  # noqa: PLC0415
-        ds = load_dataset("Aiera/finqa-verified", split="train")
+        ds = load_dataset("Aiera/finqa-verified", split="test")
         save_path = DATA_RAW / "finqa_verified"
         ds.save_to_disk(str(save_path))
         print(f"  OK  FinQA Verified saved ({len(ds)} examples)")

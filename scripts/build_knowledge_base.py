@@ -49,7 +49,7 @@ def main() -> None:
         help="Build the index in memory and print a summary, but dont write to disk"
     )
     parser.add_argument(
-        "--step-only", action="store_true",
+        "--stats-only", action="store_true",
         help="Load the currently persisted index (if any) and print a sumamry - no rebuild."
     )
     args = parser.parse_args()
