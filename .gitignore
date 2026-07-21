@@ -1,2 +1,4 @@
-data/
+data/embeddings/
+data/processed/
+data/raw/
 .DS_Store
