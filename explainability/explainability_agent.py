@@ -153,6 +153,7 @@ class ExplainabilityAgent(BaseAgent):
     
 
     # Layer B - RG source citations - paused until phase 8
+
     def _build_rag_query(self, context: dict[str, Any]) -> str:
         """
         Build the retrieval query from the recommendation being explained.
@@ -304,6 +305,34 @@ class ExplainabilityAgent(BaseAgent):
                 + confidence_flag
                 + hallucination_flag
             )
+    
+    def _generate_estimated_input_note(
+        self,
+        proxy_fields: list[str],
+        proxy_metadata: dict[str, dict],
+    ) -> str | None:
+        """
+        One sentence per proxied field, naming the field, its estimated
+        value, and the basis it was estimated from. Returns None if no 
+        fields were proxied for this customer.
+        """
+        if not proxy_fields:
+            return None
+
+        sentences = []
+        for field in proxy_fields:
+            meta = proxy_metadata.get(field)
+            if not meta:
+                continue
+            label = field.replace("_", " ")
+            basis = ", ".join(meta.get("basis", [])) or "your overall financial profile"
+            sentences.append(
+                f"Your {label} was estimated at {meta['value']}/5 "
+                f"(based on {basis}) rather than self-reported, "
+                f"since this wasn't available from your bank profile — "
+                f"let us know if this doesn't reflect you and we'll update it."
+            )
+        return " ".join(sentences) if sentences else None
         
     
     # Output assembly
@@ -313,6 +342,7 @@ class ExplainabilityAgent(BaseAgent):
             rag_citations: list[dict],
             counterfactual: str | None,
             calibration_note: str,
+            estimated_input_note: str | None,
             layers_applied: list[str],
             confidence: float,
     ) -> str:
@@ -329,6 +359,8 @@ class ExplainabilityAgent(BaseAgent):
         if counterfactual:
             parts.append(counterfactual)
         parts.append(calibration_note)
+        if estimated_input_note:
+            parts.append(estimated_input_note)
         return " ".join(parts)
         
     
@@ -410,12 +442,21 @@ class ExplainabilityAgent(BaseAgent):
         if "calibration_note" not in layers_applied:
             layers_applied.append("calibration_note")
         
+        proxy_fields: list[str] = context.get("proxy_fields", [])
+        proxy_metadata: dict = context.get("proxy_metadata", {})
+        estimated_input_note = self._generate_estimated_input_note(
+            proxy_fields, proxy_metadata
+        )
+        if estimated_input_note and "estimated_input_disclosure" not in layers_applied:
+            layers_applied.append("estimated_input_disclosure")
+        
         # Assemble full explanation
         full_explanation = self._assemble_explanation(
             shap_narrative=shap_narrative,
             rag_citations=rag_citations,
             counterfactual=counterfactual,
             calibration_note=calibration_note,
+            estimated_input_note=estimated_input_note,
             layers_applied=layers_applied,
             confidence=confidence,
         )
@@ -428,6 +469,8 @@ class ExplainabilityAgent(BaseAgent):
             "rag_citations": rag_citations,
             "counterfactual": counterfactual,
             "calibration_note": calibration_note,
+            "estimated_input_note": estimated_input_note,
+            "proxy_fields": proxy_fields,
             "confidence": confidence,
             "low_confidence_flagged": confidence < cfg.low_confidence_threshold,
             "hallucination_flagged": hallucination_flagged,
