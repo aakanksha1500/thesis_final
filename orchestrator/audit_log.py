@@ -139,6 +139,31 @@ class AuditLog:
                 "gdpr_note": "Message content not logged per GDPR Arts.",
             },
         ))
+    
+    def record_customer_load(
+        self,
+        customer_id: str,
+        known: bool,
+        fields_loaded: int,
+        missing_fields: list[str],
+    ) -> None:
+        """
+        Log an existing-customer lookup at session start.
+        GDPR: only the identifier, count, and field NAMES are logged - 
+        never the feature VALUES (income, debt, etc.), matching the
+        content-minimisation approach used by record_turn_start().
+        """
+        self._write(_make_event(
+            session_id=self.session_id,
+            turn_id="session_start",
+            event_type="CUSTOMER_LOAD",
+            payload={
+                "customer_id": customer_id,
+                "known": known,
+                "fields_loaded": fields_loaded,
+                "missing_fields": missing_fields,
+            },
+        ))
 
     def record_routing(
             self,
