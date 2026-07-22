@@ -1,0 +1,44 @@
+[
+  {
+    "customer_id": "GC_00042",
+    "source_dataset": "german_credit_demo",
+    "age": 42,
+    "income": 58000,
+    "employment_status": "employed",
+    "dependents": 1,
+    "existing_debt": 12000,
+    "investment_horizon": 7,
+    "loss_tolerance": 3,
+    "financial_knowledge_score": 3,
+    "ground_truth_risk_class": "moderate",
+    "credit_default_label": "good"
+  },
+  {
+    "customer_id": "GC_00107",
+    "source_dataset": "german_credit_demo",
+    "age": 29,
+    "income": 41000,
+    "employment_status": "employed",
+    "dependents": 0,
+    "existing_debt": 3000,
+    "investment_horizon": 15,
+    "loss_tolerance": 4,
+    "financial_knowledge_score": 4,
+    "ground_truth_risk_class": "moderately_aggressive",
+    "credit_default_label": "good"
+  },
+  {
+    "customer_id": "GMSC_00318",
+    "source_dataset": "give_me_some_credit_demo",
+    "age": 61,
+    "income": 32000,
+    "employment_status": "retired",
+    "dependents": 2,
+    "existing_debt": 18000,
+    "investment_horizon": 3,
+    "loss_tolerance": 1,
+    "financial_knowledge_score": 2,
+    "ground_truth_risk_class": "conservative",
+    "credit_default_label": "bad"
+  }
+]
