@@ -4,13 +4,13 @@
   "dataset": "Banking77_fixture_20queries",
   "llm_mode": "groq",
   "metric": "intent_accuracy",
-  "value": 0.2,
+  "value": 0.15,
   "details": {
     "n": 20,
-    "correct": 4,
+    "correct": 3,
     "per_bucket_accuracy": {
       "general_query": 1.0,
-      "investment_advice": 0.2,
+      "investment_advice": 0.0,
       "risk_profiling": 0.0,
       "budget_analysis": 0.0,
       "product_suggestion": 0.0,
@@ -27,7 +27,7 @@
     {
       "message": "I want to invest my savings.",
       "gold": "investment_advice",
-      "pred": "investment_advice"
+      "pred": "general_query"
     },
     {
       "message": "Can you assess my financial risk?",

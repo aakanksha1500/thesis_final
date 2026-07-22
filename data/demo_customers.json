@@ -1,6 +1,6 @@
 [
   {
-    "customer_id": "GC_00042",
+    "customer_id": "DEMO_GC_042",
     "source_dataset": "german_credit_demo",
     "age": 42,
     "income": 58000,
@@ -14,7 +14,7 @@
     "credit_default_label": "good"
   },
   {
-    "customer_id": "GC_00107",
+    "customer_id": "DEMO_GC_107",
     "source_dataset": "german_credit_demo",
     "age": 29,
     "income": 41000,
@@ -28,7 +28,7 @@
     "credit_default_label": "good"
   },
   {
-    "customer_id": "GMSC_00318",
+    "customer_id": "DEMO_GMSC_318",
     "source_dataset": "give_me_some_credit_demo",
     "age": 61,
     "income": 32000,

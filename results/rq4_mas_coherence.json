@@ -91,7 +91,7 @@
         }
       ],
       "recovered_agents": [],
-      "duration_ms": 0.41812495328485966,
+      "duration_ms": 0.2835000632330775,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -133,7 +133,7 @@
         }
       ],
       "recovered_agents": [],
-      "duration_ms": 0.33249997068196535,
+      "duration_ms": 0.28133392333984375,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -175,7 +175,7 @@
         }
       ],
       "recovered_agents": [],
-      "duration_ms": 0.30795892234891653,
+      "duration_ms": 0.25625003036111593,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -217,7 +217,7 @@
         }
       ],
       "recovered_agents": [],
-      "duration_ms": 0.28541707433760166,
+      "duration_ms": 0.31174998730421066,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -259,7 +259,7 @@
         }
       ],
       "recovered_agents": [],
-      "duration_ms": 0.3464999608695507,
+      "duration_ms": 0.39145792834460735,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -301,7 +301,7 @@
         }
       ],
       "recovered_agents": [],
-      "duration_ms": 0.41566696017980576,
+      "duration_ms": 0.8559999987483025,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -343,7 +343,7 @@
         }
       ],
       "recovered_agents": [],
-      "duration_ms": 0.3157079918310046,
+      "duration_ms": 0.3511670511215925,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -385,7 +385,7 @@
         }
       ],
       "recovered_agents": [],
-      "duration_ms": 0.26187498588114977,
+      "duration_ms": 0.2894580829888582,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -427,7 +427,7 @@
         }
       ],
       "recovered_agents": [],
-      "duration_ms": 0.2795829204842448,
+      "duration_ms": 0.33908302430063486,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -469,7 +469,7 @@
         }
       ],
       "recovered_agents": [],
-      "duration_ms": 0.2711659763008356,
+      "duration_ms": 0.32175006344914436,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -483,5 +483,5 @@
       }
     }
   ],
-  "audit_log_path": "/private/var/folders/vc/qwj0gcpn741fw_lh0plr1_b40000gn/T/pytest-of-aakankshadeshpande/pytest-6/test_rq4_pipeline_evaluation_a0/session_rq4-eval-001.jsonl"
+  "audit_log_path": "/private/var/folders/vc/qwj0gcpn741fw_lh0plr1_b40000gn/T/pytest-of-aakankshadeshpande/pytest-11/test_rq4_pipeline_evaluation_a0/session_rq4-eval-001.jsonl"
 }

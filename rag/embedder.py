@@ -45,14 +45,27 @@ class Embedder:
             are interchangeable in a persisted index.
     """
 
-    def __init__(self, model_name: str | None = None, dim: int | None = None):
+    def __init__(
+        self, 
+        model_name: str | None = None, 
+        dim: int | None = None,
+        force_fallback: bool = False,
+    ):
         self.model_name = model_name or settings.rag.embedding_model
         self.dim = dim or settings.rag.embedding_dim
         self._model = None
         self._mode = "fallback"
+        self._force_fallback = force_fallback
         self._init_model()
 
     def _init_model(self) -> None:
+        if self._force_fallback:
+            logger.info(
+                "[Embedder] force_fallback=True — running FALLBACK mode "
+                "(hashing embedder) regardless of installed dependencies. "
+                "Requested dim is honoured exactly in this mode."
+            )
+            return
         try:
             from sentence_transformers import SentenceTransformer
 

@@ -105,13 +105,21 @@ class HallucinationDetector:
     or torch are not installed, or if the model fails to download/load.
     """
 
-    def __init__(self, model_id: str | None = None):
+    def __init__(self, model_id: str | None = None, force_fallback: bool = False):
         self.model_id = model_id or settings.hallucination.model_id
         self._model = None
         self._mode = "fallback"
+        self._force_fallback = force_fallback
         self._init_model()
 
     def _init_model(self) -> None:
+        if self._force_fallback:
+            logger.info(
+                "[HallucinationDetector] force_fallback=True — running "
+                "FALLBACK mode (lexical-overlap heuristic) regardless of "
+                "installed dependencies."
+            )
+            return
         try:
             from transformers import AutoModelForSequenceClassification
 

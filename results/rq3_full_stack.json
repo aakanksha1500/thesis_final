@@ -39,7 +39,7 @@
     }
   },
   "sample_explanation": {
-    "shap_narrative": "[MOCK RESPONSE] Agent role: 'You are generating the SHAP explanation layer of a multi-age...' | User said: 'Feature attributions for 'moderate' clas...' | Set OPENAI_API_KEY in .env for real API responses.",
+    "shap_narrative": "The most influential factor in your risk classification was your loss tolerance (value: 3), which pushed toward a higher risk tier.",
     "rag_citations": [
       {
         "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
@@ -58,9 +58,9 @@
         "doc_id": "finqa-orig-00073-7"
       }
     ],
-    "counterfactual": "[MOCK RESPONSE] Agent role: 'You are generating the counterfactual explanation layer of a...' | User said: 'Current risk classification: moderate\nTo...' | Set OPENAI_API_KEY in .env for real API responses.",
-    "calibration_note": "[MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses.",
-    "full_explanation": "[MOCK RESPONSE] Agent role: 'You are generating the SHAP explanation layer of a multi-age...' | User said: 'Feature attributions for 'moderate' clas...' | Set OPENAI_API_KEY in .env for real API responses. This analysis draws on: FinQA Original [D2], FinQA Original [D2]. [MOCK RESPONSE] Agent role: 'You are generating the counterfactual explanation layer of a...' | User said: 'Current risk classification: moderate\nTo...' | Set OPENAI_API_KEY in .env for real API responses. [MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses."
+    "counterfactual": "If your loss tolerance were higher, your risk profile would shift toward a more aggressive tier and higher-growth products would become appropriate.",
+    "calibration_note": "This recommendation assumes stable employment and income. A significan change to either would warrant reassessment.",
+    "full_explanation": "The most influential factor in your risk classification was your loss tolerance (value: 3), which pushed toward a higher risk tier. This analysis draws on: FinQA Original [D2], FinQA Original [D2]. If your loss tolerance were higher, your risk profile would shift toward a more aggressive tier and higher-growth products would become appropriate. This recommendation assumes stable employment and income. A significan change to either would warrant reassessment."
   },
   "survey_note": "Synthetic survey fixture \u2014 replace with real pilot study responses (n\u226520) before dissertation submission."
 }
