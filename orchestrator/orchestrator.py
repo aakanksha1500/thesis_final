@@ -45,6 +45,8 @@ from agents.risk_profiling_agent import RiskProfilingAgent
 from config.constraints import financial_constraints
 from config.prompts import ORCHESTRATOR_SYSTEM
 from config.settings import settings
+from data.customer_store import CustomerStore
+from data.psychometric_proxy import derive_loss_tolerance_proxy
 from explainability.explainability_agent import ExplainabilityAgent
 from orchestrator.audit_log import AuditLog
 from orchestrator.conflict_resolver import ConflictResolver
@@ -88,9 +90,17 @@ class Orchestrator:
     One instance per user session.
     """
 
-    def __init__(self, llm_client: LLMClient, session_id: str | None = None):
+    def __init__(
+            self, 
+            llm_client: LLMClient, 
+            session_id: str | None = None,
+            customer_id: str | None = None,
+            customer_context: dict[str, Any] | None = None,
+            customer_store: CustomerStore | None = None,
+    ):
         self.session_id = session_id or str(uuid.uuid4())[:12]
         self.llm = llm_client
+        self.customer_store = customer_store or CustomerStore()
 
         # Per-session components
         self.audit_log = AuditLog(session_id=self.session_id)
@@ -113,9 +123,147 @@ class Orchestrator:
             "risk_profile": None,
             "prior_investment_output": None,
             "turn_count": 0,
+            "customer_id": None,
+            "customer_known": False,
+            "missing_cutomer_fields": [],
+            "ground_truth_risk_class": None,
+            "proxy_fields": [],
+            "proxy_metadata": {},
+            "customer_name": None,
         }
 
         logger.info(f"[Orchestrator] Session {self.session_id} initialised")
+
+        if customer_context is not None:
+            self._load_customer(customer_id, customer_context=customer_context)
+        elif customer_id:
+            self._load_customer(customer_id)
+    
+    # Existing-customer pipeline
+
+    def _load_customer(
+        self,
+        customer_id: str | None,
+        customer_context: dict[str, Any] | Non = None,
+    ) -> None:
+        if customer_context is not None:
+            required = settings.risk.required_features
+            features = {k: v for k, v in customer_context.items() if k in required}
+            missing = [k for k in required if k not in features]
+            result = {
+                "features": features,
+                "missing_fields": missing,
+                "ground_truth_risk_class": None,
+                "source_dataset": "bank_api_push",
+            }
+            self._session_state["cuatomer_name"] = customer_context.get("name")
+        else:
+            result = self.customer_store.lookup(customer_id) if customer_id else None
+
+        if result is None:
+            self._session_state["customer_id"] = customer_id
+            self._session_state["customer_known"] = False
+            logger.info(
+                f"[Orchestrator] customer_id={customer_id!r} not found = "
+                f"treating as new customer, elicitation will proceed normally."
+            )
+            self.audit_log.record_customer_load(
+                customer_id=customer_id or "unknown",
+                known=False,
+                fields_loaded=0,
+                missing_fields=[],
+            )
+            return
+        
+        features = dict(result["features"])
+        missing = list(result["missing_fields"])
+
+        proxy_fields: list[str] = []
+        proxy_metadata: dict[str, Any] = {}
+        if "loss_tolerance" in missing:
+            proxy = derive_loss_tolerance_proxy(features)
+            if proxy is not None:
+                features["loss_tolerance"] = proxy["value"]
+                missing.remove("loss_tolerance")
+                proxy_fields.append("loss_tolerance")
+                proxy_metadata["loss_tolerance"] = proxy
+                logger.info(
+                    f"[Orchestrator] Derived loss_tolerance proxy="
+                    f"{proxy['value']} (confidence={proxy['confidence']}, "
+                    f"basis={proxy['basis']}) for customer_id={customer_id!r}. "
+                    f"Proceeding without user confirmation — disclosed instead "
+                    f"via ExplainabilityAgent's estimated-input note "
+                    f"(see explainability/explainability_agent.py)."
+                )
+
+        self._session_state["customer_id"] = customer_id
+        self._session_state["customer_known"] = True
+        self._session_state["user_features"] = features
+        self._session_state["missing_customer_fields"] = missing
+        self._session_state["ground_truth_risk_class"] = result["ground_truth_risk_class"]
+        self._session_state["proxy_fields"] = proxy_fields
+        self._session_state["proxy_metadata"] = proxy_metadata
+
+        logger.info(
+            f"[Orchestrator] Loaded customer_id={customer_id!r} via "
+            f"{result['source_dataset']} — {len(features)} features "
+            f"pre-filled ({proxy_fields} derived), missing={missing}"
+        )
+        self.audit_log.record_customer_load(
+            customer_id=customer_id or "unknown",
+            known=True,
+            fields_loaded=len(features),
+            missing_fields=missing,
+        )
+    
+    def update_customer_features(self, features: dict[str, Any]) -> None:
+        """
+        Merge updated/newly-elicited features into the current session and
+        persist them back to the CustomerStore.
+
+        Covers two cases with the same call:
+          - Flow 3: known customer, changed circumstances
+            (e.g. income changed since last visit)
+          - Known customer with missing_customer_fields now supplied
+            (e.g. loss_tolerance elicited on first contact)
+
+        A brand-new customer_id not yet in the store is created on first
+        save — this is also how a new customer graduates into the
+        existing-customer pipeline for their next session.
+        """
+        self._session_state["user_features"].update(features)
+
+        # A field the user later corrects (via Flow 3) is no longer an
+        # unconfirmed estimate — drop it from both proxy trackers.
+        for f in list(features.keys()):
+            if f in self._session_state["proxy_fields"]:
+                self._session_state["proxy_fields"].remove(f)
+            self._session_state["proxy_metadata"].pop(f, None)
+
+        customer_id = self._session_state.get("customer_id")
+        if not customer_id:
+            logger.warning(
+                "[Orchestrator] update_customer_features called with no "
+                "customer_id on session — features kept in-session only, "
+                "not persisted to CustomerStore."
+            )
+            return
+
+        self.customer_store.save(customer_id, features)
+
+        # Recompute which required fields are still missing after the update
+        still_missing = [
+            f for f in self._session_state["missing_customer_fields"]
+            if f not in features
+        ]
+        self._session_state["missing_customer_fields"] = still_missing
+        self._session_state["customer_known"] = True
+
+        logger.info(
+            f"[Orchestrator] customer_id={customer_id!r} features updated: "
+            f"{sorted(features.keys())} — still missing: {still_missing}"
+        )
+
     
     # Layer 1 - Goal decomposition
     def _classify_intent(self, user_message: str) -> tuple[RoutingDecision, str, float]:
