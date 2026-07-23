@@ -267,6 +267,42 @@ class HallucinationConfig:
     log_flagged_to_audit: bool = True
 
 @dataclass
+class MarketDataConfig:
+    """
+    yfinance-backed live pricing, with a snapshot-for-reproducibility mode.
+
+    enabled:
+      Master switch. False by default — IRISH_PRODUCT_CATALOGUE's synthetic
+      expected_return_pct values are used unchanged, exactly as in Phases
+      1-8. Set MARKET_DATA_ENABLED=true (or pass enabled=True) to turn on
+      live enrichment.
+
+    period_days:
+      Trailing window used to compute the observed annualised return from
+      price history (e.g. 365 = trailing 1-year return).
+
+    cache_ttl_seconds:
+      In-memory cache lifetime per ticker within a process. Keeps a single
+      evaluation run internally consistent (doesn't re-fetch and drift
+      mid-run) without needing the snapshot file.
+
+    snapshot_path:
+      If set and the file exists, prices are read from this frozen JSON
+      snapshot instead of fetching live — the reproducible-evaluation path.
+      Write a fresh snapshot with
+      `python scripts/build_knowledge_base.py --refresh-market-snapshot`
+      (or by enabling `enabled` once and letting MarketDataClient persist
+      what it fetches).
+    """
+    enabled: bool = field(
+        default_factory=lambda: os.getenv("MARKET_DATA_ENABLED", "false").lower() == "true"
+    )
+    period_days: int = 365
+    cache_ttl_seconds: int = 900
+    snapshot_path: Path = ROOT_DIR / "data" / "market_data" / "snapshot.json"
+    request_timeout_seconds: int = 5
+
+@dataclass
 class Settings:
     llm: LLMConfig = field(default_factory=LLMConfig)
     conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
@@ -277,6 +313,7 @@ class Settings:
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
     rag: RAGConfig = field(default_factory=RAGConfig)
     hallucination: HallucinationConfig = field(default_factory=HallucinationConfig)
+    market_data: MarketDataConfig = field(default_factory=MarketDataConfig)
     debug: bool = field(
         default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true"
     )
