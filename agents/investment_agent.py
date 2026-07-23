@@ -220,6 +220,71 @@ IRISH_PRODUCT_CATALOGUE: list[dict[str, Any]] = [
     },
 ]
 
+TICKER_PROXY_MAP: dict[str, dict[str, Any]] = {
+    "MMK001": {"tickers": ["BIL"], "weights": [1.0], "note": "1-3 month T-Bill proxy for cash-like money market exposure"},
+    "GOV001": {"tickers": ["SHY"], "weights": [1.0], "note": "1-3 year Treasury proxy for short-dated sovereign bonds"},
+    "GOV002": {"tickers": ["IEF"], "weights": [1.0], "note": "7-10 year Treasury proxy for long-dated sovereign bonds"},
+    "CBI001": {"tickers": ["LQD"], "weights": [1.0], "note": "Investment-grade corporate bond index proxy"},
+    "MXL001": {"tickers": ["VT", "BND"], "weights": [0.3, 0.7], "note": "30/70 global equity / aggregate bond blend"},
+    "CB001": {"tickers": ["HYG"], "weights": [1.0], "note": "High-yield corporate bond index proxy"},
+    "MXM001": {"tickers": ["VT", "BND"], "weights": [0.6, 0.4], "note": "60/40 global equity / aggregate bond blend"},
+    "ETB001": {"tickers": ["VT"], "weights": [1.0], "note": "Total world equity index proxy"},
+    "REIT001": {"tickers": ["VNQ"], "weights": [1.0], "note": "US-listed REIT index used as global REIT proxy"},
+    "EQF001": {"tickers": ["VT"], "weights": [1.0], "note": "Total world equity index proxy (passive stand-in for an active fund)"},
+    "ETS001": {"tickers": ["XLK"], "weights": [1.0], "note": "Technology sector index proxy"},
+    "EQI001": {"tickers": ["DIA"], "weights": [1.0], "note": "Blue-chip index proxy for an individual-stock basket"},
+}
+
+def _apply_live_pricing(catalogue: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Return a copy of `catalogue` with expected_return_pct replaced by a
+    live/snapshotted trailing return wherever TICKER_PROXY_MAP has an
+    entry and settings.market_data yields a quote. Falls through to the
+    synthetic value per-product on any failure — never raises, and never
+    mutates the module-level IRISH_PRODUCT_CATALOGUE.
+
+    Adds two provenance fields for the audit trail (O3):
+      expected_return_source: "live" | "synthetic"
+      pricing_note: proxy ticker(s) and period used, or None
+    """
+    from utils.market_data_client import market_data_client  # noqa: PLC0415
+
+    enriched = []
+    for product in catalogue:
+        product = dict(product)
+        product["expected_return_source"] = "synthetic"
+        product["pricing_note"] = None
+
+        proxy = TICKER_PROXY_MAP.get(product["product_id"])
+        if proxy and settings.market_data.enabled:
+            weighted_return = 0.0
+            as_of = None
+            missing = False
+            for ticker, weight in zip(proxy["tickers"], proxy["weights"]):
+                quote = market_data_client.get_trailing_return_pct(ticker)
+                if quote is None:
+                    missing = True
+                    break
+                weighted_return += quote.trailing_return_pct * weight
+                as_of = quote.as_of
+
+            if not missing:
+                product["expected_return_pct"] = round(weighted_return, 2)
+                product["expected_return_source"] = "live"
+                product["pricing_note"] = (
+                    f"{'+'.join(proxy['tickers'])} trailing "
+                    f"{settings.market_data.period_days}d return, as of {as_of} "
+                    f"({proxy['note']})"
+                )
+            else:
+                logger.debug(
+                    f"[InvestmentAgent] Live pricing unavailable for "
+                    f"{product['product_id']} — using synthetic expected_return_pct"
+                )
+
+        enriched.append(product)
+    return enriched
+
 class InvestmentAgent(BaseAgent):
     """
     Context-Aware hybrid investment product recommender
@@ -235,7 +300,7 @@ class InvestmentAgent(BaseAgent):
 
     def __init__(self, llm_client: LLMClient):
         super().__init__(llm_client, name="InvestmentAgent")
-        self.catalogue = IRISH_PRODUCT_CATALOGUE
+        self.catalogue = _apply_live_pricing(IRISH_PRODUCT_CATALOGUE)
 
     @property
     def system_prompt(self) -> str:
@@ -547,6 +612,10 @@ class InvestmentAgent(BaseAgent):
                 }
                 for v in violations
             ],
+            "hallucination_report": hallucination_report,
+            "hallucination_flagged": bool(
+                hallucination_report and hallucination_report["n_flagged"] > 0
+            ),
         }
 
         duration_ms = (time.perf_counter() - start_time) * 1000
@@ -561,10 +630,14 @@ class InvestmentAgent(BaseAgent):
             raw=synthesis,
             duration_ms=duration_ms,
             tokens=tokens,
+            rag_sources=rag_sources,
             error=None if deliverable else "Constraint hard-block on synthesis output",
             routing_context={
                 "risk_class": risk_class,
                 "top_product_id": top_product["product_id"],
                 "top_product_score": top_product["score"],
+                "hallucination_flagged": bool(
+                    hallucination_report and hallucination_report["n_flagged"] > 0
+                ),
             },
         )
