@@ -13,6 +13,7 @@ Layer B calls.
 from __future__ import annotations
 import json
 import re
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -180,7 +181,7 @@ def _chunk_text(text: str, size: int, overlap: int) -> list[str]:
     text = re.sub(r"\s+", " ", text).strip()
     if len(text) <= size:
         return [text] if text else []
-    chunks =[]
+    chunks = []
     start = 0
     while start < len(text):
         end = min(start + size, len(text))

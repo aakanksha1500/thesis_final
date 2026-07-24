@@ -30,35 +30,35 @@ from rag.vector_store import Document, VectorStore
 
 class TestEmbedder:
 
-    def test_encode_reurns_correct_dimensionality(self):
-        embedder = Embedder(dim=64, force_fallback=True)
+    def test_encode_returns_correct_dimensionality(self):
+        embedder = Embedder(dim=64)
         vec = embedder.encode_one("moderate risk classification")
         assert len(vec) == 64
     
     def test_encode_is_deterministic(self):
-        embedder = Embedder(dim=64, force_fallback=True)
+        embedder = Embedder(dim=64)
         v1 = embedder.encode_one("balanced mixed fund")
         v2 = embedder.encode_one("balanced mixed fund")
         assert v1 == v2
 
     def test_encode_empty_batch_returns_empty_list(self):
-        embedder = Embedder(dim=64, force_fallback=True)
+        embedder = Embedder(dim=64)
         assert embedder.encode([]) == []
 
     def test_vectors_are_l2_normalised(self):
-        embedder = Embedder(dim=64, force_fallback=True)
+        embedder = Embedder(dim=64)
         vec = embedder.encode_one("government bond fund with low fees")
         norm = sum(v * v for v in vec) ** 0.5
         assert abs(norm - 1.0) < 1e-6 or norm == 0.0  # zero vector for no tokens edge case
 
     def test_identical_texts_have_similarity_one(self):
-        embedder = Embedder(dim=64, force_fallback=True)
+        embedder = Embedder(dim=64)
         v1 = embedder.encode_one("investment grade corporate bond fund")
         v2 = embedder.encode_one("investment grade corporate bond fund")
-        assert cosine_similarity(v1, v2) > 0.99
+        assert cosine_similarity(v1, v2) > 0.999
 
     def test_unrelated_texts_have_lower_similarity_than_identical(self):
-        embedder = Embedder(dim=64, force_fallback=True)
+        embedder = Embedder(dim=64)
         v1 = embedder.encode_one("investment grade corporate bond fund")
         v2 = embedder.encode_one("pizza recipe ingredients cheese dough")
         v3 = embedder.encode_one("investment grade corporate bond fund")
@@ -76,11 +76,11 @@ class TestEmbedder:
 
 class TestVectorStore:
     def _make_docs(self):
-        embedder = Embedder(dim=32, force_fallback=True)
+        embedder = Embedder(dim=32)
         texts = [
             "Irish government bond short-dated sovereign exposure",
             "Broad global equity ETF growth product",
-            "Insyant access savings account deposit guarantee",
+            "Instant access savings account deposit guarantee",
         ]
         docs = [
             Document(doc_id=f"d{i}", text=t, source="Test Source", document_set="test")
@@ -101,7 +101,7 @@ class TestVectorStore:
         with __import__("pytest").raises(ValueError):
             store.add(docs, vectors[:2])
     
-    def test_search_return_most_similar_first(self):
+    def test_search_returns_most_similar_first(self):
         embedder, docs, vectors = self._make_docs()
         store = VectorStore(dim=embedder.dim)
         store.add(docs, vectors)
@@ -114,20 +114,17 @@ class TestVectorStore:
         top_doc, top_score = results[0]
         assert "bond" in top_doc.text.lower()
 
-    def test_Search_empty_store_returns_empty_list(self):
+    def test_search_empty_store_returns_empty_list(self):
         store = VectorStore(dim=32)
         results = store.search([0.0] * 32, top_k=3)
         assert results == []
 
-    def test_search_respects_top_k(self, tmp_path):
+    def test_search_respects_top_k(self):
         embedder, docs, vectors = self._make_docs()
         store = VectorStore(dim=embedder.dim)
         store.add(docs, vectors)
-        store.save(tmp_path)
-
-        loaded = VectorStore.load(tmp_path)
-        assert len(loaded) == len(store)
-        results = loaded.search(embedder.encode_one("bond"), top_k=1)
+        
+        results = store.search(embedder.encode_one("bond"), top_k=1)
         assert len(results) == 1
     
     def test_save_and_load_roundtrip(self, tmp_path):

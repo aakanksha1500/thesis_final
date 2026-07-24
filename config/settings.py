@@ -24,7 +24,7 @@ class LLMConfig:
     judge_model: str = field(
         default_factory=lambda: os.getenv("JUDGE_MODEL", "gpt-4o-mini")
     )
-    temprature: float = 0.2
+    temperature: float = 0.2
     max_tokens: int = 1024
     timeout_seconds: int = 30
 
