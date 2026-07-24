@@ -25,12 +25,12 @@ logger = get_logger(__name__)
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
-_STOPWORDS = frozenset((
+_STOPWORDS = frozenset({
     "a", "an", "and", "are", "as", "at", "based", "be", "by", "for", "from",
     "has", "have", "if", "in", "into", "is", "it", "its", "of", "on", "or",
     "should", "than", "that", "the", "this", "to", "was", "we", "were",
     "will", "with", "your", "you",
-))
+})
 
 class Embedder:
     """
@@ -49,28 +49,20 @@ class Embedder:
         self, 
         model_name: str | None = None, 
         dim: int | None = None,
-        force_fallback: bool = False,
     ):
         self.model_name = model_name or settings.rag.embedding_model
         self.dim = dim or settings.rag.embedding_dim
         self._model = None
         self._mode = "fallback"
-        self._force_fallback = force_fallback
         self._init_model()
 
     def _init_model(self) -> None:
-        if self._force_fallback:
-            logger.info(
-                "[Embedder] force_fallback=True — running FALLBACK mode "
-                "(hashing embedder) regardless of installed dependencies. "
-                "Requested dim is honoured exactly in this mode."
-            )
-            return
+        
         try:
             from sentence_transformers import SentenceTransformer
 
             self._model = SentenceTransformer(self.model_name)
-            self._dim = self._model.get_embedding_dimension()
+            self.dim = self._model.get_sentence_embedding_dimension()
             self._mode = "sentence-transformers"
             logger.info(
                 f"[Embedder] Initialised in REAL mode — model={self.model_name} "
