@@ -13,13 +13,13 @@ import json
 import re
 from pathlib import Path
 
-from evaluation.results_io import write_results
 from evaluation.metrics import finqa_exact_match, hallucination_rate
+from evaluation.results_io import write_results
 from rag.hallucination_detector import HallucinationDetector
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "results"
 
-# Synthetic FinQA-style fixture 
+# Synthetic FinQA-style fixture
 # Each context contains the fact needed to answer the question correctly;
 # the no-RAG predictor never sees `context`.
 FINQA_FIXTURE: list[dict[str, str]] = [

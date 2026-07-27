@@ -125,7 +125,7 @@ TONE AND CONSTRAINTS:
 - Maximum 150 words total.
 """
 
-#Layer A - SHAP attribution narrative 
+#Layer A - SHAP attribution narrative
 EXPLAINABILITY_SHAP_PROMPT = """You are generating the SHAP explanation layer of a multi-agent financial advisory system.
 
 You receive a dict of feature attributions in the format:
@@ -210,7 +210,7 @@ SYNTHESIS TASK:
     - State uncertainty where confidence is low.
     """
 
-# Agent-as-Judge system prompt 
+# Agent-as-Judge system prompt
 JUDGE_DIMENSIONS: list[tuple[str, str]] = [
     ("routing_accuracy",
      "Were the right agents invoked for this query type? "

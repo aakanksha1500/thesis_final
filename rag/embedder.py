@@ -46,8 +46,8 @@ class Embedder:
     """
 
     def __init__(
-        self, 
-        model_name: str | None = None, 
+        self,
+        model_name: str | None = None,
         dim: int | None = None,
     ):
         self.model_name = model_name or settings.rag.embedding_model
@@ -57,7 +57,7 @@ class Embedder:
         self._init_model()
 
     def _init_model(self) -> None:
-        
+
         try:
             from sentence_transformers import SentenceTransformer
 
@@ -79,7 +79,7 @@ class Embedder:
                 f"[Embedder] Failed to load '{self.model_name}': {exc} - "
                 f"falling back to hashing embedder."
             )
-    
+
     @property
     def mode(self) -> str:
         return self._mode
@@ -91,18 +91,18 @@ class Embedder:
         """
         if not texts:
             return []
-        
+
         if self._mode == "sentence-transformers" and self._model is not None:
             vectors = self._model.encode(
                 list(texts), normalize_embeddings=True, show_progress_bar=False
             )
             return [v.tolist() for v in vectors]
-        
+
         return [self._hash_embed(t) for t in texts]
-    
+
     def encode_one(self, text: str) -> list[float]:
         return self.encode([text])[0]
-    
+
     # Fallback embedder - deterministic hashing trick
 
     def _hash_embed(self, text: str) -> list[float]:
@@ -125,7 +125,7 @@ class Embedder:
         ]
         if not tokens:
             return vec
-        
+
         for token in tokens:
             digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
             bucket = int(digest[:8], 16) % self.dim
@@ -136,7 +136,7 @@ class Embedder:
         if norm == 0:
             return vec
         return [v / norm for v in vec]
-    
+
 def cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
     """Cosine similarity between two equal-length vectors, in [-1, 1]."""
     if len(a) != len(b) or not a:

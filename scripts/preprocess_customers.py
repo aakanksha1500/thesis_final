@@ -72,7 +72,7 @@ def _process_german_credit(path: Path) -> list[dict]:
             }
             rows.append(record)
         return rows
-    
+
 def _process_give_me_some_credit(path: Path) -> list[dict]:
     rows: list[dict] = []
     with open(path, newline="", encoding="utf-8") as f:
@@ -139,7 +139,7 @@ def main() -> None:
             f"[preprocess_customers] Skipping German Credit - "
             f"file not found at {GERMAN_CREDIT_RAW}"
         )
-    
+
     if GMSC_RAW.exists():
         gmsc_rows = _process_give_me_some_credit(GMSC_RAW)
         logger.info(f"[preprocess_customers] GiveMeSomeCredit: {len(gmsc_rows)} rows")
@@ -149,14 +149,14 @@ def main() -> None:
             f"[preprocess_customers] Skipping GiveMeSomeCredit — "
             f"file not found at {GMSC_RAW}"
         )
-    
+
     if not all_rows:
         logger.error(
             "[preprocess_customers] No raw datasets found - nothing to write. "
             "CustomerStore will fall back to data/demo_custmoers.json"
         )
         return
-    
+
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_PATH, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWrite(f, filednames=OUTPUT_FIELDS, extrasaction="ignore")

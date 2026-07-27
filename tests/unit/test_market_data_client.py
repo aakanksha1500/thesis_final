@@ -37,7 +37,6 @@ from __future__ import annotations
 import json
 import sys
 
-
 import pytest
 
 from agents.investment_agent import (
@@ -47,7 +46,6 @@ from agents.investment_agent import (
 )
 from config.settings import settings
 from utils.market_data_client import MarketDataClient, PriceQuote
-
 
 # GROUP A: MarketDataClient
 

@@ -53,8 +53,8 @@ from evaluation.metrics import (
     transparency_perception_score,
     trust_calibration_index,
 )
-from explainability.explainability_agent import ExplainabilityAgent
 from evaluation.results_io import write_results
+from explainability.explainability_agent import ExplainabilityAgent
 from utils.llm_client import LLMClient
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "results"

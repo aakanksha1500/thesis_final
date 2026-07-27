@@ -24,7 +24,6 @@ To switch ablation conditions:
 
 from __future__ import annotations
 
-
 import time
 from typing import Any
 
@@ -57,10 +56,10 @@ class ExplainabilityAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return EXPLAINABILITY_SHAP_PROMPT
-    
+
     def _parse_response(self, raw: str) -> dict[str, Any]:
         return {"explanation": raw.strip()}
-    
+
     def _call_with_system(
             self, system: str, user_message: str, temperature: float = 0.2
     ) -> tuple[str, int]:
@@ -77,7 +76,7 @@ class ExplainabilityAgent(BaseAgent):
         )
         self._call_count += 1
         return response.content, response.tokens_used
-    
+
 
     # Layer A - SHAP feature attribution narrative
     # always active across all ablation conditions.
@@ -103,7 +102,7 @@ class ExplainabilityAgent(BaseAgent):
                 "Insufficient feature data to produce an attribution "
                 "explanation for this classification."
             )
-        
+
         # Sort by absolute impact, take top 3
         sorted_features = sorted(
             shap_summary.items(),
@@ -139,7 +138,7 @@ class ExplainabilityAgent(BaseAgent):
                 f"your {top_feat.replace('_', ' ')} (value: {top_info['value']}), "
                 f"which pushed {direction} risk tier."
             )
-    
+
     def _get_top_shap_feature(
             self, shap_summary: dict[str, dict]
     ) -> tuple[str, dict] | tuple[None, None]:
@@ -150,7 +149,7 @@ class ExplainabilityAgent(BaseAgent):
             shap_summary.items(),
             key=lambda x: abs(x[1].get("shap_impact", 0)),
         )
-    
+
 
     # Layer B - RG source citations - paused until phase 8
 
@@ -220,7 +219,7 @@ class ExplainabilityAgent(BaseAgent):
             f"for query={query[:60]!r}..."
         )
         return citations
-    
+
     # Layer C - Counterfactual NL rationale
     def _generate_counterfactual(
             self,
@@ -261,7 +260,7 @@ class ExplainabilityAgent(BaseAgent):
                 f"your risk profile would shift toward a more aggressive tier "
                 f"and higher-growth products would become appropriate."
             )
-    
+
     # Calibration note — always active (X3, never ablated)
     def _generate_calibration_note(
             self,
@@ -276,7 +275,7 @@ class ExplainabilityAgent(BaseAgent):
                 f" Note: this classification has low confidence ({confidence:.0%}) "
                 f"- it is near a tier boundary and should be treated as indicative only."
             )
-        
+
         hallucination_flag = ""
         if hallucination_flagged:
             hallucination_flag = (
@@ -300,12 +299,12 @@ class ExplainabilityAgent(BaseAgent):
                 f"[ExplainabilityAgent] Calibration note failed: {exc}"
             )
             return(
-                f"This recommendation assumes stable employment and income. "
-                f"A significan change to either would warrant reassessment."
+                "This recommendation assumes stable employment and income. "
+                "A significan change to either would warrant reassessment."
                 + confidence_flag
                 + hallucination_flag
             )
-    
+
     def _generate_estimated_input_note(
         self,
         proxy_fields: list[str],
@@ -333,8 +332,8 @@ class ExplainabilityAgent(BaseAgent):
                 f"let us know if this doesn't reflect you and we'll update it."
             )
         return " ".join(sentences) if sentences else None
-        
-    
+
+
     # Output assembly
     def _assemble_explanation(
             self,
@@ -362,8 +361,8 @@ class ExplainabilityAgent(BaseAgent):
         if estimated_input_note:
             parts.append(estimated_input_note)
         return " ".join(parts)
-        
-    
+
+
     # Main entry point
     def run(self, context: dict[str, Any]) -> AgentResult:
         """
@@ -399,7 +398,7 @@ class ExplainabilityAgent(BaseAgent):
         layers_applied: list[str] = []
         tokens_total: int = 0
 
-    
+
         # Layer A: SHAP (always active)
         shap_narrative: str | None = None
         if cfg.use_shap and shap_summary:
@@ -416,7 +415,7 @@ class ExplainabilityAgent(BaseAgent):
                 f"[ExplainabilityAgent] Layer B (RAG) applied "
                 f"- {len(rag_citations)} citations"
             )
-        
+
         # Layer C: Counterfactual
         counterfactual: str | None = None
         if cfg.use_counterfactual and shap_summary:
@@ -441,7 +440,7 @@ class ExplainabilityAgent(BaseAgent):
         )
         if "calibration_note" not in layers_applied:
             layers_applied.append("calibration_note")
-        
+
         proxy_fields: list[str] = context.get("proxy_fields", [])
         proxy_metadata: dict = context.get("proxy_metadata", {})
         estimated_input_note = self._generate_estimated_input_note(
@@ -449,7 +448,7 @@ class ExplainabilityAgent(BaseAgent):
         )
         if estimated_input_note and "estimated_input_disclosure" not in layers_applied:
             layers_applied.append("estimated_input_disclosure")
-        
+
         # Assemble full explanation
         full_explanation = self._assemble_explanation(
             shap_narrative=shap_narrative,

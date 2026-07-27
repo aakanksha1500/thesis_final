@@ -4,7 +4,8 @@ This helps us to keep test-time overrides clean
 """
 
 from __future__ import annotations
-import os   
+
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -53,7 +54,7 @@ class ConversationalConfig:
             "risk_tolerance",
             "time_horizon",
             ])
-    
+
     #maximum conversation turns before forcing re-elicitation of stale slots
     slot_ttl_turns: int = 10
 
@@ -71,11 +72,11 @@ class RiskConfig:
     ml_weight: float = 0.6
     rule_weight: float = 0.4
     risk_classes: list = field(default_factory=lambda: [
-        "conservative", "moderately_conservative", "moderate", 
-        "moderately_aggressive", "aggressive", 
+        "conservative", "moderately_conservative", "moderate",
+        "moderately_aggressive", "aggressive",
     ])
     required_features: list = field(default_factory=lambda: [
-        "age", "income", "employment_status", "dependents", 
+        "age", "income", "employment_status", "dependents",
         "existing_debt", "investment_horizon",
         "loss_tolerance", "financial_knowledge_score",
     ])
@@ -106,7 +107,7 @@ class InvestmentConfig:
     top_k: int = 3
     min_products_after_filter: int = 1
     max_claimed_return_pct: float = 30.0
-    
+
 @dataclass
 class BudgetConfig:
     """
@@ -147,7 +148,7 @@ class ExplainabilityConfig:
     prompt_version: str = "v1.0"
     low_confidence_threshold: float = 0.6
 
-# Orchestrator configuration 
+# Orchestrator configuration
 # Addresses RQ4: multi-agent vs monolithic coherence.
 # O1 — HALO hierarchical orchestration (Hou et al.)
 # O3 — TRiSM audit log (Raza et al. [1])

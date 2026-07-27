@@ -17,13 +17,15 @@ Three things BaseAgent provides:
 """
 
 from __future__ import annotations
-import time
+
 import abc
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
-from utils.logger import get_logger
+
 from utils.llm_client import LLMClient
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -174,7 +176,7 @@ class BaseAgent(abc.ABC):
             f"- {elapsed_ms:.0f}ms - {response.tokens_used} tokens"
         )
         return response.content, response.tokens_used
-    
+
     def _make_result(
             self,
             payload: dict,
@@ -201,7 +203,6 @@ class BaseAgent(abc.ABC):
             rag_sources_used = rag_sources or [],
             routing_context = routing_context or {},
         )
-    
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name!r}, calls={self._call_count})"
-    

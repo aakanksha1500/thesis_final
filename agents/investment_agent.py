@@ -21,7 +21,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from agents.base_agent import BaseAgent, AgentResult
+from agents.base_agent import AgentResult, BaseAgent
 from config.constraints import financial_constraints
 from config.prompts import INVESTMENT_SYSTEM
 from config.settings import settings
@@ -305,12 +305,12 @@ class InvestmentAgent(BaseAgent):
     @property
     def system_prompt(self) -> str:
         return INVESTMENT_SYSTEM
-    
+
     def _parse_response(self, raw: str) -> dict[str, Any]:
         """
         Investment recommendations are free text, so this just wraps the raw string."""
         return {"synthesis": raw.strip()}
-    
+
     # Hybrid layer 1 — rule-based filtering
     def _filter_by_risk_class(self, risk_class: str) -> list[dict[str, Any]]:
         """
@@ -349,7 +349,7 @@ class InvestmentAgent(BaseAgent):
             f"survive (categories: {sorted(allowed_categories)})"
         )
         return filtered
-    
+
     # Hybrid layer 2 — feature-based ranking
 
     def _normalise(self, value: float, low: float, high: float) -> float:
@@ -357,9 +357,9 @@ class InvestmentAgent(BaseAgent):
         if high <= low:
             return 0.5
         return float(min(max((value - low) / (high - low), 0.0), 1.0))
-    
+
     def _horizon_fit_score(
-            self, product_horizon: int, user_horizon: int 
+            self, product_horizon: int, user_horizon: int
     ) -> float:
         """
         Score in [0, 1] for how closely a product's typical holding period
@@ -368,7 +368,7 @@ class InvestmentAgent(BaseAgent):
         """
         gap = abs(product_horizon - user_horizon)
         return float(max(1.0 - gap / 10.0, 0.0))
-    
+
     def _rank_products(
         self,
         products: list[dict[str, Any]],
@@ -397,7 +397,7 @@ class InvestmentAgent(BaseAgent):
         """
         if not products:
             return []
-        
+
         user_features = context.get("user_features", {}) or {}
         user_horizon = int(user_features.get("investment_horizon", 5))
 
@@ -479,7 +479,7 @@ class InvestmentAgent(BaseAgent):
             "\nWrite the recommendation now, per your system instructions."
         )
         return "\n".join(lines)
-    
+
     def run(self, context: dict[str, Any]) -> AgentResult:
         """
         Process one investment recommendation request.
@@ -576,9 +576,9 @@ class InvestmentAgent(BaseAgent):
         hallucination_report = None
         rag_sources: list[str] = []
         if settings.hallucination.run_inline:
-            try: 
+            try:
                 from rag.hallucination_detector import hallucination_detector
-                from rag.knowledge_base import knowledge_base 
+                from rag.knowledge_base import knowledge_base
 
                 grounding_query = f"{risk_class} {top_product['category']} {top_product['name']}"
                 grounding_contexts = knowledge_base.retrieve(grounding_query)

@@ -26,7 +26,6 @@ from rag.hallucination_detector import (
     extract_claims,
 )
 
-
 # GROUP A: extract_claims()
 
 class TestExtractClaims:

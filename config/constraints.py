@@ -11,8 +11,10 @@ Constraint categories:
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any
+
 
 @dataclass
 class ConstraintViolation:
@@ -35,7 +37,7 @@ class FinancialConstraints:
     }
 
     PROHIBITED_PHRASES = [
-        "guaranteed return", "risk-free profit", "cannot lose money", 
+        "guaranteed return", "risk-free profit", "cannot lose money",
         "100% safe", "certain profit", "no risk",
     ]
 
@@ -53,7 +55,7 @@ class FinancialConstraints:
                 severity="hard_block", field="expected_return_pct", value=claimed_return,
             )
         return None
-    
+
     def check_risk_product_compatibility(self, risk_class: str, product_category: str):
         allowed = self.RISK_PRODUCT_ALLOW.get(risk_class, set())
         if product_category not in allowed:
@@ -63,7 +65,7 @@ class FinancialConstraints:
                 severity="hard_block", field="product_category", value=product_category,
             )
         return None
-    
+
     def check_prohibited_phrases(self, text: str):
         text_lower = text.lower()
         return [
@@ -71,7 +73,7 @@ class FinancialConstraints:
                                 severity="hard_block", field="response_text", value=p)
             for p in self.PROHIBITED_PHRASES if p in text_lower
         ]
-    
+
     def check_disclaimers_present(self, text: str):
         text_lower = text.lower()
         return [
@@ -79,7 +81,7 @@ class FinancialConstraints:
                                 severity="warn", field="response_text", value=d)
             for d in self.REQUIRED_DISCLAIMERS if d not in text_lower
         ]
-    
+
     def validate_response(self, response_text: str, risk_class=None,
                           product_category=None, claimed_return=None):
         violations = []
@@ -93,6 +95,5 @@ class FinancialConstraints:
         violations.extend(self.check_disclaimers_present(response_text))
         has_hard_block = any(v.severity == "hard_block" for v in violations)
         return not has_hard_block, violations
-    
+
 financial_constraints = FinancialConstraints()
-        

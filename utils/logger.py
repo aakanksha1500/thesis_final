@@ -10,9 +10,11 @@ DEBUG=false -> INFO + above
 """
 
 from __future__ import annotations
+
 import logging
 import os
 import sys
+
 
 def get_logger(name: str) -> logging.Logger:
     """

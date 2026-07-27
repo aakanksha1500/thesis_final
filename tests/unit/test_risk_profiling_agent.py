@@ -39,7 +39,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from evaluation.results_io import write_results
 from agents.risk_profiling_agent import RiskProfilingAgent
 from config.constraints import FinancialConstraints, financial_constraints
 from evaluation.metrics import (
@@ -49,6 +48,7 @@ from evaluation.metrics import (
     hybrid_vs_rule_only_delta,
     risk_alignment_rate,
 )
+from evaluation.results_io import write_results
 from utils.llm_client import LLMClient
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "results"
@@ -445,7 +445,7 @@ class TestRQ1Evaluation:
         gold = ["aggressive", "moderate"]
         result = f1_risk_classification(preds, gold)
         assert result.value < 0.5
-    
+
     def test_auc_perfect_separation(self):
         scores = [0.05, 0.1, 0.5, 0.55, 0.95, 0.9]
         gold = ["conservative", "conservative", "moderate",

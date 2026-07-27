@@ -91,8 +91,8 @@ class Orchestrator:
     """
 
     def __init__(
-            self, 
-            llm_client: LLMClient, 
+            self,
+            llm_client: LLMClient,
             session_id: str | None = None,
             customer_id: str | None = None,
             customer_context: dict[str, Any] | None = None,
@@ -138,7 +138,7 @@ class Orchestrator:
             self._load_customer(customer_id, customer_context=customer_context)
         elif customer_id:
             self._load_customer(customer_id)
-    
+
     # Existing-customer pipeline
 
     def _load_customer(
@@ -174,7 +174,7 @@ class Orchestrator:
                 missing_fields=[],
             )
             return
-        
+
         features = dict(result["features"])
         missing = list(result["missing_fields"])
 
@@ -215,7 +215,7 @@ class Orchestrator:
             fields_loaded=len(features),
             missing_fields=missing,
         )
-    
+
     def update_customer_features(self, features: dict[str, Any]) -> None:
         """
         Merge updated/newly-elicited features into the current session and
@@ -264,7 +264,7 @@ class Orchestrator:
             f"{sorted(features.keys())} — still missing: {still_missing}"
         )
 
-    
+
     # Layer 1 - Goal decomposition
     def _classify_intent(self, user_message: str) -> tuple[RoutingDecision, str, float]:
         """
@@ -310,7 +310,7 @@ class Orchestrator:
         except Exception as exc:
             logger.error(f"[Orchestrator] Intent classification failed: {exc}")
             return RoutingDecision.CONVERSATIONAL_ONLY, "general_query", 0.0
-        
+
     # Layer 2 - Agent selection and execution
 
     def _execute_agent(
@@ -436,7 +436,7 @@ class Orchestrator:
                     self._session_state["risk_profile"] = result.payload
                 if agent_name == "InvestmentAgent":
                     self._session_state["prior_investment_output"] = result.payload
-            
+
                     hreport = result.payload.get("hallucination_report")
                     if hreport and settings.hallucination.log_flagged_to_audit:
                         for claim_record in hreport.get("claims", []):
@@ -451,7 +451,7 @@ class Orchestrator:
                                 )
 
         return results, recovered
-    
+
     # Layer 3 - Execution monitoring
     def _check_constraints(
         self, response_text: str, agent_results: list[AgentResult]
@@ -566,7 +566,7 @@ class Orchestrator:
                 "I was unable to process your request at this time. "
                 "Please try again or consult a qualified financial advisor."
             )
-    
+
     # Main entry point
     def process_turn(self, user_message: str) -> OrchestratorResult:
         """

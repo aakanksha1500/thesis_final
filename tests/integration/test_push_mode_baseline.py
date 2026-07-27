@@ -14,7 +14,6 @@ import json
 from pathlib import Path
 
 from evaluation.results_io import write_results
-
 from orchestrator.orchestrator import Orchestrator
 from utils.llm_client import LLMClient
 
@@ -117,7 +116,7 @@ class TestPushModeBaseline:
                 "risk_status": risk_result.payload.get("status"),
                 "risk_class": risk_result.payload.get("risk_class"),
             })
-        
+
         results_payload = {
             "phase": "8b",
             "component": "push_mode_and_disclosure",

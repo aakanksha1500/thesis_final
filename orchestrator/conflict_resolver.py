@@ -24,7 +24,6 @@ All conflicts are returned as a list of dicts for the audit log.
 
 from __future__ import annotations
 
-
 from agents.base_agent import AgentResult
 from config.constraints import financial_constraints
 from config.settings import settings
@@ -70,12 +69,12 @@ class ConflictResolver:
                 logger.warning(
                     "[ConflictResolver] MISSING_RISK_BEFORE_INVESTMENT detected"
                 )
-        
+
         # Check 2: Risk-product compatibility
         if (risk_result and risk_result.success and
                 inv_result and inv_result.success and
                 inv_result.payload.get("deliverable", True)):
-            
+
             risk_class = risk_result.payload.get("risk_class", "moderate")
             shortlist: list[dict] = inv_result.payload.get("shortlist", [])
             cleaned_shortlist = []

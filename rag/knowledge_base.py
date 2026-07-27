@@ -11,6 +11,7 @@ Layer B calls.
 """
 
 from __future__ import annotations
+
 import json
 import re
 import urllib.error
@@ -24,7 +25,7 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-CBI_API_URL = "https://www.centralbank.ie/opendata/api/rates"  
+CBI_API_URL = "https://www.centralbank.ie/opendata/api/rates"
 CBI_API_TIMEOUT_SECONDS = 5
 
 DATA_RAW = ROOT_DIR / "data" / "raw"
@@ -225,7 +226,7 @@ class KnowledgeBase:
                     f"— rebuilding."
                 )
         self.rebuild()
-    
+
     def rebuild(self) -> None:
         """Fetch/load all document sets, embed, and index them from scratch."""
         logger.info("[KnowledgeBase] Building index over D1-D4...")
@@ -299,7 +300,7 @@ class KnowledgeBase:
                 f"using bundled seed corpus for [D3]."
             )
         return list(_SEED_CBI_OPEN_DATA)
-    
+
     @staticmethod
     def _parse_cbi_payload(payload: Any) -> list[dict[str, str]]:
         """Best-effort parse of the CBI API's JSON shape into {doc_id, text}."""
@@ -314,7 +315,7 @@ class KnowledgeBase:
                     "text": str(item["description"]),
                 })
         return records
-    
+
     def _load_eu_digital_finance(self) -> list[dict[str, str]]:
         """
         [D4] EU Digital Finance Platform requires manual CSV download per
@@ -345,7 +346,7 @@ class KnowledgeBase:
             logger.warning(f"[KnowledgeBase] Failed reading EU Digital Finance CSVs: {exc}")
 
         return records if records else list(_SEED_EU_DIGITAL_FINANCE)
-    
+
     def _load_finqa_split(self, filename: str, document_set: str) -> list[dict[str, str]]:
         """[D2] FinQA Original — loaded from data/raw/ if download_datasets.py --phase 8 has run."""
         path = DATA_RAW / filename
@@ -387,8 +388,8 @@ class KnowledgeBase:
         except Exception as exc:
             logger.warning(f"[KnowledgeBase] Failed reading FinQA Verified: {exc}")
             return list(_SEED_FINQA_VERIFIED)
-    
-    # Retrieval - the entry point ExplainabilityAgent Layer B calls 
+
+    # Retrieval - the entry point ExplainabilityAgent Layer B calls
 
     def retrieve(
         self,
@@ -417,7 +418,7 @@ class KnowledgeBase:
         self.ensure_built()
         if not query or not query.strip() or len(self.store) == 0:
             return []
-        
+
         top_k = top_k or settings.rag.top_k_citations
         query_vector = self.embedder.encode_one(query)
 

@@ -9,17 +9,18 @@ Run:
 import logging
 import os
 from unittest import result
+
 import pytest
 
-
-from utils.logger import get_logger
 from utils.llm_client import LLMClient, LLMResponse
+from utils.logger import get_logger
+
 
 class TestLogger:
     def test_returns_logger_instance(self):
         logger = get_logger("test_logger")
         assert isinstance(logger, logging.Logger)
-    
+
     def test_logger_name_is_set(self):
         logger = get_logger("finadvice.test")
         assert logger.name == "finadvice.test"
@@ -28,7 +29,7 @@ class TestLogger:
         a = get_logger("shared.module")
         b = get_logger("shared.module")
         assert a is b
-    
+
     def test_different_names_return_different_instances(self):
         a = get_logger("module.one")
         b = get_logger("module.two")
@@ -50,7 +51,7 @@ class TestLogger:
         logger.warning("Warning message")
         logger.error("Error message")
         logger.critical("Critical message")
-    
+
 class TestLLMClientMock:
     def setup_method(self):
         os.environ.pop("OPENAI_API_KEY", None)
@@ -59,7 +60,7 @@ class TestLLMClientMock:
 
     def test_initialises_in_mock_mode_without_api_key(self):
         assert self.client._mode == "mock"
-    
+
     def test_chat_returns_llm_response_type(self):
         result = self.client.chat(
             system="You are a test agent.",
@@ -74,7 +75,7 @@ class TestLLMClientMock:
         )
         assert isinstance(result.content, str)
         assert len(result.content) > 0
-    
+
     def test_mock_response_tokens_are_zero(self):
         result = self.client.chat(
             system="System prompt.",
@@ -94,7 +95,7 @@ class TestLLMClientMock:
             system="You are a risk profiling agent.",
             messages=[{"role": "user", "content": "Assess my risk"}],
         )
-        
+
     def test_empty_messages_list_does_not_crash(self):
         result = self.client.chat(
             system="System.",

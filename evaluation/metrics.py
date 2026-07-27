@@ -18,6 +18,7 @@ from typing import Any
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
+
 @dataclass
 class EvalResult:
     """
@@ -58,13 +59,13 @@ def intent_accuracy(
     """
     if not predictions:
         return EvalResult("intent_accuracy", 0.0, {"error": "empty predictions list"})
-    
+
     if len(predictions) != len(ground_truth):
         return EvalResult(
             "intent_accuracy", 0.0,
             {"error": f"length mismatch: {len(predictions)} vs {len(ground_truth)}"}
         )
-    
+
     correct = sum(p == g for p, g in zip(predictions, ground_truth))
     accuracy = correct / len(predictions)
 
@@ -76,7 +77,7 @@ def intent_accuracy(
         bucket_stats[gold]["total"] += 1
         if pred == gold:
             bucket_stats[gold]["correct"] += 1
-    
+
     per_bucket = {
         bucket: round(v["correct"] / v["total"], 3)
         for bucket, v in bucket_stats.items()
@@ -133,7 +134,7 @@ def slot_fill_rate(
         for slot in required_slots:
             if slot in collected and collected[slot] is not None:
                 slot_fill_counts[slot] += 1
-    
+
     per_slot = {
         slot: round(count / n, 3)
         for slot, count in slot_fill_counts.items()
@@ -180,7 +181,7 @@ def risk_alignment_rate(
     if len(predictions) != len(ground_truth):
         return EvalResult("risk_alignment_rate", 0.0,
                           {"error": "length mismatch"})
-    
+
     aligned = sum(
         abs(tier_idx.get(p, 2) - tier_idx.get(g, 2)) <= 1
         for p, g in zip(predictions, ground_truth)
@@ -194,7 +195,7 @@ def risk_alignment_rate(
         tier_stats[g]["total"] += 1
         if abs(tier_idx.get(p, 2) - tier_idx.get(g, 2)) <= 1:
             tier_stats[g]["aligned"] += 1
-    
+
     per_tier = {
         tier: round(v["aligned"] / v["total"], 3)
         for tier, v in tier_stats.items()
@@ -225,7 +226,7 @@ def f1_risk_classification(
     if not predictions or len(predictions) != len(ground_truth):
         return EvalResult("f1_risk_classification", 0.0,
                           {"error": "empty or mismatched inputs"})
-    
+
     labels = list(dict.fromkeys(ground_truth))
     from collections import defaultdict
     tp: dict = defaultdict(int)
@@ -238,7 +239,7 @@ def f1_risk_classification(
         else:
             fp[p] += 1
             fn[g] += 1
-    
+
     f1s = []
     per_class = {}
     for label in labels:
@@ -252,7 +253,7 @@ def f1_risk_classification(
             "recall": round(recall, 3),
             "f1": round(f1, 3),
         }
-    
+
     macro_f1 = float(sum(f1s) / len(f1s)) if f1s else 0.0
     return EvalResult(
         metric_name="f1_risk_classification",
@@ -281,21 +282,21 @@ def auc_roc(
 
     if not hybrid_scores or len(hybrid_scores) != len(ground_truth):
         return EvalResult("auc_roc", 0.0, {"error": "empty or mismatched inputs"})
-    
+
     present_classes = sorted(set(ground_truth), key=TIERS.index)
     if len(present_classes) < 2:
         return EvalResult("auc_roc", 0.0, {
             "error": "need >= 2 distinct classes in ground_truth to compute AUC-ROC",
             "classes_present": present_classes,
         })
-    
+
     counts = {c: ground_truth.count(c) for c in present_classes}
     if any(n < 2 for n in counts.values()):
         return EvalResult("auc_roc", 0.0, {
             "error": "each class needs >= 2 samples for stable AUC-ROC",
             "class_counts": counts,
         })
-    
+
     n_tiers = len(TIERS)
     tier_centers = np.array([(i + 0.5) / n_tiers for i in range(n_tiers)])
 
@@ -644,7 +645,7 @@ def step_progress_rate(
             "step_progress_rate", 0.0,
             {"error": "no step records provided"}
         )
-    
+
     total = len(step_records)
     completed = sum(1 for s in step_records if s.get("completed", False))
     rate = completed / total
@@ -655,13 +656,13 @@ def step_progress_rate(
         agent = s.get("agent", "unknown")
         by_agent.setdefault(agent, [])
         by_agent[agent].append(s.get("completed", False))
-    
+
     per_agent_rate = {
         agent: round(sum(completions) / len(completions), 3)
         for agent, completions in by_agent.items()
     }
 
-    # Identify bottleneck agent 
+    # Identify bottleneck agent
     bottleneck = min(per_agent_rate, key=per_agent_rate.get) if per_agent_rate else None
 
     return EvalResult(
@@ -699,7 +700,7 @@ def component_synergy_score(
             "component_synergy_score", 0.0,
             {"error": "no audit records provided"}
         )
-    
+
     agent_calls = [
         r for r in audit_records
         if r.get("event_type") == "AGENT_CALL"
@@ -771,7 +772,7 @@ def tool_utilisation_efficacy(
             "tool_utilisation_efficacy", 0.0,
             {"error": "no audit records"}
         )
-    
+
     # Group agent calls by turn_id
     turns: dict[str, list[str]] = {}
     for r in audit_records:
@@ -779,13 +780,13 @@ def tool_utilisation_efficacy(
             turn_id = r.get("turn_id", "unknown")
             agent = r.get("payload", {}).get("agent", "unknown")
             turns.setdefault(turn_id, []).append(agent)
-        
+
     if not turns:
         return EvalResult(
             "tool_utilisation_efficacy", 0.0,
             {"error": "no agent calls by turn found"}
         )
-    
+
     # Compute redundancy per turn
     redundant_total = 0
     total_calls = 0
@@ -796,7 +797,7 @@ def tool_utilisation_efficacy(
             if agent in seen:
                 redundant_total += 1
             seen.add(agent)
-    
+
     tue = 1.0 - (redundant_total / total_calls) if total_calls > 0 else 0.0
 
     return EvalResult(
@@ -880,7 +881,7 @@ def _normalise_numeric_answer(raw: str) -> float | None:
         return float(match.group())
     except ValueError:
         return None
-    
+
 def finqa_exact_match(
     predictions: list[str],
     ground_truth: list[str],
@@ -913,7 +914,7 @@ def finqa_exact_match(
             "finqa_exact_match", 0.0,
             {"error": f"length mismatch: {len(predictions)} vs {len(ground_truth)}"}
         )
-    
+
     correct = 0
     unparseable = 0
     for pred, gold in zip(predictions, ground_truth):
@@ -939,7 +940,7 @@ def finqa_exact_match(
     )
 
 def hallucination_rate(
-    hallucination_reports: list[dict[str, Any]],    
+    hallucination_reports: list[dict[str, Any]],
 ) -> EvalResult:
     """
     Hallucination rate — RQ5 secondary metric.
@@ -990,4 +991,3 @@ def hallucination_rate(
             "detector_modes_seen": sorted(modes),
         },
     )
-    

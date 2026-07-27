@@ -108,7 +108,7 @@ class AuditLog:
         logger.info(
             f"[AuditLog] Session {session_id} initialised -> {self._log_path}"
         )
-    
+
     def _write(self, record: dict) -> None:
         """Append one record to the JSONL file. Never raises."""
         try:
@@ -120,7 +120,7 @@ class AuditLog:
                 f"[Auditlog] write failed (session={self.session_id}): {exc}. "
                 f"Continuing - audit failure must not block user response."
             )
-    
+
 
     # Pre-event logging methods
     # Called by Orchestrator at each stage of HALO pipeline.
@@ -138,7 +138,7 @@ class AuditLog:
                 "gdpr_note": "Message content not logged per GDPR Arts.",
             },
         ))
-    
+
     def record_customer_load(
         self,
         customer_id: str,
@@ -272,7 +272,7 @@ class AuditLog:
                 "response_blocked": blocked,
             },
         ))
-    
+
     def record_hallucination_flag(
         self,
         turn_id: str,

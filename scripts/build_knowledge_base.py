@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from config.settings import settings
 from rag.knowledge_base import KnowledgeBase
 
+
 def _print_summary(kb: KnowledgeBase) -> None:
     by_set = Counter(doc.document_set for doc in kb.store._documents)
     print("\n=== Knowledge base summary ===")
@@ -95,12 +96,12 @@ def main() -> None:
         kb.ensure_built()
         _print_summary(kb)
         return
-    
+
     print("Building RAG knowledge base over D1-D4...")
-    print(f"    CBI Open Data Portal — live API attempt, seed fallback")
-    print(f"    EU Digital Finance Platform — data/raw/eu_digital_finance/, seed fallback")
-    print(f"    FinQA Original — data/raw/finqa_original_train.json, seed fallback")
-    print(f"    FinQA Verified — data/raw/finqa_verified/, seed fallback₹")
+    print("    CBI Open Data Portal — live API attempt, seed fallback")
+    print("    EU Digital Finance Platform — data/raw/eu_digital_finance/, seed fallback")
+    print("    FinQA Original — data/raw/finqa_original_train.json, seed fallback")
+    print("    FinQA Verified — data/raw/finqa_verified/, seed fallback₹")
     kb.rebuild()
     _print_summary(kb)
 

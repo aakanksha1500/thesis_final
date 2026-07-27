@@ -52,18 +52,18 @@ class RiskProfilingAgent(BaseAgent):
     def __init__(self, llm_client: LLMClient):
         super().__init__(llm_client, name="RiskProfilingAgent")
         self._ml_model = self._load_ml_model()
-    
+
     @property
     def system_prompt(self) -> str:
         return RISK_PROFILING_SYSTEM
-    
+
     def _parse_response(self, raw: str) -> dict[str, Any]:
         """
         RiskProfilingAgent LLM output is a plain-English rationale paragraph.
         No JSON parsing needed
         """
         return {"rationale": raw.strip()}
-    
+
     # ML model loading
 
     def _load_ml_model(self):
@@ -94,7 +94,7 @@ class RiskProfilingAgent(BaseAgent):
                 "Train the model with scripts/train_risk_model.py"
             )
         return None
-    
+
     # Scoring Components
 
     def _ml_score(self, features: dict[str, Any]) -> float:
@@ -130,13 +130,13 @@ class RiskProfilingAgent(BaseAgent):
                     f"[RiskProfilingAgent] ML inference error: {exc} "
                     f"- falling back to heuristic for this call"
                 )
-        
+
         score = 0.5 # neutral starting point
 
         age = float(features.get("age", 40))
         horizon = float(features.get("investment_horizon", 5))
         tolerance = float(features.get("loss_tolerance", 3))
-        knowledge = float(features.get("financial_knowledge_score", 3)) 
+        knowledge = float(features.get("financial_knowledge_score", 3))
         income = max(float(features.get("income", 50000)), 1.0)
         debt = float(features.get("existing_debt", 0))
         debt_ratio = debt / income
@@ -148,7 +148,7 @@ class RiskProfilingAgent(BaseAgent):
         score -= debt_ratio * 0.20 # debt burden penalty
 
         return float(np.clip(score, 0.0, 1.0))
-    
+
     def _rule_score(self, features: dict[str, Any]) -> float:
         """
         Deterministic rule-based score grounded in CBI model risk guidelines.
@@ -184,7 +184,7 @@ class RiskProfilingAgent(BaseAgent):
         elif debt_to_income < 0.1:
             score += 0.05
             logger.debug("[RiskProfilingAgent] Rule R1: low DTI -> +0.05")
-        
+
         # R2: Employment status
         if employment in ("unemployed", "retired"):
             score -= 0.20
@@ -203,14 +203,14 @@ class RiskProfilingAgent(BaseAgent):
                 f"[RiskProfilingAgent] Rule R3: {dependents} dependents -> "
                 f"-{dependent_penalty:.2f}"
             )
-        
+
         # R4: Low income
         if income < 25000:
             score -= 0.10
             logger.debug("[RiskProfilingAgent] Rule R4: low income -> -0.10")
-        
+
         return float(np.clip(score, 0.0, 1.0))
-    
+
     def _hybrid_score(self, features: dict[str, Any]) -> tuple[float, float, float]:
         """
         Combine ML and rule scores using configured weights.
@@ -223,7 +223,7 @@ class RiskProfilingAgent(BaseAgent):
             settings.risk.rule_weight * rule
         )
         return ml, rule, float(np.clip(hybrid, 0.0, 1.0))
-    
+
     def _score_to_class(self, score: float) -> str:
         """
         Map continuous [0, 1] hybrid score to 5-class risk tier.
@@ -235,7 +235,7 @@ class RiskProfilingAgent(BaseAgent):
             if score < threshold:
                 return classes[i]
         return classes[-1]
-    
+
     def _compute_confidence(self, hybrid_score: float) -> float:
         """
         Confidence estimate based on distance from the nearest class boundary.
@@ -254,7 +254,7 @@ class RiskProfilingAgent(BaseAgent):
         # Normalise: max possible distance from boundary is 0.1 (class midpoint)
         confidence = min(min_distance / 0.1, 1.0)
         return round(float(confidence), 4)
-    
+
     def _compute_shap_proxy(
             self,
             features: dict[str, Any],
@@ -323,7 +323,7 @@ class RiskProfilingAgent(BaseAgent):
             f for f in settings.risk.required_features
             if f not in features or features[f] is None
         ]
-    
+
 
     # Main entry point
 

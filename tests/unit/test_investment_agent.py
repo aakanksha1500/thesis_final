@@ -34,9 +34,9 @@ from pathlib import Path
 
 import pytest
 
-from evaluation.results_io import write_results
 from agents.investment_agent import InvestmentAgent
 from evaluation.metrics import EvalResult, ndcg_at_k, precision_at_k
+from evaluation.results_io import write_results
 from utils.llm_client import LLMClient
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "results"
@@ -137,7 +137,7 @@ class TestRankProducts:
             assert "cost_score" in breakdown
             assert "horizon_fit_score" in breakdown
 
-# GROUP B: Full run() pipeline tests 
+# GROUP B: Full run() pipeline tests
 class TestRunPipeline:
 
     def test_missing_risk_class_returns_incomplete(self):

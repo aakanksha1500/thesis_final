@@ -228,8 +228,8 @@ class TestAgentResult:
 class TestIntentBuckets:
 
     def test_all_escalation_intents_are_valid_buckets(self):
-        from config.settings import settings
         from agents.conversational_agent import INTENT_ALIASES
+        from config.settings import settings
         for intent in settings.conversational.escalation_intents:
             resolved = INTENT_ALIASES.get(intent, intent)
             assert resolved in INTENT_BUCKETS, (

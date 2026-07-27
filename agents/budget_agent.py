@@ -37,7 +37,7 @@ class BudgetAgent(BaseAgent):
     def _parse_response(self, raw: str) -> dict[str, Any]:
         """Budget LLM output is plain-English — wrap directly."""
         return {"recommendations_text": raw.strip()}
-    
+
     # Cashflow Computation
     def _compute_cashflow(
         self,
@@ -54,7 +54,7 @@ class BudgetAgent(BaseAgent):
           expense_fractions — each category as fraction of income
 
         No LLM involved — pure arithmetic, fully testable.
-        """ 
+        """
        if monthly_income <= 0:
             return {
                 "total_expenses": 0.0,
@@ -66,19 +66,19 @@ class BudgetAgent(BaseAgent):
        total_expenses = sum(monthly_expenses.values())
        disposable_income = monthly_income - total_expenses
        savings_rate_pct = (disposable_income / monthly_income) * 100
-       
+
        expense_fractions = {
             category: round(amount / monthly_income, 4)
             for category, amount in monthly_expenses.items()
         }
-       
+
        return {
             "total_expenses": round(total_expenses, 2),
             "disposable_income": round(disposable_income, 2),
             "savings_rate_pct": round(savings_rate_pct, 2),
             "expense_fractions": expense_fractions,
         }
-    
+
     # Benchmark Comparison
     def _compare_to_benchmarks(
         self,
@@ -155,7 +155,7 @@ class BudgetAgent(BaseAgent):
                 f"long-term investments is advisable."
             )
         return None
-    
+
     # LLM synthesis prompt builder
     def _build_synthesis_prompt(
         self,
@@ -221,7 +221,7 @@ class BudgetAgent(BaseAgent):
             "per your system instructions."
         )
         return "\n".join(prompt_lines)
-    
+
     # Main entry point
     def run(self, context: dict[str, Any]) -> AgentResult:
         """

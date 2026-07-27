@@ -59,7 +59,7 @@ class MarketDataClient:
 
     def _init_yfinance(self) -> None:
         try:
-            import yfinance  
+            import yfinance
 
             self._yf_mode = "yfinance"
             logger.info("[MarketDataClient] yfinance available — live pricing enabled")
@@ -102,7 +102,7 @@ class MarketDataClient:
         if quote:
             self._cache[ticker] = (time.time(), quote)
         return quote
-    
+
     def _fetch_live(self, ticker: str) -> PriceQuote | None:
         try:
             import yfinance as yf  # noqa: PLC0415
@@ -132,7 +132,7 @@ class MarketDataClient:
         except Exception as exc:
             logger.warning(f"[MarketDataClient] Live fetch failed for '{ticker}': {exc}")
             return None
-        
+
 
     def write_snapshot(self, tickers: list[str], path: Path | None = None) -> Path:
         """

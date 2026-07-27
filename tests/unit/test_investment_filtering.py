@@ -5,7 +5,6 @@ RUNNING:
 
 from __future__ import annotations
 
-
 from agents.investment_agent import InvestmentAgent
 from utils.llm_client import LLMClient
 

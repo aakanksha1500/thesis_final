@@ -17,9 +17,8 @@ Dataset inventory (from literature review):
 """
 
 from __future__ import annotations
+
 import argparse
-import os
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -30,7 +29,7 @@ def phase1_check() -> None:
     Phase 1: No dataset needed to be downloaded.
     Verify the data directory structure is correct.
     """
-    print(f"[Phase 1] Checking data directory structure...")
+    print("[Phase 1] Checking data directory structure...")
     for subdir in ("raw", "processed", "embeddings"):
         path = ROOT / "data" / subdir
         path.mkdir(parents=True, exist_ok=True)
@@ -45,7 +44,7 @@ def phase2_downloads() -> None:
     """
     print("[Phase 2] Downloading Banking77 - intent classification dataset...")
     try:
-        from datasets import load_dataset   
+        from datasets import load_dataset
         ds = load_dataset("mteb/banking77", split="train")
         save_path = DATA_RAW / "banking77"
         ds.save_to_disk(str(save_path))
@@ -55,7 +54,7 @@ def phase2_downloads() -> None:
               "Add datasets>=2.19.0 to requirements.txt and re-run.")
     except Exception as e:
         print(f" FAIL Banking77 download failed: {e}")
-    
+
     print("[Phase 2] - used as a dialogue reference architecture.")
     print()
 
@@ -91,7 +90,7 @@ def phase3_downloads() -> None:
             import zipfile
             with zipfile.ZipFile(dest, "r") as z:
                 z.extractall(DATA_RAW / "bank_marketing")
-            print(f"  OK  Bank Marketing extracted to data/raw/bank_marketing/")
+            print("  OK  Bank Marketing extracted to data/raw/bank_marketing/")
         else:
             print(f"  SKIP  {dest} already exists")
     except Exception as e:
@@ -151,12 +150,12 @@ def phase8_downloads() -> None:
     # D2 — FinQA Original
     print("  [D2] FinQA Original...")
     try:
-        import urllib.request, zipfile  # noqa: PLC0415
+        import urllib.request
         url = "https://github.com/czyssrs/FinQA/raw/main/dataset/train.json"
         dest = DATA_RAW / "finqa_original_train.json"
         if not dest.exists():
             urllib.request.urlretrieve(url, dest)
-            print(f"  OK  FinQA Original train split saved")
+            print("  OK  FinQA Original train split saved")
         else:
             print(f"  SKIP  {dest} already exists")
     except Exception as e:

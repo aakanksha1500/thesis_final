@@ -31,11 +31,11 @@ from unittest.mock import patch
 
 import pytest
 
-
 from agents.base_agent import AgentResult
 from orchestrator.audit_log import AuditLog
 from orchestrator.conflict_resolver import ConflictResolver
 from orchestrator.failure_handler import FailureHandler
+
 
 # GROUP A: AuditLog unit tests
 class TestAuditLog:

@@ -23,6 +23,7 @@ Evaluation:
 """
 
 from __future__ import annotations
+
 import json
 import re
 import time
@@ -45,7 +46,7 @@ INTENT_BUCKETS: dict[str, list[str]] = {
         "risk_assessment", "financial_goals", "investment_horizon",
     ],
     "investment_advice": [
-        "investment", "investment_returns", "savings", "savings_interest", 
+        "investment", "investment_returns", "savings", "savings_interest",
         "top_up_savings",
     ],
     "budget_analysis": [
@@ -97,11 +98,11 @@ class ConversationalAgent(BaseAgent):
         self._slots: dict[str, Any] = {}
         self._history: list[dict] = []
         self._turn_count: int = 0
-    
+
     @property
     def system_prompt(self) -> str:
         return CONVERSATIONAL_SYSTEM
-    
+
     def update_slots(self, new_slots: dict[str, Any]) -> None:
         """
         Merges any newly-extracted slot values into session state, but
@@ -119,7 +120,7 @@ class ConversationalAgent(BaseAgent):
         Returns which of a specialist agent's required slots we don't have yet.
         """
         return [s for s in required if s not in self._slots]
-    
+
     def _slot_context_string(self) -> str:
         """
         Formats current slots as plain text to inject into the next LLM prompt.
@@ -127,7 +128,7 @@ class ConversationalAgent(BaseAgent):
         if not self._slots:
             return "No user information collected yet"
         return "\n".join(f"   {k}: {v}" for k,v in self._slots.items())
-    
+
     # Intent Classification
 
     def _classify_intent(self, user_message: str) -> tuple[str, float]:
@@ -172,7 +173,7 @@ class ConversationalAgent(BaseAgent):
             logger.warning(f"[ConversationalAgent] Intent classification failed: {exc}")
 
         return "general_query", 0.5
-    
+
 
     def classify_only(self, user_message: str) -> tuple[str, float]:
         """
@@ -187,7 +188,7 @@ class ConversationalAgent(BaseAgent):
         actually want a reply.
         """
         return self._classify_intent(user_message)
-    
+
     # Slot extraction from LLM response
 
     def _extract_slots_from_response(self, llm_response: str) -> dict[str, Any]:
@@ -204,7 +205,7 @@ class ConversationalAgent(BaseAgent):
             f"Respond with ONLY a JSON object of slot_name -> value for slots "
             f"that are clearly stated. Return {{}} if nothing is clearly stated. "
             f"No other text."
-        ) 
+        )
         try:
             raw, _ = self._call_llm(prompt, temperature=0.0)
             match = re.search(r'\{[^}]*\}', raw, re.DOTALL)
@@ -213,7 +214,7 @@ class ConversationalAgent(BaseAgent):
         except Exception:
             pass
         return {}
-    
+
     # Escalation signal
 
     def _parse_response(self, raw: str) -> dict:
@@ -221,7 +222,7 @@ class ConversationalAgent(BaseAgent):
         Conversational replies are free text, so this just wraps the raw string.
         """
         return {"response": raw}
-    
+
     def _needs_escalation(self, intent: str, confidence: float) -> bool:
         """
         True only if the (alias-resolved) intent is in the escalation set
@@ -238,7 +239,7 @@ class ConversationalAgent(BaseAgent):
             resolved in escalation_buckets
             and confidence >= settings.conversational.intent_confidence_threshold
         )
-    
+
     def _build_escalation_block(
             self, intent: str, user_message: str
     ) -> dict[str, Any]:
@@ -253,7 +254,7 @@ class ConversationalAgent(BaseAgent):
             "collected_slots": dict(self._slots),
             "user_message": user_message,
         }
-    
+
     # Response generation
 
     def _generate_response(
@@ -287,7 +288,7 @@ class ConversationalAgent(BaseAgent):
         )
         raw, _ = self._call_llm(prompt)
         return raw.strip()
-    
+
     # Main entry point
 
     def run(self, context: dict[str, Any]) -> AgentResult:
@@ -307,7 +308,7 @@ class ConversationalAgent(BaseAgent):
                 error="Empty user message",
                 duration_ms=0.0,
             )
-        
+
         # Merge any externally tracked history into local history
         external_history = context.get("conversation_history", [])
         if external_history and not self._history:
@@ -330,7 +331,7 @@ class ConversationalAgent(BaseAgent):
         # Step 4 - Generate natural-language response
         try:
             response_text = self._generate_response(user_message, intent, needs_escalation)
-        except Exception as exc: 
+        except Exception as exc:
             logger.error(f"[ConversationalAgent] Response generation failed: {exc}")
             response_text = (
                 "I'm sorry, I encountered an issue processing your request. "
@@ -368,19 +369,19 @@ class ConversationalAgent(BaseAgent):
                 "escalation_needed": needs_escalation,
             }
         )
-    
+
     # Accessors - used by tests and the Orchestrator
 
     @property
     def slots(self) -> dict[str, Any]:
         """Read-only view of current slot state."""
         return dict(self._slots)
-    
+
     @property
     def history(self) -> list[dict]:
         """Read-only view of conversation history."""
         return list(self._history)
-    
+
     @property
     def turn_count(self) -> int:
         return self._turn_count

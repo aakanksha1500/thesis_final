@@ -74,7 +74,7 @@ class SessionRegistry:
             if entry is not None:
                 entry.last_active_at = time.time()
                 return entry.orchestrator
-            
+
             orch = Orchestrator(
                 self._llm_client,
                 session_id=session_id,
@@ -90,7 +90,7 @@ class SessionRegistry:
                 f"Active sessions: {len(self._sessions)}"
             )
             return orch
-    
+
     def end_session(self, session_id: str) -> bool:
         """Remove a session. Returns True if it existed."""
         with self._lock:
@@ -116,4 +116,3 @@ class SessionRegistry:
 
     def __len__(self) -> int:
         return len(self._sessions)
-    

@@ -4,8 +4,10 @@ and any external language model API.
 """
 
 from __future__ import annotations
+
 import os
 from dataclasses import dataclass
+
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -16,7 +18,7 @@ class LLMResponse:
     Standardised response envelope returned by every LLMClient.chat() call.
     Agents depend on this type - not a provider spefic response objects.
     """
-    content: str 
+    content: str
     tokens_used: int
     model: str
 
@@ -50,12 +52,12 @@ class LLMClient:
         self.model = model or os.getenv("ORCHESTRATOR_MODEL", self.DEFAULT_MODEL)
         self.temperature = temperature if temperature is not None else self.DEFAULT_TEMPERATURE
         self.max_tokens = max_tokens or self.DEFAULT_MAX_TOKENS
-        
+
         self._client = None
         self._mode = "mock"
         self._force_mock = force_mock
         self._init_client()
-    
+
     _PROVIDER_BASE_URLS = {
         "openai": "https://generativelanguage.googleapis.com/v1beta/openai/",  # default OpenAI endpoint
         "groq": "https://api.groq.com/openai/v1",
@@ -97,7 +99,7 @@ class LLMClient:
                 f"Set it in .env to activate real LLM calls via {provider}."
             )
             return
-        
+
         try:
             import openai
             base_url = self._PROVIDER_BASE_URLS[provider]
@@ -137,7 +139,7 @@ class LLMClient:
 
         if self._mode == "mock" or self._client is None:
             return self._mock_response(system, messages)
-        
+
         all_messages = [{"role": "system", "content": system}] + messages
         try:
             response = self._client.chat.completions.create(
@@ -173,12 +175,11 @@ class LLMClient:
                 f"Set OPENAI_API_KEY in .env for real API responses."
             )
             return LLMResponse(content=mock_content, tokens_used=0, model="mock")
-    
+
     @property
     def mode(self) -> str:
         """Returns 'mock' or 'openai' - useful for test assertions."""
         return self._mode
-    
+
     def __repr__(self) -> str:
         return f"LLMClient(model={self.model!r}, mode={self._mode!r})"
-    

@@ -29,7 +29,7 @@ class TestEmbedder:
         embedder = Embedder(dim=64)
         vec = embedder.encode_one("moderate risk classification")
         assert len(vec) == 64
-    
+
     def test_encode_is_deterministic(self):
         embedder = Embedder(dim=64)
         v1 = embedder.encode_one("balanced mixed fund")
@@ -83,19 +83,19 @@ class TestVectorStore:
         ]
         vectors = embedder.encode(texts)
         return embedder, docs, vectors
-    
+
     def test_add_and_len(self):
         embedder, docs, vectors = self._make_docs()
         store = VectorStore(dim=embedder.dim)
         store.add(docs, vectors)
         assert len(store) == 3
-    
+
     def test_add_length_mismatch_raises(self):
         embedder, docs, vectors = self._make_docs()
         store = VectorStore(dim=embedder.dim)
         with __import__("pytest").raises(ValueError):
             store.add(docs, vectors[:2])
-    
+
     def test_search_returns_most_similar_first(self):
         embedder, docs, vectors = self._make_docs()
         store = VectorStore(dim=embedder.dim)
@@ -103,7 +103,7 @@ class TestVectorStore:
 
         query_vec = embedder.encode_one("government bond sovereign exposure")
         results = store.search(query_vec, top_k=3)
-    
+
         assert len(results) == 3
         #  Bond-related doc should outrank the savings-account doc
         top_doc, top_score = results[0]
@@ -118,10 +118,10 @@ class TestVectorStore:
         embedder, docs, vectors = self._make_docs()
         store = VectorStore(dim=embedder.dim)
         store.add(docs, vectors)
-        
+
         results = store.search(embedder.encode_one("bond"), top_k=1)
         assert len(results) == 1
-    
+
     def test_save_and_load_roundtrip(self, tmp_path):
         embedder, docs, vectors = self._make_docs()
         store = VectorStore(dim=embedder.dim)
