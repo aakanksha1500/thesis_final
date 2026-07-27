@@ -49,20 +49,40 @@ class Embedder:
         self,
         model_name: str | None = None,
         dim: int | None = None,
+        force_fallback: bool = False,
     ):
         self.model_name = model_name or settings.rag.embedding_model
         self.dim = dim or settings.rag.embedding_dim
         self._model = None
         self._mode = "fallback"
+        self._force_fallback = force_fallback
         self._init_model()
 
     def _init_model(self) -> None:
-
+        if self._force_fallback:
+            logger.info(
+                f"[Embedder] force_fallback=True — using hashing embedder "
+                f"(dim={self.dim}) regardless of environment."
+            )
+            return
         try:
             from sentence_transformers import SentenceTransformer
 
             self._model = SentenceTransformer(self.model_name)
-            self.dim = self._model.get_sentence_embedding_dimension()
+            model_dim = (
+                self._model.get_embedding_dimension()
+                if hasattr(self._model, "get_embedding_dimension")
+                else self._model.get_sentence_embedding_dimension()
+            )
+
+            if self._requested_dim is not None and self._requested_dim != model_dim:
+                logger.warning(
+                    f"[Embedder] dim={self._requested_dim} was requested but "
+                    f"'{self.model_name}' emits {model_dim}-dim vectors. Using "
+                    f"{model_dim}. Pass force_fallback=True if you need the "
+                    f"hashing embedder at an exact dimensionality."
+                )
+            self.dim = model_dim
             self._mode = "sentence-transformers"
             logger.info(
                 f"[Embedder] Initialised in REAL mode — model={self.model_name} "

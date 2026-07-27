@@ -1,0 +1,87 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-07-27T16:15:28.960339+00:00",
+    "git_sha": "b5c4e66-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "groq",
+    "orchestrator_model": "gpt-4o-mini",
+    "specialist_model": "gpt-4o-mini",
+    "judge_model": "gpt-4o-mini",
+    "environment": "development",
+    "subsystem_modes": {
+      "embedder": "sentence-transformers",
+      "vector_store": "faiss",
+      "hallucination_detector": "hhem",
+      "market_data": "unavailable"
+    },
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 6,
+  "agent": "ExplainabilityAgent",
+  "ablation_condition": "full_stack",
+  "config": {
+    "use_shap": true,
+    "use_rag_citation": true,
+    "use_counterfactual": true,
+    "use_calibration_note": true
+  },
+  "layers_applied": [
+    "shap",
+    "rag_citation",
+    "counterfactual",
+    "calibration_note"
+  ],
+  "metrics": {
+    "transparency_perception_score": {
+      "metric": "transparency_perception_score",
+      "value": 0.93,
+      "details": {
+        "n_responses": 5,
+        "mean_clarity": 0.92,
+        "mean_source_visible": 1.0,
+        "mean_counterfactual_useful": 0.88,
+        "mean_trust_appropriate": 0.92
+      }
+    },
+    "trust_calibration_index": {
+      "metric": "trust_calibration_index",
+      "value": 0.975,
+      "details": {
+        "n": 5,
+        "mean_trust": 4.0,
+        "mean_quality": 4.1,
+        "mean_deviation": 0.025,
+        "interpretation": "Well-calibrated: trust tracks advice quality"
+      }
+    }
+  },
+  "sample_explanation": {
+    "shap_narrative": "Your ability to tolerate losses and long investment horizon pushed toward a more aggressive approach, while having existing debt had a conservative influence.",
+    "rag_citations": [
+      {
+        "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
+        "source": "FinQA Original [D2]",
+        "text": "of expected future trends . the company granted a total of 1 million restricted stock shares at prices ranging from $ 56.44 to $ 79.41 on various dates in 2016 . the company granted a total of 1 million restricted stock shares at prices ranging from $ 61.33 to $ 69.33 on various dates in 20t 15 . the company granted a total of 1 million restricted stock shares at prices ranging from $ 52.85 to $ 64.04 on various dates in 2014 . these shares were granted at the closing market price on the date of",
+        "relevance": 0.1961,
+        "document_set": "finqa_original",
+        "doc_id": "finqa-orig-00170-3"
+      },
+      {
+        "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
+        "source": "FinQA Original [D2]",
+        "text": "cipate in the processing and transmission sectors and ldcs in our distribution segment participate in the distribution sector of the epa 2019s natural gas star program to voluntarily reduce methane emissions . a subsidiary in our oneok partners 2019 segment was honored in 2008 as the 201cnatural gas star gathering and processing partner of the year 201d for its efforts to positively address environmental issues through voluntary implementation of emission-reduction opportunities . in addition , ",
+        "relevance": 0.1635,
+        "document_set": "finqa_original",
+        "doc_id": "finqa-orig-00073-7"
+      }
+    ],
+    "counterfactual": "If your loss_tolerance were 5, your risk profile would shift toward aggressive and Active Trading Funds would become more appropriate.",
+    "calibration_note": "If market volatility exceeds 20% annualized, this moderate risk classification may no longer apply.",
+    "full_explanation": "Your ability to tolerate losses and long investment horizon pushed toward a more aggressive approach, while having existing debt had a conservative influence. This analysis draws on: FinQA Original [D2], FinQA Original [D2]. If your loss_tolerance were 5, your risk profile would shift toward aggressive and Active Trading Funds would become more appropriate. If market volatility exceeds 20% annualized, this moderate risk classification may no longer apply."
+  },
+  "survey_note": "Synthetic survey fixture \u2014 replace with real pilot study responses (n\u226520) before dissertation submission."
+}

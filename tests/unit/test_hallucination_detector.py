@@ -65,25 +65,25 @@ class TestExtractClaims:
 class TestScorePairFallback:
 
     def test_identical_premise_and_hypothesis_scores_high(self):
-        detector = HallucinationDetector()
+        detector = HallucinationDetector(force_fallback=True)
         text = "The fund has an expected annual return of six percent"
         score = detector.score_pair(text, text)
         assert score > 0.8
 
     def test_empty_premise_scores_as_unverifiable(self):
-        detector = HallucinationDetector()
+        detector = HallucinationDetector(force_fallback=True)
         score = detector.score_pair("", "the fund returns six percent annually")
         assert score == 0.3
 
     def test_unrelated_premise_scores_low(self):
-        detector = HallucinationDetector()
+        detector = HallucinationDetector(force_fallback=True)
         premise = "Central Bank guidance on deposit protection schemes"
         hypothesis = "the equity fund returned forty five percent last year"
         score = detector.score_pair(premise, hypothesis)
         assert score < 0.5
 
     def test_score_is_bounded(self):
-        detector = HallucinationDetector()
+        detector = HallucinationDetector(force_fallback=True)
         score = detector.score_pair("some grounding text about bonds", "a claim about bonds")
         assert 0.0 <= score <= 1.0
 
@@ -93,14 +93,14 @@ class TestScorePairFallback:
 class TestScoreResponse:
 
     def test_no_claims_returns_perfect_score(self):
-        detector = HallucinationDetector()
+        detector = HallucinationDetector(force_fallback=True)
         report = detector.score_response("Not regulated financial advice.", [])
         assert report.hallucination_rate == 0.0
         assert report.mean_score == 1.0
         assert report.claim_scores == []
 
     def test_grounded_claim_not_flagged(self):
-        detector = HallucinationDetector()
+        detector = HallucinationDetector(force_fallback=True)
         text = "The fund has moderate risk with diversified bond exposure."
         contexts = [{
             "text": "The fund has moderate risk with diversified bond exposure across issuers.",
@@ -111,13 +111,13 @@ class TestScoreResponse:
         assert report.claim_scores[0].flagged is False
 
     def test_unsupported_claim_flagged_with_no_context(self):
-        detector = HallucinationDetector()
+        detector = HallucinationDetector(force_fallback=True)
         text = "The fund guarantees a fifty percent annual return with zero risk."
         report = detector.score_response(text, [], threshold=0.85)
         assert report.claim_scores[0].flagged is True
 
     def test_hallucination_rate_is_fraction_flagged(self):
-        detector = HallucinationDetector()
+        detector = HallucinationDetector(force_fallback=True)
         text = (
             "The fund has moderate risk with diversified bond exposure. "
             "The fund guarantees unlimited returns with absolutely no risk whatsoever."
@@ -131,7 +131,7 @@ class TestScoreResponse:
         assert report.hallucination_rate == report.to_dict()["hallucination_rate"]
 
     def test_to_dict_shape(self):
-        detector = HallucinationDetector()
+        detector = HallucinationDetector(force_fallback=True)
         text = "The fund has an expected return of six percent annually."
         report = detector.score_response(text, [])
         d = report.to_dict()
@@ -141,7 +141,7 @@ class TestScoreResponse:
         assert d["n_claims"] == len(report.claim_scores)
 
     def test_disclaimer_only_response_has_zero_claims(self):
-        detector = HallucinationDetector()
+        detector = HallucinationDetector(force_fallback=True)
         text = (
             "This is not regulated financial advice. "
             "Please consult a qualified advisor. "

@@ -1,5 +1,5 @@
 """
-Added before ConversationalAgent so that the contract every agent must 
+Added before ConversationalAgent so that the contract every agent must
 satisfy is settled first.
 
 Three things BaseAgent provides:
@@ -85,7 +85,7 @@ class BaseAgent(abc.ABC):
     system_prompt, _parse_response(), and run() — Python raises TypeError
     at instantiation time if any is missing, which catches an incomplete
     agent before it's ever run.
-    
+
     Subclass must implement:
         - system_prompt: property returning the agent's system prompt string
         - _parse_response(): converts raw LLM string output to structured dict
@@ -120,12 +120,12 @@ class BaseAgent(abc.ABC):
     def run(self, context: dict[str, Any]) -> AgentResult:
         """
         Execute this agent's task.
-        
+
         Args:
             context:  dict assembled by the Orchestrator containing at minimum:
-                'user_message' (str), 'conversation_history' (list), 
+                'user_message' (str), 'conversation_history' (list),
                 and any outputs from agents that run before this one.
-                
+
             Returns:
                 AgentResult with success = True on completion, success=False on error.
                 Never raises - errors are captured in AgentResult.error.
@@ -145,15 +145,15 @@ class BaseAgent(abc.ABC):
         this means latency timing and error handling happen in exactly one
         place instead of being duplicated (and inconsistently applied) in
         every agent.
-        
+
         Args:
             user_message: The primary user-turn content for this call.
             extra_messages: Optional prior turns to pretend (for multi-turn context).
             temperature: Per-call override; None uses client default.
-            
+
         Returns:
             (response_text, tokens_used)
-            
+
         Raises:
             Exception from LLMClient on API failure - let it propogate so the
             Orchestrator's failure handler can act.

@@ -26,34 +26,34 @@ from rag.vector_store import Document, VectorStore
 class TestEmbedder:
 
     def test_encode_returns_correct_dimensionality(self):
-        embedder = Embedder(dim=64)
+        embedder = Embedder(dim=64, force_fallback=True)
         vec = embedder.encode_one("moderate risk classification")
         assert len(vec) == 64
 
     def test_encode_is_deterministic(self):
-        embedder = Embedder(dim=64)
+        embedder = Embedder(dim=64, force_fallback=True)
         v1 = embedder.encode_one("balanced mixed fund")
         v2 = embedder.encode_one("balanced mixed fund")
         assert v1 == v2
 
     def test_encode_empty_batch_returns_empty_list(self):
-        embedder = Embedder(dim=64)
+        embedder = Embedder(dim=64, force_fallback=True)
         assert embedder.encode([]) == []
 
     def test_vectors_are_l2_normalised(self):
-        embedder = Embedder(dim=64)
+        embedder = Embedder(dim=64, force_fallback=True)
         vec = embedder.encode_one("government bond fund with low fees")
         norm = sum(v * v for v in vec) ** 0.5
         assert abs(norm - 1.0) < 1e-6 or norm == 0.0  # zero vector for no tokens edge case
 
     def test_identical_texts_have_similarity_one(self):
-        embedder = Embedder(dim=64)
+        embedder = Embedder(dim=64, force_fallback=True)
         v1 = embedder.encode_one("investment grade corporate bond fund")
         v2 = embedder.encode_one("investment grade corporate bond fund")
         assert cosine_similarity(v1, v2) > 0.999
 
     def test_unrelated_texts_have_lower_similarity_than_identical(self):
-        embedder = Embedder(dim=64)
+        embedder = Embedder(dim=64, force_fallback=True)
         v1 = embedder.encode_one("investment grade corporate bond fund")
         v2 = embedder.encode_one("pizza recipe ingredients cheese dough")
         v3 = embedder.encode_one("investment grade corporate bond fund")
@@ -63,7 +63,7 @@ class TestEmbedder:
         # In this test environment sentence-transformers is not installed,
         # so mode should report the fallback path (documents the contract —
         # if the dependency IS installed, mode will legitimately be "sentence-transformers").
-        embedder = Embedder(dim=64)
+        embedder = Embedder(dim=64, force_fallback=True)
         assert embedder.mode in ("fallback", "sentence-transformers")
 
 
@@ -71,7 +71,7 @@ class TestEmbedder:
 
 class TestVectorStore:
     def _make_docs(self):
-        embedder = Embedder(dim=32)
+        embedder = Embedder(dim=32, force_fallback=True)
         texts = [
             "Irish government bond short-dated sovereign exposure",
             "Broad global equity ETF growth product",

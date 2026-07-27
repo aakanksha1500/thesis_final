@@ -127,13 +127,18 @@ class VectorStore:
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[:top_k]
 
-    def save(self, index_dir: Path) -> None:
+    def save(
+        self,
+        index_dir: Path,
+        extra_meta: dict[str, Any] | None = None,
+    ) -> None:
         index_dir.mkdir(parents=True, exist_ok=True)
         with open(index_dir / "documents.pkl", "wb") as f:
             pickle.dump(self._documents, f)
         with open(index_dir / "vectors.pkl", "wb") as f:
             pickle.dump(self._vectors, f)
         meta = {"dim": self.dim, "backend": self._backend, "n_documents": len(self._documents)}
+        meta.update(extra_meta or {})
         with open(index_dir / "meta.json", "w") as f:
             json.dump(meta, f, indent=2)
         logger.info(f"[VectorStore] Saved {len(self._documents)} documents to {index_dir}")

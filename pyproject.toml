@@ -20,7 +20,11 @@ packages = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-q"
+
+# Real-mode tests are DESELECTED by default: they need API keys and the
+# heavyweight models. Run them explicitly with: pytest -m real
+addopts = "-q -m 'not real'"
+
 markers = [
     "real: requires a live LLM API key (deselect with '-m \"not real\"')",
     "slow: evaluation runs that write results/*.json",

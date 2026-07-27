@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-07-27T16:11:03.312432+00:00",
+    "git_sha": "b5c4e66-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "mock",
+    "orchestrator_model": "gpt-4o-mini",
+    "specialist_model": "gpt-4o-mini",
+    "judge_model": "gpt-4o-mini",
+    "environment": "development",
+    "subsystem_modes": {
+      "embedder": "sentence-transformers",
+      "vector_store": "faiss",
+      "hallucination_detector": "hhem",
+      "market_data": "unavailable"
+    },
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  },
+  "phase": "8b",
+  "component": "existing_customer_pipeline",
+  "dataset": "demo_customers.json (3 profiles)",
+  "metrics": {
+    "predicted_vs_ground_truth_agreement": 1.0,
+    "n_correct": 3,
+    "n_total": 3
+  },
+  "per_profile": [
+    {
+      "customer_id": "DEMO_GC_042",
+      "predicted_risk_class": "moderate",
+      "ground_truth_risk_class": "moderate",
+      "correct": true,
+      "status": "complete"
+    },
+    {
+      "customer_id": "DEMO_GC_107",
+      "predicted_risk_class": "moderately_aggressive",
+      "ground_truth_risk_class": "moderately_aggressive",
+      "correct": true,
+      "status": "complete"
+    },
+    {
+      "customer_id": "DEMO_GMSC_318",
+      "predicted_risk_class": "conservative",
+      "ground_truth_risk_class": "conservative",
+      "correct": true,
+      "status": "complete"
+    }
+  ]
+}

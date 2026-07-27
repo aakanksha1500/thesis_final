@@ -17,6 +17,7 @@ import re
 import urllib.error
 import urllib.request
 from typing import Any
+from pathlib import Path
 
 from config.settings import ROOT_DIR, settings
 from rag.embedder import Embedder
@@ -211,13 +212,14 @@ class KnowledgeBase:
         if self._built:
             return
         index_dir = settings.rag.index_dir
-        if (index_dir / "meta.json").exists():
+        if (index_dir / "meta.json").exists() and self._index_matches_current_embedder(index_dir):
             try:
                 self.store = VectorStore.load(index_dir)
                 self._built = True
                 logger.info(
                     f"[KnowledgeBase] Loaded persisted index - "
                     f"{len(self.store)} documents"
+                    f"(embedder={self.embedder.mode})"
                 )
                 return
             except Exception as exc:
@@ -262,7 +264,14 @@ class KnowledgeBase:
         )
 
     def persist(self) -> None:
-        self.store.save(settings.rag.index_dir)
+        self.store.save(
+            settings.rag.index_dir,
+            extra_meta={
+                "embedder_mode": self.embedder.mode,
+                "embedder_model": self.embedder.model_name,
+                "embedding_dim": self.embedder.dim,
+            },
+        )
 
     # Per-set loading — live fetch / downloaded file / seed fallback
     def _load_document_set(self, document_set: str) -> list[dict[str, str]]:
@@ -445,6 +454,40 @@ class KnowledgeBase:
                 break
 
         return results
+    
+    def _index_matches_current_embedder(self, index_dir: Path) -> bool:
+        try:
+            with open(index_dir / "meta.json") as f:
+                meta = json.load(f)
+        except Exception:
+            return False
+
+        built_mode = meta.get("embedder_mode")
+        built_model = meta.get("embedder_model")
+
+        if built_mode is None:
+            logger.warning(
+                "[KnowledgeBase] Persisted index has no embedder provenance "
+                "(written before this check existed) — rebuilding rather than "
+                "risking a query/document embedding-space mismatch."
+            )
+            return False
+
+        if built_mode != self.embedder.mode or (
+            built_mode == "sentence-transformers"
+            and built_model != self.embedder.model_name
+        ):
+            logger.warning(
+                f"[KnowledgeBase] Persisted index was built with "
+                f"embedder_mode={built_mode!r} model={built_model!r}, but the "
+                f"current embedder is mode={self.embedder.mode!r} "
+                f"model={self.embedder.model_name!r}. Query and document "
+                f"vectors would live in different spaces and every relevance "
+                f"score would be meaningless — rebuilding the index."
+            )
+            return False
+
+        return True
 
 # Mosule level singleton - ExplainabilityAgent imports this directly so
 # every call reuses the same in-memory index instead of rebuilding per call.
