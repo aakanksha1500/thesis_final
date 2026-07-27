@@ -55,7 +55,7 @@ class MarketDataClient:
                     self._snapshot = json.load(f)
                 logger.info(f"[MarketDataClient] loaded price snapshot from {path}")
             except Exception as exc:
-                logger.warning(f"MarketDataClient] Failed to load snapshot {path}: {exc}")
+                logger.warning(f"[MarketDataClient] Failed to load snapshot {path}: {exc}")
 
     def _init_yfinance(self) -> None:
         try:

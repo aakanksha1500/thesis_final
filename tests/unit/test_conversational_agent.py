@@ -35,19 +35,16 @@ RUNNING:
 from __future__ import annotations
 
 import json
-import os
 import time
-import sys
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
-
-from agents.conversational_agent import ConversationalAgent, INTENT_BUCKETS
-from evaluation.metrics import intent_accuracy, slot_fill_rate, EvalResult
+from agents.conversational_agent import INTENT_BUCKETS, ConversationalAgent
+from evaluation.metrics import EvalResult, intent_accuracy, slot_fill_rate
+from evaluation.results_io import write_results
 from utils.llm_client import LLMClient
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "results"
@@ -347,9 +344,9 @@ class TestIntentAccuracyEvaluation:
                 for item, pred in zip(BANKING77_FIXTURE, predictions)
             ],
         }
-        results_path = RESULTS_DIR / "phase2_conversational_baseline.json"
-        with open(results_path, "w") as f:
-            json.dump(results_payload, f, indent=2)
+        results_path = write_results(
+            results_payload, "phase2_conversational_baseline.json", agent.llm.mode
+        )
 
         print(f"\n[Phase 2 Eval] Intent accuracy: {eval_result.value:.3f}")
         print(f"[Phase 2 Eval] Results written to {results_path}")

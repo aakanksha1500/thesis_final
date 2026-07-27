@@ -72,7 +72,7 @@ class SessionRegistry:
         with self._lock:
             entry = self._sessions.get(session_id)
             if entry is not None:
-                entry.laast_active_at = time.time()
+                entry.last_active_at = time.time()
                 return entry.orchestrator
             
             orch = Orchestrator(

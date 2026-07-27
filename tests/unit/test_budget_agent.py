@@ -24,16 +24,14 @@ RUNNING:
 from __future__ import annotations
 
 import json
-import os
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+from agents.base_agent import AgentResult
 
 from agents.budget_agent import BudgetAgent
-from agents.base_agent import AgentResult
+from evaluation.results_io import write_results
 from utils.llm_client import LLMClient
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "results"
@@ -391,10 +389,7 @@ class TestBudgetAgentRun:
             )
 
         # Write results file
-        RESULTS_DIR.mkdir(exist_ok=True)
-        results_path = RESULTS_DIR / "phase5_budget_baseline.json"
-        with open(results_path, "w") as f:
-            json.dump(
+        results_path = write_results(
                 {
                     "phase": 5,
                     "agent": "BudgetAgent",
@@ -407,8 +402,7 @@ class TestBudgetAgentRun:
                     ),
                     "profiles": profile_results,
                 },
-                f,
-                indent=2,
+                "phase5_budget_baseline.json",
             )
         print(f"\n[Phase 5] Results written to {results_path}")
 

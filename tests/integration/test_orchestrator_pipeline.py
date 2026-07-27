@@ -30,15 +30,13 @@ RUNNING:
 from __future__ import annotations
 
 import json
-import os
-import sys
+
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../"))
 
 from evaluation.agent_judge import AgentJudge
 from evaluation.metrics import (
@@ -47,6 +45,7 @@ from evaluation.metrics import (
     step_progress_rate,
     tool_utilisation_efficacy,
 )
+from evaluation.results_io import write_results
 from orchestrator.orchestrator import Orchestrator, RoutingDecision
 from utils.llm_client import LLMClient
 
@@ -358,7 +357,6 @@ class TestRQ4Evaluation:
         verdicts = [s.get("verdict", "flag") for s in judge_scores]
 
         # Write results
-        RESULTS_DIR.mkdir(exist_ok=True)
         results_payload = {
             "phase": 7,
             "agent": "Orchestrator",
@@ -386,9 +384,9 @@ class TestRQ4Evaluation:
             "audit_log_path": str(orch.audit_log.log_path),
         }
 
-        results_path = RESULTS_DIR / "rq4_mas_coherence.json"
-        with open(results_path, "w") as f:
-            json.dump(results_payload, f, indent=2, default=str)
+        results_path = write_results(
+            results_payload, "rq4_mas_coherence.json", orch.llm.mode
+        )
 
         print(f"\n[RQ4] routing_accuracy:          {routing_result.value:.3f}")
         print(f"[RQ4] step_progress_rate:        {step_result.value:.3f}")

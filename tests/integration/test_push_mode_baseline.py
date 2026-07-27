@@ -11,10 +11,9 @@ Run:
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from evaluation.results_io import write_results
 
 from orchestrator.orchestrator import Orchestrator
 from utils.llm_client import LLMClient
@@ -118,8 +117,7 @@ class TestPushModeBaseline:
                 "risk_status": risk_result.payload.get("status"),
                 "risk_class": risk_result.payload.get("risk_class"),
             })
-
-        RESULTS_DIR.mkdir(exist_ok=True)
+        
         results_payload = {
             "phase": "8b",
             "component": "push_mode_and_disclosure",
@@ -133,9 +131,9 @@ class TestPushModeBaseline:
             },
             "per_fixture": per_fixture,
         }
-        results_path = RESULTS_DIR / "phase8b_push_mode_baseline.json"
-        with open(results_path, "w") as f:
-            json.dump(results_payload, f, indent=2)
+        results_path = write_results(
+            results_payload, "phase8b_push_mode_baseline.json"
+        )
 
         print(f"\n[Phase 8b] Proxy fired: {proxy_fired_count}/{len(PUSH_MODE_FIXTURES)}")
         print(f"[Phase 8b] Disclosure fired: {disclosure_fired_count}/{len(PUSH_MODE_FIXTURES)}")

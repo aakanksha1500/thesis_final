@@ -30,7 +30,6 @@ import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from config.settings import settings
 from utils.logger import get_logger
@@ -81,7 +80,7 @@ class AuditLog:
         "AGENT_RETRY",
         "CONFLICT_DETECTED",
         "CONFLICT_RESOLVED",
-        "CONSTTRAINT_VIOLATION",
+        "CONSTRAINT_VIOLATION",
         "SYNTHESIS",
         "TURN_END",
     }

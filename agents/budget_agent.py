@@ -14,7 +14,7 @@ import json
 import time
 from typing import Any
 
-from agents.base_agent import BaseAgent, AgentResult
+from agents.base_agent import AgentResult, BaseAgent
 from config.prompts import BUDGET_SYSTEM
 from config.settings import settings
 from utils.llm_client import LLMClient

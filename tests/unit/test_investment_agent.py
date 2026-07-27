@@ -30,14 +30,11 @@ RUNNING:
 from __future__ import annotations
 
 import json
-import os
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
-
+from evaluation.results_io import write_results
 from agents.investment_agent import InvestmentAgent
 from evaluation.metrics import EvalResult, ndcg_at_k, precision_at_k
 from utils.llm_client import LLMClient
@@ -327,9 +324,7 @@ class TestRQ2Evaluation:
             },
             "per_query": per_query_results,
         }
-        results_path = RESULTS_DIR / "rq2_investment_baseline.json"
-        with open(results_path, "w") as f:
-            json.dump(results_payload, f, indent=2)
+        results_path = write_results(results_payload, "rq2_investment_baseline.json")
 
         print(f"\n[Phase 4 RQ2] Mean Precision@3: {mean_precision:.3f}")
         print(f"[Phase 4 RQ2] Mean NDCG@3:      {mean_ndcg:.3f}")

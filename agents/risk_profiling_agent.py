@@ -27,7 +27,7 @@ from typing import Any
 
 import numpy as np
 
-from agents.base_agent import BaseAgent, AgentResult
+from agents.base_agent import AgentResult, BaseAgent
 from config.prompts import RISK_PROFILING_SYSTEM
 from config.settings import settings
 from utils.llm_client import LLMClient

@@ -125,7 +125,7 @@ class Orchestrator:
             "turn_count": 0,
             "customer_id": None,
             "customer_known": False,
-            "missing_cutomer_fields": [],
+            "missing_customer_fields": [],
             "ground_truth_risk_class": None,
             "proxy_fields": [],
             "proxy_metadata": {},
@@ -144,7 +144,7 @@ class Orchestrator:
     def _load_customer(
         self,
         customer_id: str | None,
-        customer_context: dict[str, Any] | Non = None,
+        customer_context: dict[str, Any] | None = None,
     ) -> None:
         if customer_context is not None:
             required = settings.risk.required_features
@@ -156,7 +156,7 @@ class Orchestrator:
                 "ground_truth_risk_class": None,
                 "source_dataset": "bank_api_push",
             }
-            self._session_state["cuatomer_name"] = customer_context.get("name")
+            self._session_state["customer_name"] = customer_context.get("name")
         else:
             result = self.customer_store.lookup(customer_id) if customer_id else None
 
@@ -290,12 +290,10 @@ class Orchestrator:
             "out_of_scope":        RoutingDecision.CONVERSATIONAL_ONLY,
         }
 
-        context = self._build_context(user_message)
         try:
             conv_agent = self._agents["ConversationalAgent"]
-            result = conv_agent.run(context)
-            intent = result.payload.get("intent", "general_query")
-            confidence = float(result.payload.get("confidence", 0.5))
+            intent, confidence = conv_agent.classify_only(user_message)
+            confidence = float(confidence)
 
             # Below confidence threshold → treat as general query
             if confidence < settings.orchestrator.routing_confidence_threshold:
@@ -611,7 +609,10 @@ class Orchestrator:
         agent_results, recovered = self._run_agent_sequence(agent_sequence, context)
 
         # -- Layer 3a: Conflict resolution --
-        agent_results, conflicts = self._conflict_resolver.resolve(agent_results)
+        if settings.orchestrator.enable_conflict_resolution:
+            agent_results, conflicts = self._conflict_resolver.resolve(agent_results)
+        else:
+            conflicts = []
         for conflict in conflicts:
             self.audit_log.record_conflict(
                 turn_id=turn_id,

@@ -1,0 +1,6 @@
+[codespell]
+skip = .git,.venv,venv,data,results,logs,*.json,*.csv,*.jsonl,__pycache__
+count =
+quiet-level = 3
+# Domain words codespell would otherwise flag
+ignore-words-list = ba,nd,te,thi,ans,fo

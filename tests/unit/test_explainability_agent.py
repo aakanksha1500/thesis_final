@@ -40,15 +40,11 @@ RUNNING:
 from __future__ import annotations
 
 import json
-import os
-import sys
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from agents.base_agent import AgentResult
 from config.settings import settings
@@ -58,6 +54,7 @@ from evaluation.metrics import (
     trust_calibration_index,
 )
 from explainability.explainability_agent import ExplainabilityAgent
+from evaluation.results_io import write_results
 from utils.llm_client import LLMClient
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "results"
@@ -474,9 +471,7 @@ def _run_ablation_condition(
         ),
     }
 
-    RESULTS_DIR.mkdir(exist_ok=True)
-    with open(RESULTS_DIR / results_filename, "w") as f:
-        json.dump(results, f, indent=2)
+    write_results(results, results_filename)
 
     return results
 

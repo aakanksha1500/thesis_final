@@ -34,15 +34,12 @@ RUNNING:
 from __future__ import annotations
 
 import json
-import os
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
-
+from evaluation.results_io import write_results
 from agents.risk_profiling_agent import RiskProfilingAgent
 from config.constraints import FinancialConstraints, financial_constraints
 from evaluation.metrics import (
@@ -545,9 +542,7 @@ class TestRQ1Evaluation:
                 for item, hp, hs, rp in zip(RQ1_FIXTURE, hybrid_preds, hybrid_scores, rule_only_preds)
             ],
         }
-        results_path = RESULTS_DIR / "phase3_risk_baseline.json"
-        with open(results_path, "w") as f:
-            json.dump(results_payload, f, indent=2)
+        results_path = write_results(results_payload, "phase3_risk_baseline.json")
 
         print(f"\n[Phase 3 RQ1] Risk Alignment Rate: {rar_result.value:.3f}")
         print(f"[Phase 3 RQ1] Macro F1:            {f1_result.value:.3f}")

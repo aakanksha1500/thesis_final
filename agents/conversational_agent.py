@@ -28,7 +28,7 @@ import re
 import time
 from typing import Any
 
-from agents.base_agent import BaseAgent, AgentResult
+from agents.base_agent import AgentResult, BaseAgent
 from config.prompts import CONVERSATIONAL_SYSTEM
 from config.settings import settings
 from utils.llm_client import LLMClient
@@ -172,6 +172,21 @@ class ConversationalAgent(BaseAgent):
             logger.warning(f"[ConversationalAgent] Intent classification failed: {exc}")
 
         return "general_query", 0.5
+    
+
+    def classify_only(self, user_message: str) -> tuple[str, float]:
+        """
+        Classify intent with ONE LLM call and no side effects.
+
+        QW9: the Orchestrator used to call run() purely to read the intent
+        label, which cost three LLM calls (classify + extract slots +
+        generate a reply) and then threw the generated reply away. It also
+        incremented _turn_count, so a CONVERSATIONAL_ONLY turn counted twice.
+
+        Use this when you need the routing label only. Use run() when you
+        actually want a reply.
+        """
+        return self._classify_intent(user_message)
     
     # Slot extraction from LLM response
 

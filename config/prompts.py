@@ -211,7 +211,41 @@ SYNTHESIS TASK:
     """
 
 # Agent-as-Judge system prompt 
-JUDGE_SYSTEM = """You are an expert evaluator assessing a multi-agent financial advisory system response. You evaluate the FULL reasoning trajectory — not just the final answer — to resist post-hoc rationalisations (Zhuge et al., 2024).
+JUDGE_DIMENSIONS: list[tuple[str, str]] = [
+    ("routing_accuracy",
+     "Were the right agents invoked for this query type? "
+     "Would a monolithic LLM have chosen the same specialists?"),
+    ("agent_coordination",
+     "Was the agent sequence correct, and were the right inputs passed "
+     "between them (e.g. risk class reaching the investment agent)?"),
+    ("factual_accuracy",
+     "Are financial figures, risk classes, and product details correct? "
+     "Any hallucinated claims?"),
+    ("explanation_quality",
+     "Is the XAI explanation coherent, grounded, and calibrated? "
+     "Does it convey uncertainty appropriately (Takayanagi et al.)?"),
+    ("trust_calibration",
+     "Is stated confidence proportionate to the actual basis for the advice? "
+     "Are required CBI disclaimers present and prohibited phrases absent?"),
+]
+
+_JUDGE_DIMENSION_BLOCK = "\n\n".join(
+    f"{i}. {name.upper().replace('_', ' ')} (1-5)\n   {desc}"
+    for i, (name, desc) in enumerate(JUDGE_DIMENSIONS, start=1)
+)
+
+_JUDGE_JSON_SCHEMA = "{\n" + ",\n".join(
+    [f'  "{name}": <1-5>' for name, _ in JUDGE_DIMENSIONS]
+    + [
+        '  "overall_score": <mean of above, 1 decimal>',
+        '  "verdict": "pass" | "flag" | "fail"',
+        '  "reasoning": "<2-3 sentences on the most important finding>"',
+        '  "hallucination_detected": <true|false>',
+        '  "hallucination_detail": "<what was hallucinated, or null>"',
+    ]
+) + "\n}"
+
+JUDGE_SYSTEM = f"""You are an expert evaluator assessing a multi-agent financial advisory system response. You evaluate the FULL reasoning trajectory — not just the final answer — to resist post-hoc rationalisations (Zhuge et al., 2024).
 
 YOU RECEIVE:
 - The user's original message
@@ -220,39 +254,10 @@ YOU RECEIVE:
 - The final synthesised response
 - Any conflicts detected and constraint violations flagged
 
-EVALUATE ON FIVE DIMENSIONS (score each 1-5):
+EVALUATE ON THESE DIMENSIONS (score each 1-5):
 
-1. ROUTING ACCURACY (1-5)
-   Were the right agents invoked for this query type?
-   Would a monolithic LLM have chosen the same specialists?
-
-2. FACTUAL ACCURACY (1-5)
-   Are financial figures, risk classes, and product details correct?
-   Any hallucinated claims?
-
-3. EXPLANATION QUALITY (1-5)
-   Is the XAI explanation coherent, grounded, and calibrated?
-   Does it convey uncertainty appropriately (Takayanagi et al.)?
-
-4. COHERENCE (1-5)
-   Does the synthesised response integrate all agent outputs smoothly?
-   No contradictions between agents?
-
-5. COMPLIANCE (1-5)
-   Is the CBI disclaimer present when required?
-   Are prohibited phrases absent?
+{_JUDGE_DIMENSION_BLOCK}
 
 RESPOND WITH ONLY valid JSON, no other text:
-{
-  "routing_accuracy": <1-5>,
-  "factual_accuracy": <1-5>,
-  "explanation_quality": <1-5>,
-  "coherence": <1-5>,
-  "compliance": <1-5>,
-  "overall": <mean of above, 1 decimal>,
-  "verdict": "pass" | "flag" | "fail",
-  "reasoning": "<2-3 sentences on the most important finding>",
-  "hallucination_detected": <true|false>,
-  "hallucination_detail": "<what was hallucinated, or null>"
-}
+{_JUDGE_JSON_SCHEMA}
 """

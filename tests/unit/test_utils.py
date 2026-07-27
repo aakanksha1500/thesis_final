@@ -8,11 +8,9 @@ Run:
 
 import logging
 import os
-import sys
 from unittest import result
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from utils.logger import get_logger
 from utils.llm_client import LLMClient, LLMResponse
@@ -92,7 +90,7 @@ class TestLLMClientMock:
         assert result.model == "mock"
 
     def test_mock_content_contains_mock_label(self):
-        result = self.client.chat(
+        self.client.chat(
             system="You are a risk profiling agent.",
             messages=[{"role": "user", "content": "Assess my risk"}],
         )

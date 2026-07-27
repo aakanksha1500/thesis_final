@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "thesis-finadvisor"
+version = "0.1.0"
+description = "Orchestrated Multi-Agent Conversational AI for Transparent Financial Decision Support"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = [
+    "agents", "api", "config", "data", "evaluation",
+    "explainability", "orchestrator", "rag", "utils",
+]
+
+# ── pytest ────────────────────────────────────────────────────────────────
+# pythonpath = ["."] replaces the sys.path.insert(...) line that used to sit
+# at the top of every single test file.
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "real: requires a live LLM API key (deselect with '-m \"not real\"')",
+    "slow: evaluation runs that write results/*.json",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+# ── ruff ──────────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 120
+exclude = [".venv", "venv", "data", "results", "logs", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",   # long lines — pervasive in prompts/catalogue, not worth churning
+    "E741",   # ambiguous variable names
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401", "F811"]
+
+# ── coverage (QW5) ────────────────────────────────────────────────────────
+[tool.coverage.run]
+source = ["agents", "api", "config", "data", "evaluation",
+          "explainability", "orchestrator", "rag", "utils"]
+omit = ["*/__pycache__/*", "*/.venv/*", "*/venv/*"]
+
+[tool.coverage.report]
+skip_empty = true
+show_missing = true

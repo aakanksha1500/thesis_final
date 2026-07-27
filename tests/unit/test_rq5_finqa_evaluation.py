@@ -10,13 +10,10 @@ RUNNING:
 from __future__ import annotations
 
 import json
-import os
 import re
-import sys
 from pathlib import Path
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
-
+from evaluation.results_io import write_results
 from evaluation.metrics import finqa_exact_match, hallucination_rate
 from rag.hallucination_detector import HallucinationDetector
 
@@ -178,9 +175,7 @@ def _run_finqa_condition(
         ],
     }
 
-    RESULTS_DIR.mkdir(exist_ok=True)
-    with open(RESULTS_DIR / results_filename, "w") as f:
-        json.dump(results, f, indent=2)
+    write_results(results, results_filename)
 
     return results
 

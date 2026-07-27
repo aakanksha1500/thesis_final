@@ -28,21 +28,14 @@ import json
 import re
 from typing import Any
 
-from config.prompts import JUDGE_SYSTEM
-from config.settings import settings
+from config.prompts import JUDGE_DIMENSIONS, JUDGE_SYSTEM
 from utils.llm_client import LLMClient
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 FALLBACK_SCORE = 3.0   # neutral score used when Judge LLM unavailable
-SCORE_DIMENSIONS = [
-    "routing_accuracy",
-    "agent_coordination",
-    "factual_accuracy",
-    "explanation_quality",
-    "trust_calibration",
-]
+SCORE_DIMENSIONS = [name for name, _ in JUDGE_DIMENSIONS]
 
 class AgentJudge:
     """
@@ -154,7 +147,7 @@ class AgentJudge:
         Falls back to fallback_scores if parse fails.
         """
         # Try to find JSON object in response
-        match = re.search(r'\{[^{}]*\}', raw, re.DOTALL)
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
         if match:
             try:
                 scores = json.loads(match.group())

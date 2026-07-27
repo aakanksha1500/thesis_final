@@ -576,9 +576,9 @@ class InvestmentAgent(BaseAgent):
         hallucination_report = None
         rag_sources: list[str] = []
         if settings.hallucination.run_inline:
-            try:
-                from rag.knowledge_base import knowledge_base  
-                from rag.hallucination_detector import hallucination_detector  
+            try: 
+                from rag.hallucination_detector import hallucination_detector
+                from rag.knowledge_base import knowledge_base 
 
                 grounding_query = f"{risk_class} {top_product['category']} {top_product['name']}"
                 grounding_contexts = knowledge_base.retrieve(grounding_query)

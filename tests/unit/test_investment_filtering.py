@@ -5,10 +5,6 @@ RUNNING:
 
 from __future__ import annotations
 
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from agents.investment_agent import InvestmentAgent
 from utils.llm_client import LLMClient

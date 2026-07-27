@@ -24,7 +24,6 @@ All conflicts are returned as a list of dicts for the audit log.
 
 from __future__ import annotations
 
-from typing import Any
 
 from agents.base_agent import AgentResult
 from config.constraints import financial_constraints

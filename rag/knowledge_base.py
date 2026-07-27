@@ -13,13 +13,11 @@ Layer B calls.
 from __future__ import annotations
 import json
 import re
-import time
 import urllib.error
 import urllib.request
-from pathlib import Path
 from typing import Any
 
-from config.settings import settings, ROOT_DIR
+from config.settings import ROOT_DIR, settings
 from rag.embedder import Embedder
 from rag.vector_store import Document, VectorStore
 from utils.logger import get_logger

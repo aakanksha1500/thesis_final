@@ -24,11 +24,11 @@ To switch ablation conditions:
 
 from __future__ import annotations
 
-import json
+
 import time
 from typing import Any
 
-from agents.base_agent import BaseAgent, AgentResult
+from agents.base_agent import AgentResult, BaseAgent
 from config.prompts import (
     EXPLAINABILITY_CALIBRATION_PROMPT,
     EXPLAINABILITY_COUNTERFACTUAL_PROMPT,
@@ -473,7 +473,6 @@ class ExplainabilityAgent(BaseAgent):
             "proxy_fields": proxy_fields,
             "confidence": confidence,
             "low_confidence_flagged": confidence < cfg.low_confidence_threshold,
-            "hallucination_flagged": hallucination_flagged,
             "hallucination_flagged": hallucination_flagged,
             "full_explanation": full_explanation,
             "risk_class": risk_class,

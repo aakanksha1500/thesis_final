@@ -23,7 +23,6 @@ import argparse
 import os
 import sys
 from collections import Counter
-from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 

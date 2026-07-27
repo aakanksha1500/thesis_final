@@ -15,12 +15,10 @@ Run:
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
 from data.customer_store import CustomerStore
+from evaluation.results_io import write_results
 from orchestrator.orchestrator import Orchestrator
 from utils.llm_client import LLMClient
 
@@ -65,7 +63,6 @@ class TestExistingCustomerBaseline:
 
         agreement_rate = correct / len(DEMO_CUSTOMER_IDS)
 
-        RESULTS_DIR.mkdir(exist_ok=True)
         results_payload = {
             "phase": "8b",
             "component": "existing_customer_pipeline",
@@ -77,9 +74,9 @@ class TestExistingCustomerBaseline:
             },
             "per_profile": per_profile,
         }
-        results_path = RESULTS_DIR / "phase8b_existing_customer_baseline.json"
-        with open(results_path, "w") as f:
-            json.dump(results_payload, f, indent=2)
+        results_path = write_results(
+            results_payload, "phase8b_existing_customer_baseline.json", llm.mode
+        )
 
         print(f"\n[Phase 8b] Demo profile agreement: {correct}/{len(DEMO_CUSTOMER_IDS)}")
         print(f"[Phase 8b] Results written to {results_path}")
