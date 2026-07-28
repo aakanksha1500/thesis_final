@@ -8,9 +8,11 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from dotenv import load_dotenv
+
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-
+load_dotenv(ROOT_DIR / ".env")
 # LLM Configuration
 # Used by: ConversationalAgent
 
@@ -71,6 +73,12 @@ class RiskConfig:
     """
     ml_weight: float = 0.6
     rule_weight: float = 0.4
+    capacity_weight: float = 0.5
+    use_trained_model: bool = field(
+        default_factory=lambda: (
+            os.getenv("USE_TRAINED_RISK_MODEL", "false").lower() == "true"
+        )
+    )
     risk_classes: list = field(default_factory=lambda: [
         "conservative", "moderately_conservative", "moderate",
         "moderately_aggressive", "aggressive",

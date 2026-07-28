@@ -53,6 +53,7 @@ class Embedder:
     ):
         self.model_name = model_name or settings.rag.embedding_model
         self.dim = dim or settings.rag.embedding_dim
+        self._requested_dim = dim          # None means "no explicit preference"
         self._model = None
         self._mode = "fallback"
         self._force_fallback = force_fallback
@@ -65,6 +66,7 @@ class Embedder:
                 f"(dim={self.dim}) regardless of environment."
             )
             return
+
         try:
             from sentence_transformers import SentenceTransformer
 

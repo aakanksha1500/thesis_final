@@ -74,13 +74,43 @@ class RiskProfilingAgent(BaseAgent):
         and GiveMeSomeCredit. [D8] datasets.
         """
         model_path = settings.risk.model_path
+        if model_path.exists() and not settings.risk.use_trained_model:
+            logger.info(
+                f"[RiskProfilingAgent] A trained model exists at {model_path} but "
+                f"settings.risk.use_trained_model is False — using the heuristic. "
+                f"Set USE_TRAINED_RISK_MODEL=true to enable it (this changes every "
+                f"RQ1 number, so it is deliberately opt-in)."
+            )
+            return None
         if model_path.exists():
             try:
                 import joblib
                 model = joblib.load(model_path)
-                logger.info(
-                    f"[RiskProfileAgent] loaded trained ML model from {model_path}"
-                )
+                if isinstance(model, dict) and model.get("kind") == "distress_probability":
+                    m = model.get("metrics", {})
+                    logger.info(
+                        f"[RiskProfilingAgent] Loaded trained DISTRESS model from "
+                        f"{model_path} — {model.get('sklearn_estimator')} on "
+                        f"{model.get('feature_names')}, "
+                        f"AUC={m.get('auc_advisory_features')} "
+                        f"(bureau ceiling {m.get('auc_all_features_ceiling')}). "
+                        f"Preference features remain coefficient-based."
+                    )
+                else:
+                    if isinstance(model, dict) and model.get("kind") == "distress_probability":
+                        m = model.get("metrics", {})
+                        logger.info(
+                            f"[RiskProfilingAgent] Loaded trained DISTRESS model from "
+                            f"{model_path} — {model.get('sklearn_estimator')} on "
+                            f"{model.get('feature_names')}, "
+                            f"AUC={m.get('auc_advisory_features')} "
+                            f"(bureau ceiling {m.get('auc_all_features_ceiling')}). "
+                            f"Preference features remain coefficient-based."
+                        )
+                    else:
+                        logger.info(
+                            f"[RiskProfileAgent] loaded trained ML model from {model_path}"
+                        )
                 return model
             except Exception as exc:
                 logger.warning(
@@ -94,7 +124,56 @@ class RiskProfilingAgent(BaseAgent):
                 "Train the model with scripts/train_risk_model.py"
             )
         return None
+    
+    def _capacity_score(self, features: dict[str, Any], bundle: dict) -> float:
+        """
+        Convert the trained model's P(financial distress) into a capacity score
+        in [0, 1], where 1 = greatest capacity to absorb loss.
+        """
+        import numpy as np
 
+        names = bundle["feature_names"]
+        medians = bundle["imputation_medians"]
+
+        row = []
+        for name, median in zip(names, medians):
+            raw = features.get(name)
+            try:
+                value = float(raw)
+                if not np.isfinite(value):
+                    value = float(median)
+            except (TypeError, ValueError):
+                value = float(median)
+            row.append(value)
+
+        p_distress = float(bundle["model"].predict_proba(np.array([row]))[0][1])
+
+        percentile = (
+            float(np.searchsorted(bundle["percentile_grid"], p_distress))
+            / 100.0
+        )
+
+        capacity = 1.0 - min(max(percentile, 0.0), 1.0)
+
+        logger.debug(
+            f"[RiskProfilingAgent] P(distress)={p_distress:.4f} "
+            f"→ percentile={percentile:.2f} → capacity={capacity:.4f}"
+        )
+
+        return capacity
+
+    def _preference_score(self, features: dict[str, Any]) -> float:
+        """
+        Score self-reported preference features.
+        """
+        score = 0.5
+        score += (float(features.get("loss_tolerance", 3)) - 3) * 0.08
+        score += (float(features.get("investment_horizon", 5)) - 5) * 0.02
+        score += (
+            float(features.get("financial_knowledge_score", 3)) - 3
+        ) * 0.04
+
+        return float(np.clip(score, 0.0, 1.0))
     # Scoring Components
 
     def _ml_score(self, features: dict[str, Any]) -> float:
@@ -110,7 +189,32 @@ class RiskProfilingAgent(BaseAgent):
         development scaffold that keeps the pipeline runnable before training.
         RQ1 evaluation uses the trained model scores.
         """
-        if self._ml_model is not None:
+        if (
+            isinstance(self._ml_model, dict)
+            and self._ml_model.get("kind") == "distress_probability"
+        ):
+            try:
+                capacity = self._capacity_score(features, self._ml_model)
+                preference = self._preference_score(features)
+
+                w = settings.risk.capacity_weight
+
+                score = w * capacity + (1.0 - w) * preference
+
+                logger.debug(
+                    f"[RiskProfilingAgent] ML score {score:.4f} = "
+                    f"{w:.2f}*capacity({capacity:.4f}) + "
+                    f"{1 - w:.2f}*preference({preference:.4f})"
+                )
+
+                return float(np.clip(score, 0.0, 1.0))
+
+            except Exception as exc:
+                logger.warning(
+                    f"[RiskProfilingAgent] Trained-model scoring failed: {exc} "
+                    f"— falling back to heuristic for this call"
+                )
+        if self._ml_model is not None and not isinstance(self._ml_model, dict):
             try:
                 feature_vector = np.array([[
                     float(features.get(f, 0))
@@ -273,7 +377,99 @@ class RiskProfilingAgent(BaseAgent):
         +ve shap_impact -> pushes toward aggressive.
         -ve shap_impact -> pushes toward conservative.
         """
-        if self._ml_model is not None:
+        if (
+            isinstance(self._ml_model, dict)
+            and self._ml_model.get("kind") == "distress_probability"
+        ):
+            try:
+                import shap
+
+                bundle = self._ml_model
+                names = bundle["feature_names"]
+                medians = bundle["imputation_medians"]
+
+                row = []
+
+                for name, median in zip(names, medians):
+                    try:
+                        value = float(features.get(name))
+                        if not np.isfinite(value):
+                            value = float(median)
+                    except (TypeError, ValueError):
+                        value = float(median)
+
+                    row.append(value)
+
+                explainer = shap.TreeExplainer(bundle["model"])
+                raw = explainer.shap_values(np.array([row]))
+
+                arr = np.array(
+                    raw[1]
+                    if isinstance(raw, list) and len(raw) == 2
+                    else raw
+                )
+
+                vals = (
+                    arr[0][..., 1]
+                    if arr.ndim == 3
+                    else arr[0]
+                )
+
+                vals = np.asarray(vals, dtype=float).ravel()[: len(names)]
+
+                attributions = {}
+
+                for name, value, shap_value in zip(names, row, vals):
+                    attributions[name] = {
+                        "value": features.get(name, value),
+                        "shap_impact": round(float(-shap_value), 4),
+                        "source": "shap",
+                    }
+
+                for name, impact in (
+                    (
+                        "loss_tolerance",
+                        (float(features.get("loss_tolerance", 3)) - 3) * 0.08,
+                    ),
+                    (
+                        "investment_horizon",
+                        (float(features.get("investment_horizon", 5)) - 5) * 0.02,
+                    ),
+                    (
+                        "financial_knowledge_score",
+                        (
+                            float(features.get("financial_knowledge_score", 3)) - 3
+                        )
+                        * 0.04,
+                    ),
+                ):
+                    if name not in attributions:
+                        attributions[name] = {
+                            "value": features.get(name, "N/A"),
+                            "shap_impact": round(impact, 4),
+                            "source": "proxy",
+                        }
+
+                logger.debug(
+                    f"[RiskProfilingAgent] SHAP: {len(names)} learned + "
+                    f"{len(attributions) - len(names)} proxy attributions"
+                )
+
+                return attributions
+
+            except ImportError:
+                logger.warning(
+                    "[RiskProfilingAgent] shap not installed — a trained model is "
+                    "present but explanations fall back to proxy attributions. "
+                    "pip install shap"
+                )
+
+            except Exception as exc:
+                logger.warning(
+                    f"[RiskProfilingAgent] SHAP computation failed: {exc} "
+                    f"— using proxy"
+                )
+        if self._ml_model is not None and not isinstance(self._ml_model, dict):
             try:
                 import shap
                 explainer = shap.TreeExplainer(self._ml_model)
@@ -291,6 +487,7 @@ class RiskProfilingAgent(BaseAgent):
                     feat: {
                         "value": features.get(feat, "N/A"),
                         "shap_impact": round(float(val), 4),
+                        "source": "proxy",
                     }
                     for feat, val in zip(settings.risk.required_features, shap_vals[0])
                 }

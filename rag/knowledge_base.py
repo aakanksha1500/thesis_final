@@ -13,9 +13,10 @@ Layer B calls.
 from __future__ import annotations
 
 import json
+import csv
 import re
-import urllib.error
-import urllib.request
+# import urllib.error
+# import urllib.request
 from typing import Any
 from pathlib import Path
 
@@ -26,9 +27,9 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-CBI_API_URL = "https://www.centralbank.ie/opendata/api/rates"
-CBI_API_TIMEOUT_SECONDS = 5
-
+# CBI_API_URL = "https://www.centralbank.ie/opendata/api/rates"
+# CBI_API_TIMEOUT_SECONDS = 5
+CBI_PORTAL_URL = "https://opendata.centralbank.ie/dataset"
 DATA_RAW = ROOT_DIR / "data" / "raw"
 
 # Bundled seed corpora — synthetic/illustrative, used when live/downloaded
@@ -176,6 +177,76 @@ _SOURCE_LABEL: dict[str, str] = {
     "finqa_verified": "FinQA Verified [D1]",
 }
 
+def _load_records_from_dir(directory: Path, doc_prefix: str) -> list[dict[str, str]]:
+    """
+    Turn every .csv / .json file in `directory` into {doc_id, text} records.
+
+    Shared by D3 (CBI) and D4 (EU Digital Finance) — both are "download the
+    file yourself, drop it here" datasets, and both previously had their own
+    near-identical loop.
+
+    CSV rows become "column: value" text so a statistical table is at least
+    retrievable as prose. That is crude, deliberately: the alternative is a
+    bespoke parser per dataset, which is not what this layer is for.
+    """
+    if not directory.exists():
+        return []
+
+    records: list[dict[str, str]] = []
+
+    # Load CSV files
+    for path in sorted(directory.glob("*.csv")):
+        try:
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                for i, row in enumerate(csv.DictReader(f)):
+                    text = " ".join(
+                        f"{k}: {v}" for k, v in row.items() if v and k
+                    )
+                    if text.strip():
+                        records.append(
+                            {
+                                "doc_id": f"{doc_prefix}-{path.stem}-{i:05d}",
+                                "text": text,
+                            }
+                        )
+        except Exception as exc:
+            logger.warning(f"[KnowledgeBase] Failed reading {path.name}: {exc}")
+
+    # Load JSON files
+    for path in sorted(directory.glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            items = (
+                payload.get("data", payload)
+                if isinstance(payload, dict)
+                else payload
+            )
+
+            if isinstance(items, list):
+                for i, item in enumerate(items):
+                    text = (
+                        " ".join(
+                            f"{k}: {v}"
+                            for k, v in item.items()
+                            if v
+                        )
+                        if isinstance(item, dict)
+                        else str(item)
+                    )
+
+                    if text.strip():
+                        records.append(
+                            {
+                                "doc_id": f"{doc_prefix}-{path.stem}-{i:05d}",
+                                "text": text,
+                            }
+                        )
+
+        except Exception as exc:
+            logger.warning(f"[KnowledgeBase] Failed reading {path.name}: {exc}")
+
+    return records
+
 def _chunk_text(text: str, size: int, overlap: int) -> list[str]:
     """Fixed-size character chunking with overlap. Sentence-aware where possible."""
     text = re.sub(r"\s+", " ", text).strip()
@@ -205,6 +276,7 @@ class KnowledgeBase:
         self.embedder = embedder or Embedder()
         self.store = VectorStore(dim=self.embedder.dim)
         self._built = False
+        self._source_used: dict[str, str] = {}
 
     # Build / Load
 
@@ -270,6 +342,7 @@ class KnowledgeBase:
                 "embedder_mode": self.embedder.mode,
                 "embedder_model": self.embedder.model_name,
                 "embedding_dim": self.embedder.dim,
+                "document_set_sources": dict(self._source_used),
             },
         )
 
@@ -293,37 +366,64 @@ class KnowledgeBase:
         contract for opendata.centralbank.ie is not guaranteed stable
         enough to hard-depend on for reproducible test runs.
         """
-        try:
-            req = urllib.request.Request(
-                CBI_API_URL, headers={"Accept": "application/json"}
-            )
-            with urllib.request.urlopen(req, timeout=CBI_API_TIMEOUT_SECONDS) as resp:
-                payload = json.loads(resp.read().decode("utf-8"))
-            records = self._parse_cbi_payload(payload)
-            if records:
-                logger.info(f"[KnowledgeBase] Fetched {len(records)} live CBI records")
-                return records
-        except (urllib.error.URLError, TimeoutError, ValueError, OSError) as exc:
-            logger.info(
-                f"[KnowledgeBase] CBI Open Data API unreachable ({exc}) — "
-                f"using bundled seed corpus for [D3]."
-            )
-        return list(_SEED_CBI_OPEN_DATA)
+        
+        directory = DATA_RAW / "cbi_open_data"
+        records = _load_records_from_dir(directory, "cbi")
 
-    @staticmethod
-    def _parse_cbi_payload(payload: Any) -> list[dict[str, str]]:
-        """Best-effort parse of the CBI API's JSON shape into {doc_id, text}."""
-        records = []
-        items = payload.get("data", payload) if isinstance(payload, dict) else payload
-        if not isinstance(items, list):
+        if records:
+            logger.info(
+                f"[KnowledgeBase] [D3] Loaded {len(records)} CBI records from {directory}"
+            )
+            self._source_used["cbi_open_data"] = f"local:{directory.name}"
             return records
-        for i, item in enumerate(items):
-            if isinstance(item, dict) and "description" in item:
-                records.append({
-                    "doc_id": f"cbi-live-{i:04d}",
-                    "text": str(item["description"]),
-                })
-        return records
+
+        logger.warning(
+            f"[KnowledgeBase] [D3] No CBI data in {directory} — falling back to "
+            f"{len(_SEED_CBI_OPEN_DATA)} SYNTHETIC seed paragraphs. Retrieval "
+            f"grounded on these is illustrative only. Download real data from "
+            f"{CBI_PORTAL_URL} and rebuild."
+        )
+
+        self._source_used["cbi_open_data"] = "seed"
+        return list(_SEED_CBI_OPEN_DATA)
+        # try:
+        #     req = urllib.request.Request(
+        #         CBI_API_URL, headers={"Accept": "application/json"}
+        #     )
+        #     with urllib.request.urlopen(req, timeout=CBI_API_TIMEOUT_SECONDS) as resp:
+        #         payload = json.loads(resp.read().decode("utf-8"))
+        #     records = self._parse_cbi_payload(payload)
+        #     if records:
+        #         logger.info(f"[KnowledgeBase] Fetched {len(records)} live CBI records")
+        #         return records
+        # except (urllib.error.URLError, TimeoutError, ValueError, OSError) as exc:
+        #     logger.info(
+        #         f"[KnowledgeBase] CBI Open Data API unreachable ({exc}) — "
+        #         f"using bundled seed corpus for [D3]."
+        #     )
+        directory = DATA_RAW / "cbi_open_data"
+        records = _load_records_from_dir(directory, "cbi")
+        if records:
+            logger.info(
+                f"[KnowledgeBase] [D3] Loaded {len(records)} CBI records from {directory}"
+            )
+
+
+    # @staticmethod
+    # def _parse_cbi_payload(payload: Any) -> list[dict[str, str]]:
+    #     """Best-effort parse of the CBI API's JSON shape into {doc_id, text}."""
+        # records = []
+        # items = payload.get("data", payload) if isinstance(payload, dict) else payload
+        # if not isinstance(items, list):
+        #     return records
+        # for i, item in enumerate(items):
+        #     if isinstance(item, dict) and "description" in item:
+        #         records.append({
+        #             "doc_id": f"cbi-live-{i:04d}",
+        #             "text": str(item["description"]),
+        #         })
+        # return records
+        
 
     def _load_eu_digital_finance(self) -> list[dict[str, str]]:
         """
@@ -332,29 +432,42 @@ class KnowledgeBase:
         data/raw/eu_digital_finance/; falls back to seed corpus otherwise.
         """
         directory = DATA_RAW / "eu_digital_finance"
-        if not directory.exists():
-            return list(_SEED_EU_DIGITAL_FINANCE)
+        records = _load_records_from_dir(directory, "eu")
+        if records:
+            logger.info(
+                f"[KnowledgeBase] [D4] Loaded {len(records)} EU records from {directory}"
+            )
+            self._source_used["eu_digital_finance"] = f"local:{directory.name}"
+            return records
+        logger.warning(
+            f"[KnowledgeBase] [D4] No EU data in {directory} — falling back to "
+            f"{len(_SEED_EU_DIGITAL_FINANCE)} SYNTHETIC seed paragraphs."
+        )
+        self._source_used["eu_digital_finance"] = "seed"
+        return list(_SEED_EU_DIGITAL_FINANCE)
+        # if not directory.exists():
+        #     return list(_SEED_EU_DIGITAL_FINANCE)
 
-        records: list[dict[str, str]] = []
-        try:
-            import csv  # noqa: PLC0415
+        # records: list[dict[str, str]] = []
+        # try:
+        #     import csv  # noqa: PLC0415
 
-            for csv_path in sorted(directory.glob("*.csv")):
-                with open(csv_path, newline="", encoding="utf-8") as f:
-                    reader = csv.DictReader(f)
-                    for i, row in enumerate(reader):
-                        text = " ".join(
-                            f"{k}: {v}" for k, v in row.items() if v
-                        )
-                        if text.strip():
-                            records.append({
-                                "doc_id": f"{csv_path.stem}-{i:05d}",
-                                "text": text,
-                            })
-        except Exception as exc:
-            logger.warning(f"[KnowledgeBase] Failed reading EU Digital Finance CSVs: {exc}")
+        #     for csv_path in sorted(directory.glob("*.csv")):
+        #         with open(csv_path, newline="", encoding="utf-8") as f:
+        #             reader = csv.DictReader(f)
+        #             for i, row in enumerate(reader):
+        #                 text = " ".join(
+        #                     f"{k}: {v}" for k, v in row.items() if v
+        #                 )
+        #                 if text.strip():
+        #                     records.append({
+        #                         "doc_id": f"{csv_path.stem}-{i:05d}",
+        #                         "text": text,
+        #                     })
+        # except Exception as exc:
+        #     logger.warning(f"[KnowledgeBase] Failed reading EU Digital Finance CSVs: {exc}")
 
-        return records if records else list(_SEED_EU_DIGITAL_FINANCE)
+        # return records if records else list(_SEED_EU_DIGITAL_FINANCE)
 
     def _load_finqa_split(self, filename: str, document_set: str) -> list[dict[str, str]]:
         """[D2] FinQA Original — loaded from data/raw/ if download_datasets.py --phase 8 has run."""

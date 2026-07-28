@@ -407,6 +407,7 @@ class Orchestrator:
                 )
                 if risk_result and risk_result.success:
                     context["risk_agent_payload"] = risk_result.payload
+                    context["risk_class"] = risk_result.payload.get("risk_class")
                     self._session_state["risk_profile"] = risk_result.payload
 
             if agent_name == "ExplainabilityAgent":

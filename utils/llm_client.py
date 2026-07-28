@@ -7,8 +7,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from utils.logger import get_logger
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 logger = get_logger(__name__)
 
@@ -83,6 +87,7 @@ class LLMClient:
             logger.info("[LLMClient] force_mock=True — running in MOCK mode regardless of environment.")
             return
         provider = os.getenv("LLM_PROVIDER", "openai").lower()
+        # print(provider, "!!!!!!!!!!!!!!!!!!!!!!!!!")
 
         if provider not in self._PROVIDER_BASE_URLS:
             logger.warning(
@@ -92,8 +97,9 @@ class LLMClient:
             return
         key_env_var = f"{provider.upper()}_API_KEY"
         api_key = os.getenv(key_env_var, "")
-
+        # print(key_env_var, api_key, "@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
         if not api_key:
+            # print("in not api_key if", "############")
             logger.warning(
                 f"[LLMClient] {key_env_var} not set — running in MOCK mode. "
                 f"Set it in .env to activate real LLM calls via {provider}."

@@ -102,11 +102,36 @@ class TestMLScore:
         high_debt = {**FULL_FEATURES, "existing_debt": 55000}
         assert agent._ml_score(high_debt) < agent._ml_score(low_debt)
 
-    def test_older_age_gives_lower_score(self):
+    def test_older_age_gives_lower_score_under_the_heuristic(self):
+        """
+        The HEURISTIC applies a lifecycle penalty.
+        """
         agent = make_agent()
+
+        # Force heuristic path
+        agent._ml_model = None
+
         young = {**FULL_FEATURES, "age": 25}
         old = {**FULL_FEATURES, "age": 65}
+
         assert agent._ml_score(young) > agent._ml_score(old)
+    
+    def test_trained_model_age_effect_is_empirical_not_assumed(self):
+        agent = make_agent()
+
+        if not isinstance(agent._ml_model, dict):
+            pytest.skip("no trained model — run scripts/train_risk_model.py")
+
+        young = {**FULL_FEATURES, "age": 25}
+        old = {**FULL_FEATURES, "age": 65}
+
+        cap_young = agent._capacity_score(young, agent._ml_model)
+        cap_old = agent._capacity_score(old, agent._ml_model)
+
+        assert cap_old > cap_young, (
+            f"capacity young={cap_young:.3f} "
+            f"old={cap_old:.3f}"
+        )
 
     def test_score_clips_to_zero_minimum(self):
         agent = make_agent()
