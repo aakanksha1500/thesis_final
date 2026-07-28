@@ -1,0 +1,94 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-07-28T10:02:02.670040+00:00",
+    "git_sha": "9383271-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "mock",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama-3.1-8b-instant",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {
+      "embedder": "sentence-transformers",
+      "vector_store": "faiss",
+      "hallucination_detector": "hhem",
+      "market_data": "unavailable"
+    },
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 6,
+  "agent": "ExplainabilityAgent",
+  "ablation_condition": "shap_rag",
+  "config": {
+    "use_shap": true,
+    "use_rag_citation": true,
+    "use_counterfactual": false,
+    "use_calibration_note": true
+  },
+  "layers_applied": [
+    "shap",
+    "rag_citation",
+    "calibration_note"
+  ],
+  "metrics": {
+    "transparency_perception_score": {
+      "metric": "transparency_perception_score",
+      "value": 0.73,
+      "details": {
+        "n_responses": 5,
+        "mean_clarity": 0.72,
+        "mean_source_visible": 1.0,
+        "mean_counterfactual_useful": 0.48,
+        "mean_trust_appropriate": 0.72
+      }
+    },
+    "trust_calibration_index": {
+      "metric": "trust_calibration_index",
+      "value": 0.9,
+      "details": {
+        "n": 5,
+        "mean_trust": 3.6,
+        "mean_quality": 3.2,
+        "mean_deviation": 0.1,
+        "interpretation": "Well-calibrated: trust tracks advice quality"
+      }
+    }
+  },
+  "sample_explanation": {
+    "shap_narrative": "[MOCK RESPONSE] Agent role: 'You are generating the SHAP explanation layer of a multi-age...' | User said: 'Feature attributions for 'moderate' clas...' | Set OPENAI_API_KEY in .env for real API responses.",
+    "rag_citations": [
+      {
+        "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
+        "source": "FinQA Original [D2]",
+        "text": "s . flagship funds in these product areas include our unconstrained strategic income opportunities and fixed income global opportunities funds , with net inflows of $ 13.3 billion and $ 4.2 billion , respectively ; our total return fund with net inflows of $ 2.1 billion ; and our high yield bond fund with net inflows of $ 2.1 billion . fixed income net inflows were positive across investment styles , with ishares , non- etf index , and active net inflows of $ 40.0 billion , $ 28.7 billion and $ ",
+        "relevance": 0.4849,
+        "document_set": "finqa_original",
+        "doc_id": "finqa-orig-00314-6"
+      },
+      {
+        "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
+        "source": "FinQA Original [D2]",
+        "text": "as include our unconstrained strategic income opportunities and fixed income strategies funds , with net inflows of $ 7.0 billion and $ 3.7 billion , respectively ; our total return fund with net inflows of $ 2.7 billion ; and our high yield bond fund with net inflows of $ 3.5 billion . fixed income ishares net inflows of $ 50.3 billion were led by flows into core , corporate and high yield bond funds . active and ishares net inflows were partially offset by non-etf index net outflows of $ 9.3 b",
+        "relevance": 0.4556,
+        "document_set": "finqa_original",
+        "doc_id": "finqa-orig-00409-6"
+      },
+      {
+        "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
+        "source": "FinQA Original [D2]",
+        "text": "as include our unconstrained strategic income opportunities and fixed income strategies funds , with net inflows of $ 7.0 billion and $ 3.7 billion , respectively ; our total return fund with net inflows of $ 2.7 billion ; and our high yield bond fund with net inflows of $ 3.5 billion . fixed income ishares net inflows of $ 50.3 billion were led by flows into core , corporate and high yield bond funds . active and ishares net inflows were partially offset by non-etf index net outflows of $ 9.3 b",
+        "relevance": 0.4556,
+        "document_set": "finqa_original",
+        "doc_id": "finqa-orig-00186-6"
+      }
+    ],
+    "counterfactual": null,
+    "calibration_note": "[MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses.",
+    "full_explanation": "[MOCK RESPONSE] Agent role: 'You are generating the SHAP explanation layer of a multi-age...' | User said: 'Feature attributions for 'moderate' clas...' | Set OPENAI_API_KEY in .env for real API responses. This analysis draws on: FinQA Original [D2], FinQA Original [D2]. [MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses."
+  },
+  "survey_note": "Synthetic survey fixture \u2014 replace with real pilot study responses (n\u226520) before dissertation submission."
+}

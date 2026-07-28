@@ -1,0 +1,13 @@
+{
+  "key": "294e7b2db4dc8dee5f117e93e3e072e3c7bd1a2d8acefdce0b4722601ae01eb8",
+  "request": {
+    "model": "llama-3.3-70b-versatile",
+    "temperature": 0.0,
+    "system_preview": "You are a test harness. Reply with exactly one word."
+  },
+  "response": {
+    "content": "OK",
+    "tokens_used": 56,
+    "model": "llama-3.3-70b-versatile"
+  }
+}

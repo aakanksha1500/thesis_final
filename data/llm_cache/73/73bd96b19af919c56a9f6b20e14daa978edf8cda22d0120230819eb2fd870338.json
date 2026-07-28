@@ -1,0 +1,13 @@
+{
+  "key": "73bd96b19af919c56a9f6b20e14daa978edf8cda22d0120230819eb2fd870338",
+  "request": {
+    "model": "llama-3.1-8b-instant",
+    "temperature": 0.2,
+    "system_preview": "You are the Risk Profiling Agent in a multi-agent financial advisory system for retail investors in Ireland.\n\nYOUR ROLE:"
+  },
+  "response": {
+    "content": "Based on your profile, I've classified you as a moderately aggressive investor. Your willingness to take on some risk, reflected in your relatively high loss tolerance and long investment horizon, has driven this classification. Your age and income also support this assessment. However, your existing debt has slightly tempered this view, but not enough to shift you into a more conservative category. I am moderately confident in this classification.",
+    "tokens_used": 578,
+    "model": "llama-3.1-8b-instant"
+  }
+}

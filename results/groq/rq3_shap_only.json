@@ -1,12 +1,12 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-07-27T16:15:16.646619+00:00",
-    "git_sha": "b5c4e66-dirty",
+    "generated_at_utc": "2026-07-28T09:59:32.975387+00:00",
+    "git_sha": "9383271-dirty",
     "prompt_version": "v1.0",
     "llm_mode": "groq",
-    "orchestrator_model": "gpt-4o-mini",
-    "specialist_model": "gpt-4o-mini",
-    "judge_model": "gpt-4o-mini",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama-3.1-8b-instant",
+    "judge_model": "llama-3.3-70b-versatile",
     "environment": "development",
     "subsystem_modes": {
       "embedder": "sentence-transformers",
@@ -58,11 +58,11 @@
     }
   },
   "sample_explanation": {
-    "shap_narrative": "Your ability to tolerate losses and long investment horizon had the most influence, leaning toward more aggressive. Existing debt had a conservative effect.",
+    "shap_narrative": "The most influential factor in your risk classification was your loss tolerance (value: 3), which pushed toward a higher risk tier.",
     "rag_citations": [],
     "counterfactual": null,
-    "calibration_note": "If market volatility exceeds 20%, this moderate risk classification may no longer apply.",
-    "full_explanation": "Your ability to tolerate losses and long investment horizon had the most influence, leaning toward more aggressive. Existing debt had a conservative effect. If market volatility exceeds 20%, this moderate risk classification may no longer apply."
+    "calibration_note": "This recommendation assumes stable employment and income. A significan change to either would warrant reassessment.",
+    "full_explanation": "The most influential factor in your risk classification was your loss tolerance (value: 3), which pushed toward a higher risk tier. This recommendation assumes stable employment and income. A significan change to either would warrant reassessment."
   },
   "survey_note": "Synthetic survey fixture \u2014 replace with real pilot study responses (n\u226520) before dissertation submission."
 }

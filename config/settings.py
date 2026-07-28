@@ -30,6 +30,7 @@ class LLMConfig:
     temperature: float = 0.2
     max_tokens: int = 1024
     timeout_seconds: int = 30
+    max_retries: int = 2  
 
 @dataclass
 class ConversationalConfig:

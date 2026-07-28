@@ -24,10 +24,14 @@ All conflicts are returned as a list of dicts for the audit log.
 
 from __future__ import annotations
 
+from copy import deepcopy
+from dataclasses import replace
+
 from agents.base_agent import AgentResult
 from config.constraints import financial_constraints
 from config.settings import settings
 from utils.logger import get_logger
+from utils import trace
 
 logger = get_logger(__name__)
 
@@ -46,6 +50,11 @@ class ConflictResolver:
         Modifies result in-place where resolution requires it.
         """
         conflicts: list[dict] = []
+
+        agent_results = [
+            replace(r, payload=deepcopy(r.payload))
+            for r in agent_results
+        ]
 
         risk_result = self._find_result(agent_results, "RiskProfilingAgent")
         inv_result = self._find_result(agent_results, "InvestmentAgent")
@@ -129,7 +138,8 @@ class ConflictResolver:
                     f"[ConflictResolver] LOW_CONFIDENCE_AGGRESSIVE: "
                     f"downgraded {risk_class} → moderate (conf={confidence:.2f})"
                 )
-
+        for c in conflicts:
+            trace.emit("⚠ CONFLICT", c["type"], resolution=c["resolution"])
         return agent_results, conflicts
 
     def _find_result(

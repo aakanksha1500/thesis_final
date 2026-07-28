@@ -51,6 +51,7 @@ from explainability.explainability_agent import ExplainabilityAgent
 from orchestrator.audit_log import AuditLog
 from orchestrator.conflict_resolver import ConflictResolver
 from orchestrator.failure_handler import FailureHandler
+from utils import trace
 from utils.llm_client import LLMClient
 from utils.logger import get_logger
 
@@ -100,6 +101,12 @@ class Orchestrator:
     ):
         self.session_id = session_id or str(uuid.uuid4())[:12]
         self.llm = llm_client
+        self.specialist_llm = self._derive_client(
+            llm_client, settings.llm.specialist_model, "specialist"
+        )
+        self.judge_llm = self._derive_client(
+            llm_client, settings.llm.judge_model, "judge"
+        )
         self.customer_store = customer_store or CustomerStore()
 
         # Per-session components
@@ -110,10 +117,10 @@ class Orchestrator:
         # Agent registry — one instance per agent type, shared across turns
         self._agents: dict[str, Any] = {
             "ConversationalAgent": ConversationalAgent(llm_client),
-            "RiskProfilingAgent":  RiskProfilingAgent(llm_client),
-            "InvestmentAgent":     InvestmentAgent(llm_client),
-            "BudgetAgent":         BudgetAgent(llm_client),
-            "ExplainabilityAgent": ExplainabilityAgent(llm_client),
+            "RiskProfilingAgent":  RiskProfilingAgent(self.specialist_llm),
+            "InvestmentAgent":     InvestmentAgent(self.specialist_llm),
+            "BudgetAgent":         BudgetAgent(self.specialist_llm),
+            "ExplainabilityAgent": ExplainabilityAgent(self.specialist_llm),
         }
 
         # Session state — persists across turns
@@ -139,6 +146,38 @@ class Orchestrator:
         elif customer_id:
             self._load_customer(customer_id)
 
+
+    @staticmethod
+    def _derive_client(primary: LLMClient, model: str, role: str) -> LLMClient:
+        """
+        Return a client for `role`, reusing `primary` where a second one would
+        be pointless or harmful.
+
+        Fixes R10: LLMConfig has defined specialist_model and judge_model since
+        Phase 1, but LLMClient only ever read ORCHESTRATOR_MODEL and one client
+        was shared by everything — so the four specialist agents were running
+        the orchestrator's model to narrate figures already computed in Python.
+
+        Two cases MUST reuse `primary` rather than build a new client:
+
+          mock mode   Tests inject a mock client and some patch .chat on that
+                      exact instance (see make_agent_with_responses). A second
+                      client would bypass the fake and could reach a real API
+                      from a unit test.
+          same model  No reason to hold two clients for one model.
+        """
+        if primary.mode == "mock":
+            return primary
+        if not model or model == primary.model:
+            return primary
+
+        client = LLMClient(model=model)
+        logger.info(
+            f"[Orchestrator] {role} tier → model={model} (mode={client.mode}); "
+            f"orchestrator tier → model={primary.model}"
+        )
+        return client
+    
     # Existing-customer pipeline
 
     def _load_customer(
@@ -303,6 +342,15 @@ class Orchestrator:
                     f"→ CONVERSATIONAL_ONLY"
                 )
                 return RoutingDecision.CONVERSATIONAL_ONLY, intent, confidence
+            
+            _unreachable = set(RoutingDecision) - set(INTENT_TO_ROUTING.values())
+
+            if _unreachable:
+                logger.debug(
+                    f"[Orchestrator] Routing decisions unreachable from any "
+                    f"intent: {sorted(r.value for r in _unreachable)}. "
+                    f"Either map an intent to them or remove them."
+                )
 
             routing = INTENT_TO_ROUTING.get(intent, RoutingDecision.CONVERSATIONAL_ONLY)
             return routing, intent, confidence
@@ -330,18 +378,17 @@ class Orchestrator:
             ), False
 
         last_error = None
-        for attempt in range(settings.orchestrator.max_agent_retries + 1):
+        _max_retries = settings.orchestrator.max_agent_retries
+        for attempt in range(_max_retries + 1):
             try:
-                result = agent.run(context)
-                self.audit_log.record_agent_call(
-                    turn_id=context.get("_turn_id", "unknown"),
-                    agent_name=agent_name,
-                    success=result.success,
-                    duration_ms=result.duration_ms,
-                    tokens_used=result.tokens_used,
-                    step_id=result.step_id,
-                    error=result.error,
-                )
+                with trace.span("▶ AGENT", agent_name,
+                                attempt=f"{attempt + 1}/{_max_retries + 1}"):
+                    result = agent.run(context)
+                trace.emit("  ↳ result",
+                           f"status={result.payload.get('status', 'ok')}",
+                           ok=result.success,
+                           ms=round(result.duration_ms),
+                           tokens=result.tokens_used)
                 return result, False
             except Exception as exc:
                 last_error = exc
@@ -371,6 +418,9 @@ class Orchestrator:
             recovery_strategy=recovery["strategy"],
             recovery_success=recovery["success"],
         )
+        trace.emit("↻ RECOVER", agent_name,
+                   strategy=recovery["strategy"], success=recovery["success"])
+        
         recovered_result = AgentResult(
             agent_name=agent_name,
             success=recovery["success"],
@@ -400,6 +450,7 @@ class Orchestrator:
         recovered: list[str] = []
 
         for agent_name in agent_names:
+            injected_keys: list[str] = []
             # Inject prior results into context for downstream agents
             if agent_name == "InvestmentAgent":
                 risk_result = next(
@@ -408,6 +459,7 @@ class Orchestrator:
                 if risk_result and risk_result.success:
                     context["risk_agent_payload"] = risk_result.payload
                     context["risk_class"] = risk_result.payload.get("risk_class")
+                    injected_keys += ["risk_agent_payload", "risk_class"]
                     self._session_state["risk_profile"] = risk_result.payload
 
             if agent_name == "ExplainabilityAgent":
@@ -425,7 +477,12 @@ class Orchestrator:
                     inv_result.payload if inv_result else
                     self._session_state.get("prior_investment_output") or {}
                 )
+                injected_keys += ["risk_agent_payload", "investment_agent_payload"]
 
+            if injected_keys:
+                prev_agent = results[-1].agent_name if results else "(session cache)"
+                trace.emit("⇄ HANDOFF", f"{prev_agent} → {agent_name}",
+                           keys=sorted(set(injected_keys)))
             result, was_recovered = self._execute_agent(agent_name, context)
             results.append(result)
             if was_recovered:
@@ -455,7 +512,7 @@ class Orchestrator:
 
     # Layer 3 - Execution monitoring
     def _check_constraints(
-        self, response_text: str, agent_results: list[AgentResult]
+        self, response_text: str, agent_results: list[AgentResult], turn_id: str = "unknown",
     ) -> tuple[str, list[dict], bool]:
         """
         Apply financial rule constraints (E4 — Nguyen et al. [8]).
@@ -489,7 +546,7 @@ class Orchestrator:
             }
             violations.append(vdict)
             self.audit_log.record_constraint_violation(
-                turn_id="",  # filled in by caller
+                turn_id=turn_id,  # filled in by caller
                 rule_id=v.rule_id,
                 severity=v.severity,
                 description=v.description,
@@ -549,11 +606,15 @@ class Orchestrator:
         )
 
         try:
+            trace.emit("PROMPT", "orchestrator_synthesis",
+                       chars=len(synthesis_prompt), temp=0.2)
             response = self.llm.chat(
                 system=ORCHESTRATOR_SYSTEM,
                 messages=[{"role": "user", "content": synthesis_prompt}],
                 temperature=0.2,
             )
+            trace.emit("LLM", f"← {response.tokens_used} tok",
+                       model=response.model, mode=self.llm.mode)
             return response.content.strip()
         except Exception as exc:
             logger.error(f"[Orchestrator] Synthesis failed: {exc}")
@@ -581,15 +642,29 @@ class Orchestrator:
         """
         turn_start = time.perf_counter()
         turn_id = str(uuid.uuid4())[:8]
+        trace.set_session(self.session_id)
+        trace.new_turn(turn_id)
+        trace.turn_banner(turn_id, self.session_id,
+                          self._session_state["turn_count"] + 1, user_message)
         self._session_state["turn_count"] += 1
         self._session_state["conversation_history"].append(
             {"role": "user", "content": user_message}
         )
 
         self.audit_log.record_turn_start(turn_id, user_message)
+        trace.emit("ORCH", "orchestrator start",
+                   customer=self._session_state.get("customer_id"),
+                   known=self._session_state.get("customer_known"))
 
         # -- Layer 1: Classify intent --
-        routing, intent, confidence = self._classify_intent(user_message)
+        with trace.span("[L1]", "goal decomposition"):
+            routing, intent, confidence = self._classify_intent(user_message)
+
+        _threshold = settings.orchestrator.routing_confidence_threshold
+        trace.emit("ROUTING", f"{intent} → {routing.value}",
+                   confidence=round(confidence, 2),
+                   reason=("above threshold" if confidence >= _threshold
+                           else f"below {_threshold} → conversational"))
         self.audit_log.record_routing(
             turn_id=turn_id,
             routing_decision=routing.value,
@@ -607,30 +682,48 @@ class Orchestrator:
         context["_turn_id"] = turn_id
 
         agent_sequence = self._get_agent_sequence(routing)
-        agent_results, recovered = self._run_agent_sequence(agent_sequence, context)
+        with trace.span("[L2]", f"plan: {' → '.join(agent_sequence)}"):
+            agent_results, recovered = self._run_agent_sequence(agent_sequence, context)
 
         # -- Layer 3a: Conflict resolution --
-        if settings.orchestrator.enable_conflict_resolution:
-            agent_results, conflicts = self._conflict_resolver.resolve(agent_results)
-        else:
-            conflicts = []
-        for conflict in conflicts:
-            self.audit_log.record_conflict(
-                turn_id=turn_id,
-                conflict_type=conflict["type"],
-                description=conflict["description"],
-                resolution=conflict["resolution"],
+        with trace.span("[L3]", "execution monitoring"):
+            if settings.orchestrator.enable_conflict_resolution:
+                agent_results, conflicts = self._conflict_resolver.resolve(agent_results)
+            else:
+                conflicts = []
+            for conflict in conflicts:
+                self.audit_log.record_conflict(
+                    turn_id=turn_id,
+                    conflict_type=conflict["type"],
+                    description=conflict["description"],
+                    resolution=conflict["resolution"],
+                )         
+            # -- Layer 3b: Synthesis --
+            raw_response = self._synthesise_response(
+                user_message, agent_results, routing
+            )
+            # -- Layer 3c: Constraint validation --
+            final_response, violations, was_blocked = self._check_constraints(
+                raw_response, agent_results
             )
 
-        # -- Layer 3b: Synthesis --
-        raw_response = self._synthesise_response(
-            user_message, agent_results, routing
-        )
+            trace.emit(
+                "✓ VALIDATE",
+                "final response",
+                violations=len(violations),
+                blocked=was_blocked,
+            )
+        
 
-        # -- Layer 3c: Constraint validation --
-        final_response, violations, was_blocked = self._check_constraints(
-            raw_response, agent_results
-        )
+        
+        # raw_response = self._synthesise_response(
+        #     user_message, agent_results, routing
+        # )
+
+        
+        # final_response, violations, was_blocked = self._check_constraints(
+        #     raw_response, agent_results
+        # )
 
         # Update conversation history
         self._session_state["conversation_history"].append(
@@ -655,6 +748,11 @@ class Orchestrator:
             f"conflicts={len(conflicts)} violations={len(violations)} "
             f"recovered={recovered} duration={total_ms:.0f}ms"
         )
+
+        trace.emit("TURN END", "",
+                   duration_ms=round(total_ms), agents=len(agents_invoked),
+                   conflicts=len(conflicts), violations=len(violations),
+                   recovered=len(recovered),)
 
         return OrchestratorResult(
             session_id=self.session_id,

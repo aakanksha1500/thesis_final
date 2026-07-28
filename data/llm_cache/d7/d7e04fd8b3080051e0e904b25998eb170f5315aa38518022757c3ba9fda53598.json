@@ -1,0 +1,13 @@
+{
+  "key": "d7e04fd8b3080051e0e904b25998eb170f5315aa38518022757c3ba9fda53598",
+  "request": {
+    "model": "llama-3.1-8b-instant",
+    "temperature": 0.2,
+    "system_preview": "You are generating the SHAP explanation layer of a multi-agent financial advisory system.\n\nYou receive a dict of feature"
+  },
+  "response": {
+    "content": "The investment horizon had the most influence on the risk classification, pushing it toward a more aggressive approach. The investor's loss tolerance also had a significant impact, contributing to a more aggressive stance. Existing debt, on the other hand, pulled the classification toward a more conservative approach.",
+    "tokens_used": 350,
+    "model": "llama-3.1-8b-instant"
+  }
+}

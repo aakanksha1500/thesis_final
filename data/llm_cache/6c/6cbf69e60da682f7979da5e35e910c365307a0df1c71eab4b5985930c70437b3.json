@@ -1,0 +1,13 @@
+{
+  "key": "6cbf69e60da682f7979da5e35e910c365307a0df1c71eab4b5985930c70437b3",
+  "request": {
+    "model": "llama-3.1-8b-instant",
+    "temperature": 0.1,
+    "system_preview": "You are generating the trust calibration note for a multi-agent financial advisory system.\n\nYou receive:\n    - The risk "
+  },
+  "response": {
+    "content": "If your annual income increases by 50% or more, this moderately aggressive classification may no longer accurately reflect your risk tolerance.",
+    "tokens_used": 249,
+    "model": "llama-3.1-8b-instant"
+  }
+}

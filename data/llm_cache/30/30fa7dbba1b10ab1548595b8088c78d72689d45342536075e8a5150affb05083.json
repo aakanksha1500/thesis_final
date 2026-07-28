@@ -1,0 +1,13 @@
+{
+  "key": "30fa7dbba1b10ab1548595b8088c78d72689d45342536075e8a5150affb05083",
+  "request": {
+    "model": "llama-3.1-8b-instant",
+    "temperature": 0.3,
+    "system_preview": "You are generating the counterfactual explanation layer of a multi-agent financial advisory system.\n\nYou receive:\n    - "
+  },
+  "response": {
+    "content": "\"If your investment horizon were 5 years, your risk profile would shift toward more conservative and a high-yield savings account would become more appropriate.\"",
+    "tokens_used": 246,
+    "model": "llama-3.1-8b-instant"
+  }
+}

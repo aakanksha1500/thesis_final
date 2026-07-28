@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import time
 from typing import Any
+from utils import trace
 
 from agents.base_agent import AgentResult, BaseAgent
 from config.prompts import (
@@ -69,12 +70,25 @@ class ExplainabilityAgent(BaseAgent):
         (SHAP, counterfactual, calibration) rather than sharing the 
         agent-level system_prompt.
         """
+        start = time.perf_counter()
+        trace.emit("PROMPT", system.strip().splitlines()[0][:48],
+                   chars=len(user_message), temp=temperature)
+
         response = self.llm.chat(
             system=system,
             messages=[{"role": "user", "content": user_message}],
             temperature=temperature,
         )
+        elapsed_ms = (time.perf_counter() - start) * 1000
         self._call_count += 1
+
+        # R18: this method bypasses BaseAgent._call_llm, so these calls were
+        # never timed and tokens_total was always 0. Accumulate here instead.
+        self._tokens_this_run = getattr(self, "_tokens_this_run", 0) + response.tokens_used
+
+        trace.emit("LLM", f"← {response.tokens_used} tok",
+                   duration_ms=round(elapsed_ms),
+                   model=response.model, mode=self.llm.mode)
         return response.content, response.tokens_used
 
 
@@ -400,6 +414,8 @@ class ExplainabilityAgent(BaseAgent):
 
 
         # Layer A: SHAP (always active)
+        trace.emit("LAYER A", "shap narrative" if cfg.use_shap
+                   else "SKIPPED (use_shap=False)")
         shap_narrative: str | None = None
         if cfg.use_shap and shap_summary:
             shap_narrative = self._generate_shap_narrative(shap_summary, risk_class)
@@ -407,6 +423,8 @@ class ExplainabilityAgent(BaseAgent):
             logger.debug("[ExplainabilityAgent] Layer A (SHAP) applied")
 
         # Layer B: RAG citations
+        trace.emit("LAYER B", "rag citations" if cfg.use_rag_citation
+                   else "SKIPPED (use_rag_citation=False)")
         rag_citations: list[dict] = []
         if cfg.use_rag_citation:
             rag_citations = self._get_rag_citations(context)
@@ -417,6 +435,8 @@ class ExplainabilityAgent(BaseAgent):
             )
 
         # Layer C: Counterfactual
+        trace.emit("LAYER C", "counterfactual" if cfg.use_counterfactual
+                   else "SKIPPED (use_counterfactual=False)")
         counterfactual: str | None = None
         if cfg.use_counterfactual and shap_summary:
             top_feat, top_info = self._get_top_shap_feature(shap_summary)

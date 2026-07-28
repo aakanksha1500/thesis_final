@@ -5,16 +5,22 @@ and any external language model API.
 
 from __future__ import annotations
 
+import random
+import time
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from config.settings import settings
+from utils import llm_cache
 from utils.logger import get_logger
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 logger = get_logger(__name__)
+
+_RETRYABLE_STATUS = {408, 409, 429, 500, 502, 503, 504}
 
 @dataclass
 class LLMResponse:
@@ -25,6 +31,52 @@ class LLMResponse:
     content: str
     tokens_used: int
     model: str
+
+def _is_retryable(exc: Exception) -> bool:
+    """
+    True for transient failures only. A 429 or 5xx is worth another go; a 400
+    (malformed request) or 401 (bad key) is not.
+    """
+    status = getattr(exc, "status_code", None) or getattr(
+        getattr(exc, "response", None), "status_code", None
+    )
+    if status in _RETRYABLE_STATUS:
+        return True
+
+    text = str(exc).lower()
+    return any(
+        s in text
+        for s in (
+            "rate limit",
+            "429",
+            "timeout",
+            "timed out",
+            "temporarily unavailable",
+            "503",
+            "502",
+            "overloaded"
+        )
+    )
+
+
+def _retry_delay(exc: Exception, attempt: int) -> float:
+    """
+    Honour Retry-After if present; otherwise exponential backoff with jitter.
+    """
+    import re as _re
+
+    match = _re.search(r"try again in (\d+)m([\d.]+)s", str(exc))
+    if match:
+        return min(
+            float(match.group(1)) * 60 + float(match.group(2)),
+            120.0
+        )
+
+    match = _re.search(r"try again in ([\d.]+)s", str(exc))
+    if match:
+        return min(float(match.group(1)), 120.0)
+
+    return min(2.0 ** attempt, 30.0) + random.uniform(0, 0.5)
 
 class LLMClient:
     """
@@ -63,7 +115,8 @@ class LLMClient:
         self._init_client()
 
     _PROVIDER_BASE_URLS = {
-        "openai": "https://generativelanguage.googleapis.com/v1beta/openai/",  # default OpenAI endpoint
+        "openai": "https://api.openai.com/v1",  # default OpenAI endpoint
+        "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "groq": "https://api.groq.com/openai/v1",
         "together": "https://api.together.xyz/v1",
         "openrouter": "https://openrouter.ai/api/v1",
@@ -87,7 +140,6 @@ class LLMClient:
             logger.info("[LLMClient] force_mock=True — running in MOCK mode regardless of environment.")
             return
         provider = os.getenv("LLM_PROVIDER", "openai").lower()
-        # print(provider, "!!!!!!!!!!!!!!!!!!!!!!!!!")
 
         if provider not in self._PROVIDER_BASE_URLS:
             logger.warning(
@@ -97,9 +149,7 @@ class LLMClient:
             return
         key_env_var = f"{provider.upper()}_API_KEY"
         api_key = os.getenv(key_env_var, "")
-        # print(key_env_var, api_key, "@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
         if not api_key:
-            # print("in not api_key if", "############")
             logger.warning(
                 f"[LLMClient] {key_env_var} not set — running in MOCK mode. "
                 f"Set it in .env to activate real LLM calls via {provider}."
@@ -147,16 +197,59 @@ class LLMClient:
             return self._mock_response(system, messages)
 
         all_messages = [{"role": "system", "content": system}] + messages
+
+        cache_key = ""
+
+        if llm_cache.enabled():
+            cache_key = llm_cache.make_key(self.model, system, messages, temp)
+            cached = llm_cache.get(cache_key)
+            if cached is not None:
+                logger.debug(f"[LLMClient] cache HIT {cache_key[:12]}")
+                return LLMResponse(**cached)
+            if llm_cache.is_replay_miss_blocking():
+                raise RuntimeError(
+                    f"LLM_CACHE=replay and no cached response for {cache_key[:12]}"
+                )
+
+        
+        last_exc: Exception | None = None
+        for attempt in range(settings.llm.max_retries + 1):
+            try:
+                response = self._client.chat.completions.create(
+                    model=self.model,
+                    messages=all_messages,
+                    temperature=temp,
+                    max_tokens=self.max_tokens,
+                    timeout=settings.llm.timeout_seconds,
+                )
+                break
+            except Exception as exc:
+                last_exc = exc
+                if attempt >= settings.llm.max_retries or not _is_retryable(exc):
+                    raise
+                delay = _retry_delay(exc, attempt)
+                logger.warning(
+                    f"[LLMClient] attempt {attempt + 1}/"
+                    f"{settings.llm.max_retries + 1} failed "
+                    f"({type(exc).__name__}) — retrying in {delay:.1f}s"
+                )
+                time.sleep(delay)
+        else:  # pragma: no cover - loop always breaks or raises
+            raise last_exc  # type: ignore[misc]
+
         try:
-            response = self._client.chat.completions.create(
-                model=self.model,
-                messages=all_messages,
-                temperature=temp,
-                max_tokens=self.max_tokens,
-            )
             content = response.choices[0].message.content or ""
             tokens_used = response.usage.total_tokens if response.usage else 0
             logger.debug(f"[LLMClient] {tokens_used} tokens used -  model = {self.model}")
+
+            if cache_key:
+                llm_cache.put(
+                    cache_key,
+                    {"content": content, "tokens_used": tokens_used, "model": self.model},
+                    request_meta={"model": self.model, "temperature": temp,
+                                  "system_preview": system[:120]},
+                )
+
             return LLMResponse(content=content, tokens_used=tokens_used, model=self.model)
         except Exception as e:
             logger.error(f"[LLMClient] API call failed: {e}")

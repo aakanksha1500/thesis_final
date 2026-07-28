@@ -1,0 +1,13 @@
+{
+  "key": "3e3915ffec0cda9bf2730d191a122089d530e2a4172d1ebb1d41a9906ded169a",
+  "request": {
+    "model": "llama-3.3-70b-versatile",
+    "temperature": 0.0,
+    "system_preview": "\nYou are the Conversational Agent in a multi-agent financial advisory     system designed for retail banking customers i"
+  },
+  "response": {
+    "content": "{\"intent\": \"investment_advice\", \"confidence\": 0.9}",
+    "tokens_used": 545,
+    "model": "llama-3.3-70b-versatile"
+  }
+}

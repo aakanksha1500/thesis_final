@@ -83,6 +83,8 @@ class AuditLog:
         "CONSTRAINT_VIOLATION",
         "SYNTHESIS",
         "TURN_END",
+        "CUSTOMER_LOAD",
+        "HALLUCINATION_FLAG",
     }
 
     def __init__(self, session_id: str):
@@ -111,6 +113,13 @@ class AuditLog:
 
     def _write(self, record: dict) -> None:
         """Append one record to the JSONL file. Never raises."""
+        event_type = record.get("event_type")
+        if event_type not in self.VALID_EVENT_TYPES:
+            logger.error(
+                f"[AuditLog] Unknown event_type {event_type!r} — recorded anyway, "
+                f"but nothing downstream will match it. Add it to "
+                f"VALID_EVENT_TYPES. Known: {sorted(self.VALID_EVENT_TYPES)}"
+            )
         try:
             with self._log_path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(record, default=str) + "\n")

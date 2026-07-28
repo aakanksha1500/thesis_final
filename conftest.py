@@ -35,3 +35,26 @@ def audit_tmp_dir(tmp_path, monkeypatch):
     from config.settings import settings
     monkeypatch.setattr(settings.orchestrator, "audit_log_dir", tmp_path)
     return tmp_path
+
+
+# ── API isolation ──────────────────────────────────────────────────────────
+_PROVIDER_KEY_VARS = (
+    "OPENAI_API_KEY",
+    "GROQ_API_KEY",
+    "TOGETHER_API_KEY",
+    "OPENROUTER_API_KEY",
+)
+
+
+@pytest.fixture(autouse=True)
+def _no_live_api_in_tests(request, monkeypatch):
+    """
+    Force every test into LLM mock mode, EXCEPT those marked @pytest.mark.real.
+
+    Opt out for a genuinely real-mode test with @pytest.mark.real.
+    """
+    if "real" in request.keywords:
+        return
+
+    for var in _PROVIDER_KEY_VARS:
+        monkeypatch.delenv(var, raising=False)

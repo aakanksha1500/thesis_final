@@ -1,0 +1,13 @@
+{
+  "key": "ec3926e8c1748321398dc45a69cad51d0eef2401481ee35e9124b196748e7334",
+  "request": {
+    "model": "llama-3.1-8b-instant",
+    "temperature": 0.1,
+    "system_preview": "You are generating the trust calibration note for a multi-agent financial advisory system.\n\nYou receive:\n    - The risk "
+  },
+  "response": {
+    "content": "If the Technology Sector ETF experiences a significant decline of 20% or more within the next 6 months, this classification and recommendation should be reassessed.",
+    "tokens_used": 254,
+    "model": "llama-3.1-8b-instant"
+  }
+}

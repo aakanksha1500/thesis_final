@@ -11,6 +11,7 @@ Constraint categories:
 """
 
 from __future__ import annotations
+import re
 
 from dataclasses import dataclass
 from typing import Any
@@ -46,6 +47,29 @@ class FinancialConstraints:
         "consult a qualified advisor",
         "past performance",
     ]
+
+    DISCLAIMER_PATTERNS = {
+        "not regulated financial advice":
+            r"not\s+(a\s+|regulated\s+)?(form\s+of\s+)?regulated\s+financial\s+advice"
+            r"|not\s+financial\s+advice",
+        "consult a qualified advisor":
+            r"qualified\s+(financial\s+)?(advisor|adviser)",
+        "past performance":
+            r"past\s+performance",
+    }
+
+    def check_disclaimers_present(self, text: str):
+        """
+        Regex-based, not substring — see DISCLAIMER_PATTERNS for why.
+        Violations are still reported using the canonical label, so nothing
+        downstream (audit log, results JSON) changes shape.
+        """
+        return [
+            ConstraintViolation(rule_id="R004", description=f"Missing disclaimer: '{label}'",
+                                severity="warn", field="response_text", value=label)
+            for label in self.REQUIRED_DISCLAIMERS
+            if not re.search(self.DISCLAIMER_PATTERNS[label], text, re.IGNORECASE)
+        ]
 
     def check_return_plausibility(self, claimed_return: float):
         if claimed_return > self.MAX_ANNUAL_RETURN_PCT:

@@ -27,6 +27,7 @@ from config.prompts import INVESTMENT_SYSTEM
 from config.settings import settings
 from utils.llm_client import LLMClient
 from utils.logger import get_logger
+from utils import trace
 
 logger = get_logger(__name__)
 
@@ -517,6 +518,8 @@ class InvestmentAgent(BaseAgent):
 
         # Layer 1 — rule-based filter
         filtered = self._filter_by_risk_class(risk_class)
+        trace.emit("FILTER", f"risk={risk_class}",
+                   kept=f"{len(filtered)}/{len(self.catalogue)}")
         if len(filtered) < settings.investment.min_products_after_filter:
             payload = {
                 "status": "no_suitable_products",
@@ -539,6 +542,9 @@ class InvestmentAgent(BaseAgent):
         # Layer 2 — ranking
         ranked = self._rank_products(filtered, context)
         shortlist = ranked[: settings.investment.top_k]
+        if shortlist:
+            trace.emit("RANK", f"top={shortlist[0]['product_id']}",
+                       score=shortlist[0]["score"], shortlisted=len(shortlist))
 
         # Layer 3 — LLM synthesis over the shortlist only
         prompt = self._build_synthesis_prompt(risk_class, shortlist, user_features)
@@ -572,6 +578,8 @@ class InvestmentAgent(BaseAgent):
             product_category=top_product["category"],
             claimed_return=top_product["expected_return_pct"],
         )
+        trace.emit("✓ VALIDATE", "FinancialConstraints",
+                   violations=len(violations), deliverable=deliverable)
 
         hallucination_report = None
         rag_sources: list[str] = []
@@ -582,11 +590,17 @@ class InvestmentAgent(BaseAgent):
 
                 grounding_query = f"{risk_class} {top_product['category']} {top_product['name']}"
                 grounding_contexts = knowledge_base.retrieve(grounding_query)
+                trace.emit("TOOL", "knowledge_base.retrieve",
+                           chunks=len(grounding_contexts))
                 report = hallucination_detector.score_response(
                     response_text=synthesis,
                     grounding_contexts=grounding_contexts,
                 )
                 hallucination_report = report.to_dict()
+                trace.emit("TOOL", "hallucination_detector.score_response",
+                           mode=report.mode,
+                           claims=hallucination_report["n_claims"],
+                           flagged=hallucination_report["n_flagged"])
                 rag_sources = [c["source"] for c in grounding_contexts]
 
                 if report.hallucination_rate > 0:

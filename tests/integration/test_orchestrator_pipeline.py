@@ -293,7 +293,7 @@ class TestRQ4Evaluation:
             mock_s.orchestrator.audit_log_dir = tmp_path
             orch = Orchestrator(LLMClient(), session_id="rq4-eval-001")
 
-        judge = AgentJudge(orch.llm)
+        judge = AgentJudge(orch.judge_llm)
 
         scenario_results = []
         actual_routings = []

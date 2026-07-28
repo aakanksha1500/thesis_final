@@ -43,6 +43,13 @@ def _git_sha() -> str:
     except Exception:
         return "unknown"
 
+def _llm_cache_stats() -> dict[str, Any]:
+    """Cache hit/miss counters, so a replayed run is identifiable as such."""
+    try:
+        from utils import llm_cache
+        return llm_cache.stats()
+    except Exception:
+        return {"mode": "unknown"}
 
 def _subsystem_modes() -> dict[str, str]:
     """
@@ -92,6 +99,7 @@ def build_meta(llm_mode: str | None = None) -> dict[str, Any]:
         "judge_model": settings.llm.judge_model,
         "environment": settings.environment,
         "subsystem_modes": _subsystem_modes(),
+        "llm_cache": _llm_cache_stats(),
         "explainability_ablation": {
             "use_shap": settings.explainability.use_shap,
             "use_rag_citation": settings.explainability.use_rag_citation,

@@ -23,7 +23,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
-
+from utils import trace
 from utils.llm_client import LLMClient
 from utils.logger import get_logger
 
@@ -163,6 +163,10 @@ class BaseAgent(abc.ABC):
         messages.append({"role": "user", "content": user_message})
 
         start = time.perf_counter()
+        trace.emit("PROMPT",
+                   (user_message.strip().splitlines() or [""])[0][:48],
+                   chars=len(user_message), temp=temperature)
+
         response = self.llm.chat(
             system=self.system_prompt,
             messages=messages,
@@ -170,6 +174,10 @@ class BaseAgent(abc.ABC):
         )
         elapsed_ms = (time.perf_counter() - start) * 1000
         self._call_count += 1
+
+        trace.emit("LLM", f"← {response.tokens_used} tok",
+                   duration_ms=round(elapsed_ms),
+                   model=response.model, mode=self.llm.mode)
 
         logger.debug(
             f"[{self.name}] LLM call #{self._call_count} "
