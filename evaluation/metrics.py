@@ -630,9 +630,9 @@ def step_progress_rate(
     pipeline (which agent failed?) rather than only end-task success/failure.
     
     This is the key methodological contribution of E1:
-    Esisting benchmarks only measured final task success. AgentBoard
+    Existing benchmarks only measured final task success. AgentBoard
     showed that stage-level measurement reveals failure patterns invisible
-    at the taask level - e.g. an agent that partially completes and 
+    at the taask level - e.g. an agent that partially completes and
     produces plausible-looking output before failing.
     
     step_records: list of dicts from AgentResult.to_step_record():
@@ -688,8 +688,8 @@ def component_synergy_score(
     CSS = (successful_calls - 0.5 * conflicts - failures) / total_calls
     Range [0, 1]: clamped to [0, 1].
     
-    The 0.5 penalty for conflicts (vs 1.0 for failures) reflrcts the 
-    ConflictResolver's ability to recover from conflicts gracefully - 
+    The 0.5 penalty for conflicts (vs 1.0 for failures) reflects the
+    ConflictResolver's ability to recover from conflicts gracefully -
     they reduce quality but do not break the pipelne.
     
     audit_records: JSONL records from Auditing.read_all().

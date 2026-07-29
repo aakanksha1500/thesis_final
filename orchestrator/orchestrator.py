@@ -87,7 +87,7 @@ class OrchestratorResult:
 
 class Orchestrator:
     """
-    Central cordinator implementing the HALO three-layer hierarchy.
+    Central coordinator implementing the HALO three-layer hierarchy.
     One instance per user session.
     """
 
@@ -133,6 +133,7 @@ class Orchestrator:
             "customer_id": None,
             "customer_known": False,
             "missing_customer_fields": [],
+            "awaiting_full_advisory_inputs": [],
             "ground_truth_risk_class": None,
             "proxy_fields": [],
             "proxy_metadata": {},
@@ -326,6 +327,7 @@ class Orchestrator:
             "budget_analysis":     RoutingDecision.BUDGET,
             "product_suggestion":  RoutingDecision.INVESTMENT,
             "explanation_request": RoutingDecision.EXPLANATION_REQUEST,
+            "full_advisory":       RoutingDecision.FULL_ADVISORY,
             "out_of_scope":        RoutingDecision.CONVERSATIONAL_ONLY,
         }
 
@@ -477,6 +479,12 @@ class Orchestrator:
                     inv_result.payload if inv_result else
                     self._session_state.get("prior_investment_output") or {}
                 )
+                bud_result = next(
+                    (r for r in results if r.agent_name == "BudgetAgent"), None
+                )
+                context["budget_agent_payload"] = (
+                    bud_result.payload if bud_result and bud_result.success else {}
+                )
                 injected_keys += ["risk_agent_payload", "investment_agent_payload"]
 
             if injected_keys:
@@ -531,11 +539,18 @@ class Orchestrator:
                 shortlist = r.payload.get("shortlist", [])
                 if shortlist:
                     claimed_return = shortlist[0].get("expected_return_pct")
+            
+        advisory = any(
+            r.agent_name in ("InvestmentAgent", "BudgetAgent", "RiskProfilingAgent")
+            and r.success
+            for r in agent_results
+        )
 
         deliverable, raw_violations = financial_constraints.validate_response(
             response_text=response_text,
             risk_class=risk_class,
             claimed_return=claimed_return,
+            advisory=advisory,
         )
 
         for v in raw_violations:
@@ -682,7 +697,25 @@ class Orchestrator:
         context["_turn_id"] = turn_id
 
         agent_sequence = self._get_agent_sequence(routing)
-        with trace.span("[L2]", f"plan: {' → '.join(agent_sequence)}"):
+        elicitation: str | None = None
+        if routing is RoutingDecision.FULL_ADVISORY:
+            planned = agent_sequence
+            agent_sequence, unmet = self._prune_unsatisfiable(agent_sequence, context)
+            if agent_sequence != planned:
+                trace.emit("PRUNE", f"{' → '.join(planned)}  ⇒  "
+                                    f"{' → '.join(agent_sequence) or '(none runnable)'}",
+                           unmet=len(unmet))
+                logger.info(
+                    f"[Orchestrator] FULL_ADVISORY pruned "
+                    f"{[a for a in planned if a not in agent_sequence]} "
+                    f"— unmet inputs: {unmet}"
+                )
+            if not agent_sequence:
+                # Nothing can run. Ask for what is missing instead of spending
+                # four LLM calls to produce three refusals.
+                elicitation = self._elicitation_response(unmet)
+                self._session_state["awaiting_full_advisory_inputs"] = unme
+        with trace.span("[L2]", f"plan: {' → '.join(agent_sequence) or 'elicitation'}"):
             agent_results, recovered = self._run_agent_sequence(agent_sequence, context)
 
         # -- Layer 3a: Conflict resolution --
@@ -697,11 +730,25 @@ class Orchestrator:
                     conflict_type=conflict["type"],
                     description=conflict["description"],
                     resolution=conflict["resolution"],
-                )         
+                )
+            if conflicts:
+                for r in agent_results:
+                    if not r.success:
+                        continue
+                    if r.agent_name == "RiskProfilingAgent":
+                        self._session_state["risk_profile"] = r.payload
+                    elif r.agent_name == "InvestmentAgent":
+                        self._session_state["prior_investment_output"] = r.payload         
+            
             # -- Layer 3b: Synthesis --
-            raw_response = self._synthesise_response(
-                user_message, agent_results, routing
-            )
+            if elicitation is not None:
+                # R7 - no agent produced anything to synthesise; the response
+                # IS the request for missing inputs.
+                raw_response = elicitation
+            else:
+                raw_response = self._synthesise_response(
+                    user_message, agent_results, routing
+                )
             # -- Layer 3c: Constraint validation --
             final_response, violations, was_blocked = self._check_constraints(
                 raw_response, agent_results
@@ -767,6 +814,107 @@ class Orchestrator:
             total_duration_ms=total_ms,
             success=True,
         )
+    
+    def _agent_is_satisfiable(self, agent_name: str, context: dict) -> tuple[bool, str]:
+        """Return (can_run, human-readable reason it cannot)."""
+        if agent_name == "RiskProfilingAgent":
+            features = context.get("user_features") or {}
+            missing = [f for f in settings.risk.required_features if f not in features]
+            if missing:
+                return False, "your age, income, employment, dependants, debts, and how you feel about risk"
+            return True, ""
+
+        if agent_name == "InvestmentAgent":
+            # Satisfiable if a risk class already exists, or if RiskProfiling
+            # will produce one earlier in this same turn.
+            if context.get("risk_class") or context.get("risk_profile"):
+                return True, ""
+            ok, _ = self._agent_is_satisfiable("RiskProfilingAgent", context)
+            if not ok:
+                return False, "a completed risk profile"
+            return True, ""
+
+        if agent_name == "BudgetAgent":
+            has_income = bool(
+                context.get("monthly_income")
+                or (context.get("user_features") or {}).get("income")
+            )
+            if not context.get("monthly_expenses"):
+                return False, "your monthly spending by category (rent, food, transport, ...)"
+            if not has_income:
+                return False, "your monthly income"
+            return True, ""
+
+        return True, ""      # ConversationalAgent / ExplainabilityAgent
+
+    def _prune_unsatisfiable(
+        self, sequence: list[str], context: dict
+    ) -> tuple[list[str], list[str]]:
+        """
+        Drop agents whose inputs are absent, and report what was missing. (R7)
+
+        WHY THIS EXISTS AT ALL
+            FULL_ADVISORY runs Risk → Investment → Budget → Explainability.
+            The person most likely to ask for it ("I know nothing about
+            finance, tell me what to do") is by definition a new user with no
+            stored features and no spending data. Running the sequence anyway
+            costs four LLM calls, produces three status="incomplete" results,
+            and hands the synthesis step nothing to synthesise. The user gets
+            a vague non-answer, and — worse for the research — the turn is
+            recorded as four agents invoked, which inflates the coordination
+            metrics with agents that never had a chance to contribute.
+            Pruning first means the route does what it CAN do and says plainly
+            what it needs for the rest.
+
+        SCOPED TO FULL_ADVISORY ON PURPOSE
+            The same gate would help INVESTMENT and RISK_PROFILING, but those
+            routes' agents_invoked lists are already baked into RQ2 and RQ4.
+            Changing them here would silently make new results
+            non-comparable with the committed ones. Extend it deliberately,
+            with a re-run, not as a side effect of this fix.
+        """
+        runnable, unmet = [], []
+        for agent_name in sequence:
+            ok, reason = self._agent_is_satisfiable(agent_name, context)
+            if ok:
+                runnable.append(agent_name)
+            elif reason and reason not in unmet:
+                unmet.append(reason)
+
+        # ExplainabilityAgent explains other agents' output. On its own it has
+        # nothing to explain, so it is not a "specialist survived" signal.
+        if not [a for a in runnable if a != "ExplainabilityAgent"]:
+            runnable = []
+
+        return runnable, unmet
+
+    @staticmethod
+    def _elicitation_response(unmet: list[str]) -> str:
+        """
+        Deterministic. No LLM call. (R7)
+
+        The whole point of this branch is that nothing is known about the user
+        yet, so there is nothing for a model to reason over — and asking one to
+        phrase a fixed list of required fields would add a hallucination
+        surface (inventing a field, or implying advice) to a message whose only
+        job is to be accurate about what the system needs.
+        """
+        if not unmet:
+            return (
+                "I can give you a full review of your finances. To start, tell "
+                "me a little about your situation."
+            )
+        bullets = "\n".join(f"  • {item}" for item in unmet)
+        return (
+            "Happy to give you a full picture of your finances — that covers "
+            "your risk profile, what to do with savings, and where your money "
+            "goes each month.\n\n"
+            "To do that properly rather than guess, I need:\n"
+            f"{bullets}\n\n"
+            "You can give me whatever you have and we'll start there. This is "
+            "not regulated financial advice, and you should consult a qualified "
+            "financial advisor before acting on it."
+        )
 
     def _get_agent_sequence(self, routing: RoutingDecision) -> list[str]:
         """
@@ -788,6 +936,7 @@ class Orchestrator:
             ],
             RoutingDecision.BUDGET: [
                 "BudgetAgent",
+                "ExplainabilityAgent",
             ],
             RoutingDecision.FULL_ADVISORY: [
                 "RiskProfilingAgent",

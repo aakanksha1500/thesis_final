@@ -246,4 +246,27 @@ class HallucinationDetector:
         )
 
 
-hallucination_detector = HallucinationDetector()
+# hallucination_detector = HallucinationDetector()
+
+_hallucination_detector: "HallucinationDetector | None" = None
+
+def get_hallucination_detector() -> "HallucinationDetector":
+    """Construct on first use, then reuse. The accessor to prefer in new code."""
+    global _hallucination_detector
+    if _hallucination_detector is None:
+        _hallucination_detector = HallucinationDetector()
+    return _hallucination_detector
+
+
+def set_hallucination_detector(instance: "HallucinationDetector | None") -> None:
+    """Inject a substitute (or None to reset). Intended for tests and ablations."""
+    global _hallucination_detector
+    _hallucination_detector = instance
+
+
+def __getattr__(name: str):
+    # Keeps the historic module-level name working: the singleton is built the
+    # first time something reads it, not when this module is imported.
+    if name == "hallucination_detector":
+        return get_hallucination_detector()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

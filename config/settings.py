@@ -313,6 +313,46 @@ class MarketDataConfig:
     request_timeout_seconds: int = 5
 
 @dataclass
+class ProductDataConfig:
+    """
+    Real reference data for catalogue products, beyond MarketDataConfig's
+    return enrichment. See utils/product_data_client.py.
+
+    enabled:
+      Master switch for LIVE fetching (ECB Statistical Data Warehouse).
+      False by default. The snapshot tier is read regardless — a frozen
+      snapshot is the reproducible-evaluation path and must not depend on
+      network availability.
+
+    use_real_product_data:
+      Separate, and deliberately so. This is the EVALUATION gate: it decides
+      whether the InvestmentAgent's catalogue is enriched at all. Turning it
+      on changes the world RQ2 measures, so results generated with it on are
+      written to a different filename (see evaluation/results_io.py callers)
+      rather than overwriting the synthetic-catalogue baseline. Comparing the
+      two as though they measured the same thing would be a category error.
+
+    max_age_days:
+      A deposit rate from eighteen months ago is not real data, it is a stale
+      number with a provenance stamp. Snapshot entries older than this are
+      REFUSED rather than warned about, so the product degrades to its
+      honestly-labelled synthetic figure.
+
+    seed_path / snapshot_path:
+      Base catalogue structure, and the frozen real figures layered over it.
+    """
+    enabled: bool = field(
+        default_factory=lambda: os.getenv("PRODUCT_DATA_ENABLED", "false").lower() == "true"
+    )
+    use_real_product_data: bool = field(
+        default_factory=lambda: os.getenv("USE_REAL_PRODUCT_DATA", "false").lower() == "true"
+    )
+    max_age_days: int = 400
+    timeout_seconds: float = 10.0
+    seed_path: Path = ROOT_DIR / "data" / "raw" / "product_catalogue" / "catalogue_seed.json"
+    snapshot_path: Path = ROOT_DIR / "data" / "raw" / "product_catalogue" / "product_snapshot.json"
+
+@dataclass
 class Settings:
     llm: LLMConfig = field(default_factory=LLMConfig)
     conversational: ConversationalConfig = field(default_factory=ConversationalConfig)
@@ -324,6 +364,10 @@ class Settings:
     rag: RAGConfig = field(default_factory=RAGConfig)
     hallucination: HallucinationConfig = field(default_factory=HallucinationConfig)
     market_data: MarketDataConfig = field(default_factory=MarketDataConfig)
+    product_data: ProductDataConfig = field(default_factory=ProductDataConfig)
+    debug: bool = field(
+         default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true"
+     )
     debug: bool = field(
         default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true"
     )

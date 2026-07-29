@@ -1,18 +1,23 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-07-28T10:03:05.865538+00:00",
-    "git_sha": "9383271-dirty",
+    "generated_at_utc": "2026-07-28T23:46:24.098451+00:00",
+    "git_sha": "9e9a670-dirty",
     "prompt_version": "v1.0",
     "llm_mode": "mock",
     "orchestrator_model": "llama-3.3-70b-versatile",
     "specialist_model": "llama-3.1-8b-instant",
     "judge_model": "llama-3.3-70b-versatile",
     "environment": "development",
-    "subsystem_modes": {
-      "embedder": "sentence-transformers",
-      "vector_store": "faiss",
-      "hallucination_detector": "hhem",
-      "market_data": "unavailable"
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "record",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
     },
     "explainability_ablation": {
       "use_shap": true,

@@ -26,7 +26,7 @@ _RETRYABLE_STATUS = {408, 409, 429, 500, 502, 503, 504}
 class LLMResponse:
     """
     Standardised response envelope returned by every LLMClient.chat() call.
-    Agents depend on this type - not a provider spefic response objects.
+    Agents depend on this type - not a provider specific response objects.
     """
     content: str
     tokens_used: int
@@ -90,8 +90,8 @@ class LLMClient:
         model: Override the default model string. If None, reads from 
                ORCHESTRATOR_MODEL env var, else falls back to gpt-4o-mini.
         temperature: Default sampling temperature. Agents may override
-                    per-call by passing trmprature = to chat().
-                    max_tokens: HArd calling on response length.   
+                    per-call by passing tempreature = to chat().
+                    max_tokens: Hard on response length.  
     """
 
     DEFAULT_MODEL = "gpt-4o-mini"
@@ -181,7 +181,7 @@ class LLMClient:
         Send a chat completion request.
         
         Args:
-            system: System prmpt string (agent-specific, from config/prompts.py)
+            system: System prompt string (agent-specific, from config/prompts.py)
             messages: List of {"role": "user"|"assistant", "content": str} dicts.
             temperature: Per-call override. If None, uses client default.
 
@@ -261,7 +261,7 @@ class LLMClient:
             Content encodes the system prompt role so tests can assert routing 
             without any API calls.
             """
-            # Extarct first 60 chars of system prompt to identify which agent called
+            # Extract first 60 chars of system prompt to identify which agent called
             role_hint = system[:60].replace("\n", " ").strip()
             last_user = next(
                 (m["content"][:40] for m in reversed(messages) if m.get("role") == "user"),

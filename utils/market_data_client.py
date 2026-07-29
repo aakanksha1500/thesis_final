@@ -1,5 +1,5 @@
 """
-Phase 8c - live fund/ETF pricing, replacing IRISH_PRODUCT_CATALOGUE's syenthtic 
+Phase 8c - live fund/ETF pricing, replacing IRISH_PRODUCT_CATALOGUE's synthetic 
     expected_return_pct where a real market proxy ticker exists.
 """
 
@@ -157,4 +157,27 @@ class MarketDataClient:
         return path
 
 
-market_data_client = MarketDataClient()
+# market_data_client = MarketDataClient()
+
+_market_data_client: "MarketDataClient | None" = None
+
+def get_market_data_client() -> "MarketDataClient":
+    """Construct on first use, then reuse. The accessor to prefer in new code."""
+    global _market_data_client
+    if _market_data_client is None:
+        _market_data_client = MarketDataClient()
+    return _market_data_client
+
+
+def set_market_data_client(instance: "MarketDataClient | None") -> None:
+    """Inject a substitute (or None to reset). Intended for tests and ablations."""
+    global _market_data_client
+    _market_data_client = instance
+
+
+def __getattr__(name: str):
+    # Keeps the historic module-level name working: the singleton is built the
+    # first time something reads it, not when this module is imported.
+    if name == "market_data_client":
+        return get_market_data_client()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

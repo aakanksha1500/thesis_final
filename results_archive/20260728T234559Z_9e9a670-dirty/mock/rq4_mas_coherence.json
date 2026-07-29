@@ -1,0 +1,512 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-07-28T15:52:48.416653+00:00",
+    "git_sha": "9383271-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "mock",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama-3.1-8b-instant",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {
+      "embedder": "sentence-transformers",
+      "vector_store": "faiss",
+      "hallucination_detector": "hhem",
+      "market_data": "unavailable"
+    },
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 7,
+  "agent": "Orchestrator",
+  "llm_mode": "mock",
+  "n_scenarios": 10,
+  "note": "routing_accuracy=0.0 in mock mode (expected \u2014 intent classifier requires real LLM). All other metrics are meaningful in both modes.",
+  "metrics": {
+    "routing_accuracy": {
+      "metric": "routing_accuracy",
+      "value": 0.2,
+      "details": {
+        "n": 10,
+        "correct": 2,
+        "per_routing_accuracy": {
+          "conversational_only": 1.0,
+          "risk_profiling": 0.0,
+          "investment": 0.0,
+          "budget": 0.0,
+          "explanation_request": 0.0
+        }
+      }
+    },
+    "step_progress_rate": {
+      "metric": "step_progress_rate",
+      "value": 1.0,
+      "details": {
+        "total_steps": 10,
+        "completed_steps": 10,
+        "per_agent_rate": {
+          "ConversationalAgent": 1.0
+        },
+        "bottleneck_agent": "ConversationalAgent"
+      }
+    },
+    "component_synergy_score": {
+      "metric": "component_synergy_score",
+      "value": 0.0,
+      "details": {
+        "error": "no AGENT_CALL records in audit log"
+      }
+    },
+    "tool_utilisation_efficacy": {
+      "metric": "tool_utilisation_efficacy",
+      "value": 0.0,
+      "details": {
+        "error": "no agent calls by turn found"
+      }
+    },
+    "agent_judge": {
+      "metric": "agent_judge_overall",
+      "value": 3.0,
+      "judge_mode": "mock",
+      "verdict_distribution": {
+        "flag": 10
+      }
+    }
+  },
+  "scenarios": [
+    {
+      "scenario_id": "S01",
+      "description": "Simple general query \u2014 no specialist needed",
+      "message": "What is my account balance?",
+      "expected_routing": "conversational_only",
+      "actual_routing": "conversational_only",
+      "routing_correct": true,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 0.3266669809818268,
+      "judge_score": {
+        "routing_accuracy": 3.0,
+        "agent_coordination": 3.0,
+        "factual_accuracy": 3.0,
+        "explanation_quality": 3.0,
+        "trust_calibration": 3.0,
+        "overall_score": 3.0,
+        "verdict": "flag",
+        "reasoning": "Fallback scores \u2014 Judge LLM unavailable: JSON parse failed",
+        "judge_mode": "mock"
+      }
+    },
+    {
+      "scenario_id": "S02",
+      "description": "Direct risk profiling request",
+      "message": "Can you assess my financial risk profile?",
+      "expected_routing": "risk_profiling",
+      "actual_routing": "conversational_only",
+      "routing_correct": false,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 0.32374984584748745,
+      "judge_score": {
+        "routing_accuracy": 3.0,
+        "agent_coordination": 3.0,
+        "factual_accuracy": 3.0,
+        "explanation_quality": 3.0,
+        "trust_calibration": 3.0,
+        "overall_score": 3.0,
+        "verdict": "flag",
+        "reasoning": "Fallback scores \u2014 Judge LLM unavailable: JSON parse failed",
+        "judge_mode": "mock"
+      }
+    },
+    {
+      "scenario_id": "S03",
+      "description": "Investment query \u2014 requires risk first",
+      "message": "I want to invest my savings for retirement.",
+      "expected_routing": "investment",
+      "actual_routing": "conversational_only",
+      "routing_correct": false,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 0.31500007025897503,
+      "judge_score": {
+        "routing_accuracy": 3.0,
+        "agent_coordination": 3.0,
+        "factual_accuracy": 3.0,
+        "explanation_quality": 3.0,
+        "trust_calibration": 3.0,
+        "overall_score": 3.0,
+        "verdict": "flag",
+        "reasoning": "Fallback scores \u2014 Judge LLM unavailable: JSON parse failed",
+        "judge_mode": "mock"
+      }
+    },
+    {
+      "scenario_id": "S04",
+      "description": "Budget analysis request",
+      "message": "Help me understand my monthly spending.",
+      "expected_routing": "budget",
+      "actual_routing": "conversational_only",
+      "routing_correct": false,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 0.3182920627295971,
+      "judge_score": {
+        "routing_accuracy": 3.0,
+        "agent_coordination": 3.0,
+        "factual_accuracy": 3.0,
+        "explanation_quality": 3.0,
+        "trust_calibration": 3.0,
+        "overall_score": 3.0,
+        "verdict": "flag",
+        "reasoning": "Fallback scores \u2014 Judge LLM unavailable: JSON parse failed",
+        "judge_mode": "mock"
+      }
+    },
+    {
+      "scenario_id": "S05",
+      "description": "Explanation request for prior recommendation",
+      "message": "Why did you recommend that ETF?",
+      "expected_routing": "explanation_request",
+      "actual_routing": "conversational_only",
+      "routing_correct": false,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 0.29454194009304047,
+      "judge_score": {
+        "routing_accuracy": 3.0,
+        "agent_coordination": 3.0,
+        "factual_accuracy": 3.0,
+        "explanation_quality": 3.0,
+        "trust_calibration": 3.0,
+        "overall_score": 3.0,
+        "verdict": "flag",
+        "reasoning": "Fallback scores \u2014 Judge LLM unavailable: JSON parse failed",
+        "judge_mode": "mock"
+      }
+    },
+    {
+      "scenario_id": "S06",
+      "description": "Out-of-scope query (FX rate not in advisory scope)",
+      "message": "What is the current exchange rate?",
+      "expected_routing": "conversational_only",
+      "actual_routing": "conversational_only",
+      "routing_correct": true,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 0.3073329571634531,
+      "judge_score": {
+        "routing_accuracy": 3.0,
+        "agent_coordination": 3.0,
+        "factual_accuracy": 3.0,
+        "explanation_quality": 3.0,
+        "trust_calibration": 3.0,
+        "overall_score": 3.0,
+        "verdict": "flag",
+        "reasoning": "Fallback scores \u2014 Judge LLM unavailable: JSON parse failed",
+        "judge_mode": "mock"
+      }
+    },
+    {
+      "scenario_id": "S07",
+      "description": "Product suggestion \u2192 investment routing",
+      "message": "Can you recommend a low-risk investment product?",
+      "expected_routing": "investment",
+      "actual_routing": "conversational_only",
+      "routing_correct": false,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 0.30495785176754,
+      "judge_score": {
+        "routing_accuracy": 3.0,
+        "agent_coordination": 3.0,
+        "factual_accuracy": 3.0,
+        "explanation_quality": 3.0,
+        "trust_calibration": 3.0,
+        "overall_score": 3.0,
+        "verdict": "flag",
+        "reasoning": "Fallback scores \u2014 Judge LLM unavailable: JSON parse failed",
+        "judge_mode": "mock"
+      }
+    },
+    {
+      "scenario_id": "S08",
+      "description": "Risk capacity question \u2192 risk profiling",
+      "message": "How much risk can I afford to take?",
+      "expected_routing": "risk_profiling",
+      "actual_routing": "conversational_only",
+      "routing_correct": false,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 0.3276248462498188,
+      "judge_score": {
+        "routing_accuracy": 3.0,
+        "agent_coordination": 3.0,
+        "factual_accuracy": 3.0,
+        "explanation_quality": 3.0,
+        "trust_calibration": 3.0,
+        "overall_score": 3.0,
+        "verdict": "flag",
+        "reasoning": "Fallback scores \u2014 Judge LLM unavailable: JSON parse failed",
+        "judge_mode": "mock"
+      }
+    },
+    {
+      "scenario_id": "S09",
+      "description": "HBS benchmark query \u2192 budget agent",
+      "message": "Where am I spending more than average in Ireland?",
+      "expected_routing": "budget",
+      "actual_routing": "conversational_only",
+      "routing_correct": false,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 0.3047499340027571,
+      "judge_score": {
+        "routing_accuracy": 3.0,
+        "agent_coordination": 3.0,
+        "factual_accuracy": 3.0,
+        "explanation_quality": 3.0,
+        "trust_calibration": 3.0,
+        "overall_score": 3.0,
+        "verdict": "flag",
+        "reasoning": "Fallback scores \u2014 Judge LLM unavailable: JSON parse failed",
+        "judge_mode": "mock"
+      }
+    },
+    {
+      "scenario_id": "S10",
+      "description": "Explanation of classification",
+      "message": "How did you decide my risk class?",
+      "expected_routing": "explanation_request",
+      "actual_routing": "conversational_only",
+      "routing_correct": false,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 0.32158405520021915,
+      "judge_score": {
+        "routing_accuracy": 3.0,
+        "agent_coordination": 3.0,
+        "factual_accuracy": 3.0,
+        "explanation_quality": 3.0,
+        "trust_calibration": 3.0,
+        "overall_score": 3.0,
+        "verdict": "flag",
+        "reasoning": "Fallback scores \u2014 Judge LLM unavailable: JSON parse failed",
+        "judge_mode": "mock"
+      }
+    }
+  ],
+  "audit_log_path": "/private/var/folders/vc/qwj0gcpn741fw_lh0plr1_b40000gn/T/pytest-of-aakankshadeshpande/pytest-16/test_rq4_pipeline_evaluation_a0/session_rq4-eval-001.jsonl"
+}

@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-07-28T15:52:48.416653+00:00",
-    "git_sha": "9383271-dirty",
+    "generated_at_utc": "2026-07-28T23:46:33.860564+00:00",
+    "git_sha": "9e9a670-dirty",
     "prompt_version": "v1.0",
     "llm_mode": "mock",
     "orchestrator_model": "llama-3.3-70b-versatile",
@@ -9,9 +9,6 @@
     "judge_model": "llama-3.3-70b-versatile",
     "environment": "development",
     "subsystem_modes": {
-      "embedder": "sentence-transformers",
-      "vector_store": "faiss",
-      "hallucination_detector": "hhem",
       "market_data": "unavailable"
     },
     "llm_cache": {
@@ -19,7 +16,7 @@
       "misses": 0,
       "writes": 0,
       "errors": 0,
-      "mode": "off",
+      "mode": "record",
       "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
       "hit_rate": null,
       "clean_replay": false
@@ -98,25 +95,9 @@
         "ConversationalAgent"
       ],
       "conflicts": [],
-      "constraint_violations": [
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'not regulated financial advice'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'consult a qualified advisor'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'past performance'"
-        }
-      ],
+      "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.3266669809818268,
+      "duration_ms": 0.9190000128000975,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -140,25 +121,9 @@
         "ConversationalAgent"
       ],
       "conflicts": [],
-      "constraint_violations": [
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'not regulated financial advice'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'consult a qualified advisor'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'past performance'"
-        }
-      ],
+      "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.32374984584748745,
+      "duration_ms": 0.8710410911589861,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -182,25 +147,9 @@
         "ConversationalAgent"
       ],
       "conflicts": [],
-      "constraint_violations": [
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'not regulated financial advice'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'consult a qualified advisor'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'past performance'"
-        }
-      ],
+      "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.31500007025897503,
+      "duration_ms": 0.567208044230938,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -224,25 +173,9 @@
         "ConversationalAgent"
       ],
       "conflicts": [],
-      "constraint_violations": [
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'not regulated financial advice'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'consult a qualified advisor'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'past performance'"
-        }
-      ],
+      "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.3182920627295971,
+      "duration_ms": 0.47308299690485,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -266,25 +199,9 @@
         "ConversationalAgent"
       ],
       "conflicts": [],
-      "constraint_violations": [
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'not regulated financial advice'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'consult a qualified advisor'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'past performance'"
-        }
-      ],
+      "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.29454194009304047,
+      "duration_ms": 0.26729097589850426,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -308,25 +225,9 @@
         "ConversationalAgent"
       ],
       "conflicts": [],
-      "constraint_violations": [
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'not regulated financial advice'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'consult a qualified advisor'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'past performance'"
-        }
-      ],
+      "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.3073329571634531,
+      "duration_ms": 0.22799987345933914,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -350,25 +251,9 @@
         "ConversationalAgent"
       ],
       "conflicts": [],
-      "constraint_violations": [
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'not regulated financial advice'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'consult a qualified advisor'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'past performance'"
-        }
-      ],
+      "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.30495785176754,
+      "duration_ms": 0.2263339702039957,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -392,25 +277,9 @@
         "ConversationalAgent"
       ],
       "conflicts": [],
-      "constraint_violations": [
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'not regulated financial advice'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'consult a qualified advisor'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'past performance'"
-        }
-      ],
+      "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.3276248462498188,
+      "duration_ms": 0.2774999011307955,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -434,25 +303,9 @@
         "ConversationalAgent"
       ],
       "conflicts": [],
-      "constraint_violations": [
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'not regulated financial advice'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'consult a qualified advisor'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'past performance'"
-        }
-      ],
+      "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.3047499340027571,
+      "duration_ms": 0.26774988509714603,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -476,25 +329,9 @@
         "ConversationalAgent"
       ],
       "conflicts": [],
-      "constraint_violations": [
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'not regulated financial advice'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'consult a qualified advisor'"
-        },
-        {
-          "rule_id": "R004",
-          "severity": "warn",
-          "description": "Missing disclaimer: 'past performance'"
-        }
-      ],
+      "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.32158405520021915,
+      "duration_ms": 0.24891691282391548,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -508,5 +345,5 @@
       }
     }
   ],
-  "audit_log_path": "/private/var/folders/vc/qwj0gcpn741fw_lh0plr1_b40000gn/T/pytest-of-aakankshadeshpande/pytest-16/test_rq4_pipeline_evaluation_a0/session_rq4-eval-001.jsonl"
+  "audit_log_path": "/private/var/folders/vc/qwj0gcpn741fw_lh0plr1_b40000gn/T/pytest-of-aakankshadeshpande/pytest-17/test_rq4_pipeline_evaluation_a0/session_rq4-eval-001.jsonl"
 }

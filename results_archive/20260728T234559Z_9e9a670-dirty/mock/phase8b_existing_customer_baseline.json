@@ -1,0 +1,64 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-07-28T15:52:48.355063+00:00",
+    "git_sha": "9383271-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "mock",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama-3.1-8b-instant",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {
+      "embedder": "sentence-transformers",
+      "vector_store": "faiss",
+      "hallucination_detector": "hhem",
+      "market_data": "unavailable"
+    },
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  },
+  "phase": "8b",
+  "component": "existing_customer_pipeline",
+  "dataset": "demo_customers.json (3 profiles)",
+  "metrics": {
+    "predicted_vs_ground_truth_agreement": 1.0,
+    "n_correct": 3,
+    "n_total": 3
+  },
+  "per_profile": [
+    {
+      "customer_id": "DEMO_GC_042",
+      "predicted_risk_class": "moderate",
+      "ground_truth_risk_class": "moderate",
+      "correct": true,
+      "status": "complete"
+    },
+    {
+      "customer_id": "DEMO_GC_107",
+      "predicted_risk_class": "moderately_aggressive",
+      "ground_truth_risk_class": "moderately_aggressive",
+      "correct": true,
+      "status": "complete"
+    },
+    {
+      "customer_id": "DEMO_GMSC_318",
+      "predicted_risk_class": "conservative",
+      "ground_truth_risk_class": "conservative",
+      "correct": true,
+      "status": "complete"
+    }
+  ]
+}

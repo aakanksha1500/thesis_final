@@ -318,6 +318,43 @@ class ExplainabilityAgent(BaseAgent):
                 + confidence_flag
                 + hallucination_flag
             )
+    def _generate_budget_calibration_note(
+        self, budget_payload: dict, coverage: float
+    ) -> str:
+        """
+        The X3 calibration note for a budget-only turn. (R33)
+
+        Deterministic on purpose — no LLM call. Everything it states is
+        arithmetic the BudgetAgent already did, so generating it with a model
+        would introduce a hallucination surface for no benefit, and would cost
+        a token round-trip on every budget turn.
+
+        It names the two things that actually limit a budget conclusion:
+        the benchmark's coverage of this user's categories, and the fact that
+        one month of self-reported spending is a small sample.
+        """
+        benchmark = budget_payload.get("benchmark_comparison") or {}
+        expenses = budget_payload.get("monthly_expenses") or {}
+        matched, total = len(benchmark), len(expenses)
+        source = budget_payload.get("data_source", "the national benchmark")
+
+        note = (
+            f"This analysis compares your spending against {source}. "
+            f"{matched} of your {total} categories have a national benchmark; "
+            f"any others are reported without comparison."
+        )
+        if total and coverage < 0.6:
+            note += (
+                f" Benchmark coverage is limited ({coverage:.0%}), so treat the "
+                f"comparison as indicative rather than a complete picture of "
+                f"where you differ from the average household."
+            )
+        note += (
+            " Figures are based on the single month of spending you provided; "
+            "irregular costs such as annual insurance or one-off purchases may "
+            "not be represented."
+        )
+        return note
 
     def _generate_estimated_input_note(
         self,
@@ -403,11 +440,21 @@ class ExplainabilityAgent(BaseAgent):
         shap_summary: dict = risk_payload.get("feature_importance", {})
         risk_class: str = risk_payload.get("risk_class", "moderate")
         confidence: float = float(risk_payload.get("confidence", 0.7))
+        budget_payload: dict = context.get("budget_agent_payload") or {}
 
         shortlist: list = investment_payload.get("shortlist", [])
         top_product_name: str = (
-            shortlist[0]["name"] if shortlist else "the recomended product"
+            shortlist[0]["name"] if shortlist else "the recommended product"
         )
+        budget_only = bool(budget_payload) and not risk_payload and not shortlist
+
+        if budget_only:
+            benchmark = budget_payload.get("benchmark_comparison") or {}
+            expenses = budget_payload.get("monthly_expenses") or {}
+            coverage = (len(benchmark) / len(expenses)) if expenses else 0.0            
+            confidence = round(min(max(coverage, 0.0), 1.0), 4)
+            risk_class = ""          # honestly absent, not silently "moderate"
+            top_product_name = "this budget analysis"
 
         layers_applied: list[str] = []
         tokens_total: int = 0
@@ -452,12 +499,17 @@ class ExplainabilityAgent(BaseAgent):
 
         # Calibration note (X3 — always active
         hallucination_flagged: bool = bool(investment_payload.get("hallucination_flagged", False))
-        calibration_note = self._generate_calibration_note(
-            risk_class=risk_class,
-            confidence=confidence,
-            top_product_name=top_product_name,
-            hallucination_flagged=hallucination_flagged,
-        )
+        if budget_only:
+            calibration_note = self._generate_budget_calibration_note(
+                budget_payload, confidence
+            )
+        else:
+            calibration_note = self._generate_calibration_note(
+                risk_class=risk_class,
+                confidence=confidence,
+                top_product_name=top_product_name,
+                hallucination_flagged=hallucination_flagged,
+            )
         if "calibration_note" not in layers_applied:
             layers_applied.append("calibration_note")
 

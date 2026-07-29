@@ -18,6 +18,7 @@ Literature grounding:
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -36,7 +37,7 @@ logger = get_logger(__name__)
 # exactly, so every product is reachable by at least one risk tier and the
 # filter layer has a real rule set to operate against.
 
-IRISH_PRODUCT_CATALOGUE: list[dict[str, Any]] = [
+_FALLBACK_CATALOGUE: list[dict[str, Any]] = [
     {
         "product_id": "SAV001",
         "name": "Instant Access Savings Account",
@@ -236,6 +237,88 @@ TICKER_PROXY_MAP: dict[str, dict[str, Any]] = {
     "EQI001": {"tickers": ["DIA"], "weights": [1.0], "note": "Blue-chip index proxy for an individual-stock basket"},
 }
 
+def _load_catalogue_seed() -> list[dict[str, Any]]:
+    """
+    Read the catalogue from data/raw/product_catalogue/catalogue_seed.json.
+
+    The seed nests illustrative figures under a "synthetic" key. This flattens
+    them into the shape the rest of the agent already expects, so no ranking,
+    filtering or constraint code changes — but the nesting on disk means a
+    reader of the file cannot mistake an illustrative expense ratio for a
+    sourced one, which a flat key invites.
+    """
+    path = settings.product_data.seed_path
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        products: list[dict[str, Any]] = []
+        for entry in doc["products"]:
+            product = {k: v for k, v in entry.items() if k != "synthetic"}
+            product.update(entry.get("synthetic", {}))
+            products.append(product)
+        if not products:
+            raise ValueError("seed file contains no products")
+        logger.info(
+            f"[InvestmentAgent] loaded {len(products)} products from {path.name}"
+        )
+        return products
+    except Exception as exc:
+        logger.error(
+            f"[InvestmentAgent] could not read the product seed at {path} "
+            f"({type(exc).__name__}: {exc}) — falling back to the {len(_FALLBACK_CATALOGUE)}"
+            f"-product inline catalogue. Every RQ2 figure computed in this state "
+            f"reflects a SMALLER product universe than the seed defines, so do "
+            f"not compare it with results generated from the seed."
+        )
+        return [dict(p) for p in _FALLBACK_CATALOGUE]
+
+IRISH_PRODUCT_CATALOGUE: list[dict[str, Any]] = _load_catalogue_seed()
+
+def _apply_product_data(catalogue: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Layer real sourced figures over the synthetic ones, per FIELD, with a
+    provenance stamp per field rather than per product.
+
+    WHY PER-FIELD
+        expected_return_source already existed, covering one field. Once a
+        second source enriches a second field, a single product-level "is this
+        real?" flag becomes a lie in both directions: a product with a real
+        deposit rate and an illustrative expense ratio is neither "real" nor
+        "synthetic". Each enriched field therefore carries its own
+        <field>_source and <field>_citation, which is what lets
+        ExplainabilityAgent tell a user precisely which number is illustrative.
+
+    Gated on settings.product_data.use_real_product_data because turning it on
+    changes what RQ2 measures — see ProductDataConfig.
+    """
+    if not settings.product_data.use_real_product_data:
+        return catalogue
+
+    from utils.product_data_client import get_product_data_client  # noqa: PLC0415
+
+    client = get_product_data_client()
+    enriched, n_sourced = [], 0
+
+    for product in catalogue:
+        product = dict(product)
+        key = product.get("real_data_key")
+        if key:
+            fact = client.get_fact(key, field="expected_return_pct")
+            if fact is not None:
+                product["expected_return_pct"] = round(fact.value, 2)
+                product["expected_return_source"] = f"sourced:{fact.tier}"
+                product["expected_return_citation"] = (
+                    f"{fact.source}, as of {fact.as_of}"
+                )
+                n_sourced += 1
+        enriched.append(product)
+
+    logger.info(
+        f"[InvestmentAgent] product data enrichment: {n_sourced}/{len(catalogue)} "
+        f"products carry a sourced expected_return_pct "
+        f"(client mode={client.mode})"
+    )
+    return enriched
+
 def _apply_live_pricing(catalogue: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Return a copy of `catalogue` with expected_return_pct replaced by a
@@ -253,8 +336,14 @@ def _apply_live_pricing(catalogue: list[dict[str, Any]]) -> list[dict[str, Any]]
     enriched = []
     for product in catalogue:
         product = dict(product)
-        product["expected_return_source"] = "synthetic"
-        product["pricing_note"] = None
+        product.setdefault("expected_return_source", "synthetic")
+        product.setdefault("pricing_note", None)
+        product.setdefault("expense_ratio_source", "synthetic")
+
+        if product["expected_return_source"].startswith("sourced:"):
+            enriched.append(product)
+            continue
+ 
 
         proxy = TICKER_PROXY_MAP.get(product["product_id"])
         if proxy and settings.market_data.enabled:
@@ -301,7 +390,8 @@ class InvestmentAgent(BaseAgent):
 
     def __init__(self, llm_client: LLMClient):
         super().__init__(llm_client, name="InvestmentAgent")
-        self.catalogue = _apply_live_pricing(IRISH_PRODUCT_CATALOGUE)
+        self.catalogue = _apply_live_pricing(_apply_product_data(IRISH_PRODUCT_CATALOGUE))
+ 
 
     @property
     def system_prompt(self) -> str:

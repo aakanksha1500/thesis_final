@@ -94,9 +94,11 @@ class ConversationalAgent(BaseAgent):
     """
 
     def __init__(self, llm_client: LLMClient):
-        super().__init__(llm_client, name="ConversationalAgent")
+        super().__init__(llm_client, 
+        name="ConversationalAgent")
         self._slots: dict[str, Any] = {}
         self._history: list[dict] = []
+        self._history_is_external: bool = False
         self._turn_count: int = 0
 
     @property
@@ -268,7 +270,7 @@ class ConversationalAgent(BaseAgent):
         slot_ctx = self._slot_context_string()
         history_ctx = "\n".join(
             f"{m['role'].upper()}: {m['content']}"
-            for m in self._history[-4:]  # last 2 turns for context widow efficiency
+            for m in self._history[-4:]  # last 2 turns for context window efficiency
         )
 
         escalation_instruction = (
@@ -310,8 +312,9 @@ class ConversationalAgent(BaseAgent):
             )
 
         # Merge any externally tracked history into local history
-        external_history = context.get("conversation_history", [])
-        if external_history and not self._history:
+        external_history = context.get("conversation_history")
+        self._history_is_external = external_history is not None
+        if self._history_is_external:
             self._history = list(external_history)
 
         # Step 1 - Classify Intent
@@ -339,8 +342,12 @@ class ConversationalAgent(BaseAgent):
             )
 
         # Step 5 - Update conversation history
-        self._history.append({"role": "user", "content": user_message})
-        self._history.append({"role": "assistant", "content": response_text})
+        if not self._history_is_external:
+            self._history.append({"role": "user", "content": user_message})
+            self._history.append({"role": "assistant", "content": response_text})
+        # else: the Orchestrator owns the history. Appending here would
+        # duplicate the user message (already present) and record a reply that
+        # synthesis is about to overwrite.
 
         # Step 6 - Build payload
         escalation_block = (

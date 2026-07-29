@@ -16,8 +16,9 @@ work — possibly slower, never absent — regardless of which of
 from __future__ import annotations
 
 import json
-import pickle
-from dataclasses import dataclass, field
+
+# import pickle
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -127,17 +128,44 @@ class VectorStore:
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[:top_k]
 
+    # R13 - the index is no longer persisted with pickle.
+    #
+    # pickle.load() executes arbitrary code contained in the file. This index
+    # is public regulatory text with no secrets in it, so the realistic threat
+    # is not theft — it is that the file is small, useful, and exactly the sort
+    # of thing that gets emailed between researchers or committed to a shared
+    # repo. Loading someone else's copy would be remote code execution with no
+    # warning and no signature to check.
+    #
+    # Documents are plain dataclasses of strings, so JSON is a complete
+    # representation. Vectors are a float32 array, so .npy is both safer and
+    # smaller than pickle. Neither format can execute anything.
+    #
+    # Bumped when the on-disk layout changes incompatibly; load() reads it to
+    # decide whether it is looking at a legacy v1 pickle index.
+    FORMAT_VERSION = 2
+
     def save(
         self,
         index_dir: Path,
         extra_meta: dict[str, Any] | None = None,
     ) -> None:
         index_dir.mkdir(parents=True, exist_ok=True)
-        with open(index_dir / "documents.pkl", "wb") as f:
-            pickle.dump(self._documents, f)
-        with open(index_dir / "vectors.pkl", "wb") as f:
-            pickle.dump(self._vectors, f)
-        meta = {"dim": self.dim, "backend": self._backend, "n_documents": len(self._documents)}
+        with open(index_dir / "documents.json", "w", encoding="utf-8") as f:
+            json.dump([asdict(d) for d in self._documents], f,
+                      ensure_ascii=False, indent=1)
+
+        import numpy as np
+        np.save(index_dir / "vectors.npy",
+                np.asarray(self._vectors, dtype=np.float32),
+                allow_pickle=False)
+
+        meta = {
+            "format_version": self.FORMAT_VERSION,
+            "dim": self.dim,
+            "backend": self._backend,
+            "n_documents": len(self._documents),
+        }
         meta.update(extra_meta or {})
         with open(index_dir / "meta.json", "w") as f:
             json.dump(meta, f, indent=2)
@@ -148,10 +176,34 @@ class VectorStore:
         with open(index_dir / "meta.json") as f:
             meta = json.load(f)
         store = cls(dim=meta["dim"])
-        with open(index_dir / "documents.pkl", "rb") as f:
-            documents = pickle.load(f)
-        with open(index_dir / "vectors.pkl", "rb") as f:
-            vectors = pickle.load(f)
+        docs_json = index_dir / "documents.json"
+        vecs_npy = index_dir / "vectors.npy"
+
+        if docs_json.exists() and vecs_npy.exists():
+            import numpy as np  # noqa: PLC0415
+
+            with open(docs_json, encoding="utf-8") as f:
+                documents = [Document(**d) for d in json.load(f)]
+            # .tolist() is not cosmetic: _vectors is a list of plain float
+            # lists everywhere else in this class, and the numpy-fallback
+            # branch of search() passes each element straight to
+            # cosine_similarity(). An ndarray works there by accident and
+            # breaks the moment anything indexes or serialises one.
+            vectors = np.load(vecs_npy, allow_pickle=False).tolist()
+        else:
+            logger.warning(
+                f"[VectorStore] {index_dir} is a legacy pickle index (format "
+                f"v1). Loading it EXECUTES the file's contents — only do this "
+                f"for an index you built yourself. Re-run "
+                f"scripts/build_knowledge_base.py to migrate to the safe "
+                f"JSON+npy format."
+            )
+            import pickle
+
+            with open(index_dir / "documents.pkl", "rb") as f:
+                documents = pickle.load(f)
+            with open(index_dir / "vectors.pkl", "rb") as f:
+                vectors = pickle.load(f)
         store.add(documents, vectors)
         logger.info(f"[VectorStore] Loaded {len(documents)} documents from {index_dir}")
         return store

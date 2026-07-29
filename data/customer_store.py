@@ -26,6 +26,8 @@ Backend priority:
 from __future__ import annotations
 
 import csv
+import os
+import tempfile
 import json
 from pathlib import Path
 from typing import Any
@@ -218,11 +220,26 @@ class CustomerStore:
             + list(settings.risk.required_features)
             + ["ground_truth_risk_class", "credit_default_label"]
         )
-        with open(self._csv_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-            writer.writeheader()
-            for rec in self._records.values():
-                writer.writerow(rec)
+        tmp_fd, tmp_name = tempfile.mkstemp(
+            dir=str(self._csv_path.parent),
+            prefix=f".{self._csv_path.name}.",
+            suffix=".tmp",
+        )
+        tmp_path = Path(tmp_name)
+        try:
+            with os.fdopen(tmp_fd, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+                writer.writeheader()
+                for rec in self._records.values():
+                    writer.writerow(rec)
+                f.flush()
+                os.fsync(f.fileno())   # data on disk before the rename, not just in the page cache
+            os.replace(tmp_path, self._csv_path)
+        except BaseException:
+            # BaseException, not Exception: KeyboardInterrupt during a write is
+            # exactly the case that used to leave a truncated store behind.
+            tmp_path.unlink(missing_ok=True)
+            raise
 
     def __len__(self) -> int:
         return len(self._records)

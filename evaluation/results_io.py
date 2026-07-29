@@ -72,6 +72,12 @@ def _subsystem_modes() -> dict[str, str]:
             modes["hallucination_detector"] = hd.hallucination_detector.mode
         except Exception:
             pass
+    pd_ = _sys.modules.get("utils.product_data_client")
+    if pd_ is not None:
+        try:
+            modes["product_data"] = pd_.get_product_data_client().mode
+        except Exception:
+            pass
     md = _sys.modules.get("utils.market_data_client")
     if md is not None:
         try:
@@ -100,6 +106,10 @@ def build_meta(llm_mode: str | None = None) -> dict[str, Any]:
         "environment": settings.environment,
         "subsystem_modes": _subsystem_modes(),
         "llm_cache": _llm_cache_stats(),
+        "product_catalogue_mode": (
+            "real_where_available"
+            if settings.product_data.use_real_product_data else "synthetic"
+        ),
         "explainability_ablation": {
             "use_shap": settings.explainability.use_shap,
             "use_rag_citation": settings.explainability.use_rag_citation,
@@ -120,6 +130,12 @@ def write_results(
     meta = build_meta(llm_mode)
     out_dir = RESULTS_ROOT / meta["llm_mode"]
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    from config.settings import settings as _settings
+    if _settings.product_data.use_real_product_data:
+        stem, dot, ext = filename.rpartition(".")
+        filename = f"{stem}__realproducts{dot}{ext}" if dot else f"{filename}__realproducts"
+
     path = out_dir / filename
     with open(path, "w", encoding="utf-8") as f:
         json.dump({"_meta": meta, **payload}, f, indent=2, default=str)

@@ -604,4 +604,27 @@ class KnowledgeBase:
 
 # Mosule level singleton - ExplainabilityAgent imports this directly so
 # every call reuses the same in-memory index instead of rebuilding per call.
-knowledge_base = KnowledgeBase()
+# knowledge_base = KnowledgeBase()
+
+_knowledge_base: "KnowledgeBase | None" = None
+
+def get_knowledge_base() -> "KnowledgeBase":
+    """Construct on first use, then reuse. The accessor to prefer in new code."""
+    global _knowledge_base
+    if _knowledge_base is None:
+        _knowledge_base = KnowledgeBase()
+    return _knowledge_base
+
+
+def set_knowledge_base(instance: "KnowledgeBase | None") -> None:
+    """Inject a substitute (or None to reset). Intended for tests and ablations."""
+    global _knowledge_base
+    _knowledge_base = instance
+
+
+def __getattr__(name: str):
+    # Keeps the historic module-level name working: the singleton is built the
+    # first time something reads it, not when this module is imported.
+    if name == "knowledge_base":
+        return get_knowledge_base()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

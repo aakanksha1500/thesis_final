@@ -12,7 +12,7 @@ Three things BaseAgent provides:
     always measured and errors are always caught at one place.
 3. Abstract interface
     system_prompt, _parse_response, and run() must be implemented by every
-    subclass. Python will raise TyprError at import time if they are missing -
+    subclass. Python will raise TypeError at import time if they are missing -
     catching interface violations before any test runs.
 """
 
@@ -23,6 +23,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
+from agents import payloads
 from utils import trace
 from utils.llm_client import LLMClient
 from utils.logger import get_logger
@@ -200,6 +201,7 @@ class BaseAgent(abc.ABC):
         AgentResult by hand every time — keeps each agent's run() focused
         on its own logic instead of envelope bookkeeping.
         """
+        payloads.enforce(self.name, payload, success=error is None)
         return AgentResult(
             agent_name = self.name,
             success = error is None,

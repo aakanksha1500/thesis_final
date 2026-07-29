@@ -2,7 +2,7 @@
 Phase 5 - BudgetAgent tests
 
 Three test groups:
-GROUP A: Cashflow arthmetic (no LLM, no API key)
+GROUP A: Cashflow arithmetic (no LLM, no API key)
     Tests _compute_cashflow() in complete isolation.
     Verifies: disposable = income - expenses, savings rate formula,
     expense fractions, edge cases (zero income, empty expenses).
