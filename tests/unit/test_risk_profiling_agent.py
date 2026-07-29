@@ -115,7 +115,7 @@ class TestMLScore:
         old = {**FULL_FEATURES, "age": 65}
 
         assert agent._ml_score(young) > agent._ml_score(old)
-    
+
     def test_trained_model_age_effect_is_empirical_not_assumed(self):
         agent = make_agent()
 
@@ -442,6 +442,7 @@ RQ1_FIXTURE: list[dict] = [
      "expected": "aggressive"},
 ]
 
+@pytest.mark.evaluation   # produces results/*.json — see conftest._no_live_api_in_tests
 
 class TestRQ1Evaluation:
 

@@ -1,5 +1,5 @@
 """
-Phase 7 - HALO style hierarchical Orchestrator 
+Phase 7 - HALO style hierarchical Orchestrator
 ddresses RQ4: multi-agent vs monolithic coherence.
 
 HALO three-layer hierarchy:
@@ -178,7 +178,7 @@ class Orchestrator:
             f"orchestrator tier → model={primary.model}"
         )
         return client
-    
+
     # Existing-customer pipeline
 
     def _load_customer(
@@ -344,7 +344,7 @@ class Orchestrator:
                     f"→ CONVERSATIONAL_ONLY"
                 )
                 return RoutingDecision.CONVERSATIONAL_ONLY, intent, confidence
-            
+
             _unreachable = set(RoutingDecision) - set(INTENT_TO_ROUTING.values())
 
             if _unreachable:
@@ -422,7 +422,7 @@ class Orchestrator:
         )
         trace.emit("↻ RECOVER", agent_name,
                    strategy=recovery["strategy"], success=recovery["success"])
-        
+
         recovered_result = AgentResult(
             agent_name=agent_name,
             success=recovery["success"],
@@ -539,7 +539,7 @@ class Orchestrator:
                 shortlist = r.payload.get("shortlist", [])
                 if shortlist:
                     claimed_return = shortlist[0].get("expected_return_pct")
-            
+
         advisory = any(
             r.agent_name in ("InvestmentAgent", "BudgetAgent", "RiskProfilingAgent")
             and r.success
@@ -714,7 +714,7 @@ class Orchestrator:
                 # Nothing can run. Ask for what is missing instead of spending
                 # four LLM calls to produce three refusals.
                 elicitation = self._elicitation_response(unmet)
-                self._session_state["awaiting_full_advisory_inputs"] = unme
+                self._session_state["awaiting_full_advisory_inputs"] = unmet
         with trace.span("[L2]", f"plan: {' → '.join(agent_sequence) or 'elicitation'}"):
             agent_results, recovered = self._run_agent_sequence(agent_sequence, context)
 
@@ -738,8 +738,8 @@ class Orchestrator:
                     if r.agent_name == "RiskProfilingAgent":
                         self._session_state["risk_profile"] = r.payload
                     elif r.agent_name == "InvestmentAgent":
-                        self._session_state["prior_investment_output"] = r.payload         
-            
+                        self._session_state["prior_investment_output"] = r.payload
+
             # -- Layer 3b: Synthesis --
             if elicitation is not None:
                 # R7 - no agent produced anything to synthesise; the response
@@ -760,14 +760,14 @@ class Orchestrator:
                 violations=len(violations),
                 blocked=was_blocked,
             )
-        
 
-        
+
+
         # raw_response = self._synthesise_response(
         #     user_message, agent_results, routing
         # )
 
-        
+
         # final_response, violations, was_blocked = self._check_constraints(
         #     raw_response, agent_results
         # )
@@ -814,7 +814,7 @@ class Orchestrator:
             total_duration_ms=total_ms,
             success=True,
         )
-    
+
     def _agent_is_satisfiable(self, agent_name: str, context: dict) -> tuple[bool, str]:
         """Return (can_run, human-readable reason it cannot)."""
         if agent_name == "RiskProfilingAgent":

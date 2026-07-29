@@ -36,6 +36,7 @@ from unittest.mock import patch
 
 import pytest
 
+from config.settings import settings
 from evaluation.agent_judge import AgentJudge
 from evaluation.metrics import (
     component_synergy_score,
@@ -276,7 +277,7 @@ class TestProcessTurnStructure:
 
 
 # RQ4 integration evaluation — 10 scenarios
-
+@pytest.mark.evaluation   # produces results/*.json — see conftest._no_live_api_in_tests
 
 class TestRQ4Evaluation:
 
@@ -347,12 +348,28 @@ class TestRQ4Evaluation:
         tue_result = tool_utilisation_efficacy(audit_records)
 
         # Judge aggregate
-        judge_mode = judge_scores[0].get("judge_mode", "mock") if judge_scores else "mock"
+        modes = [s.get("judge_mode", "unavailable") for s in judge_scores]
+        measured = [s for s in judge_scores if s.get("judge_mode") == "real"]
+        judge_coverage = len(measured) / len(judge_scores) if judge_scores else 0.0
         mean_judge_score = (
-            sum(s.get("overall_score", 3.0) for s in judge_scores) / len(judge_scores)
-            if judge_scores else 0.0
+            sum(s["overall_score"] for s in measured) / len(measured)
+            if measured else None
         )
-        verdicts = [s.get("verdict", "flag") for s in judge_scores]
+        judge_mode = (
+            "real" if judge_coverage == 1.0
+            else "partial" if measured
+            else (modes[0] if modes else "unavailable")
+        )
+        verdicts = [s.get("verdict", "flag") for s in measured]
+
+        judge_failures = {}
+        for s in judge_scores:
+            m = s.get("judge_mode")
+            if m and m != "real" and m not in judge_failures:
+                judge_failures[m] = {
+                    "reason": s.get("judge_failure_reason", ""),
+                    "raw_preview": s.get("judge_raw_preview", ""),
+                }
 
         # Write results
         results_payload = {
@@ -371,11 +388,25 @@ class TestRQ4Evaluation:
                 "tool_utilisation_efficacy": tue_result.to_dict(),
                 "agent_judge": {
                     "metric": "agent_judge_overall",
-                    "value": round(mean_judge_score, 3),
+                    "value": (round(mean_judge_score, 3)
+                              if mean_judge_score is not None else None),
                     "judge_mode": judge_mode,
+                    "judge_model": settings.llm.judge_model,
+                    "judge_coverage": round(judge_coverage, 3),
+                    "n_measured": len(measured),
+                    "n_scenarios": len(judge_scores),
+                    "mode_distribution": {m: modes.count(m) for m in set(modes)},
+                    "failures": judge_failures,
                     "verdict_distribution": {
                         v: verdicts.count(v) for v in set(verdicts)
                     },
+                    "interpretation": (
+                        "value is the mean over MEASURED turns only. "
+                        "judge_coverage < 1.0 means some turns were not judged; "
+                        "coverage 0.0 means the 5-dimension trajectory score was "
+                        "NOT measured in this run and must not be reported as a "
+                        "finding."
+                    ),
                 },
             },
             "scenarios": scenario_results,
@@ -390,7 +421,17 @@ class TestRQ4Evaluation:
         print(f"[RQ4] step_progress_rate:        {step_result.value:.3f}")
         print(f"[RQ4] component_synergy_score:   {css_result.value:.3f}")
         print(f"[RQ4] tool_utilisation_efficacy: {tue_result.value:.3f}")
-        print(f"[RQ4] agent_judge_overall:       {mean_judge_score:.3f} ({judge_mode})")
+        if mean_judge_score is None:
+            print(f"[RQ4] agent_judge_overall:       NOT MEASURED "
+                  f"(mode={judge_mode}, 0/{len(judge_scores)} turns judged)")
+            for m, detail in judge_failures.items():
+                print(f"[RQ4]   {m}: {detail['reason'][:110]}")
+                if detail["raw_preview"]:
+                    print(f"[RQ4]   raw: {detail['raw_preview'][:110]!r}")
+        else:
+            print(f"[RQ4] agent_judge_overall:       {mean_judge_score:.3f} "
+                  f"({judge_mode}, {len(measured)}/{len(judge_scores)} turns judged, "
+                  f"model={settings.llm.judge_model})")
         print(f"[RQ4] Results written to {results_path}")
 
         # Structural assertions — always pass regardless of mode

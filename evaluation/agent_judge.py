@@ -34,8 +34,9 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-FALLBACK_SCORE = 3.0   # neutral score used when Judge LLM unavailable
+FALLBACK_SCORE = 3.0   # neutral placeholder — NEVER a measurement
 SCORE_DIMENSIONS = [name for name, _ in JUDGE_DIMENSIONS]
+JUDGE_MAX_TOKENS = 1024
 
 class AgentJudge:
     """
@@ -129,16 +130,91 @@ class AgentJudge:
             f"{json.dumps(trajectory, indent=2)}\n\n"
             f"Return ONLY the JSON score object, no other text."
         )
+        if self.llm.mode == "mock":
+            return self._fallback_scores(
+                "LLMClient is in mock mode — no judge model was called",
+                mode="unavailable",
+            )
         try:
             response = self.llm.chat(
                 system=JUDGE_SYSTEM,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0,
             )
-            return self._parse_judge_response(response.content)
+            scores = self._parse_judge_response(response.content)
+            scores.setdefault("judge_model", self.llm.model)
+            scores.setdefault("judge_tokens", response.tokens_used)
+            return scores
         except Exception as exc:
-            logger.warning(f"[AgentJudge] LLM call failed: {exc} — using fallback scores")
-            return self._fallback_scores(str(exc))
+            logger.warning(
+                f"[AgentJudge] judge call raised {type(exc).__name__}: {exc} — "
+                f"this turn is NOT measured"
+            )
+            return self._fallback_scores(str(exc), mode="error")
+
+    @staticmethod
+    def _extract_json(raw: str) -> str | None:
+        r"""
+        Pull the score object out of whatever the judge actually returned.
+
+        A greedy r'\{.*\}' spans from the FIRST brace to the LAST one, so a
+        reply containing prose plus two objects — or a fenced block followed by
+        a closing remark — yields a string that is not valid JSON at all. That
+        is a parse failure caused by the extractor, not by the model.
+
+        This instead walks the string tracking brace depth (ignoring braces
+        inside string literals) and collects every balanced top-level object,
+        then returns the LAST one that parses. Judges that "think out loud"
+        before emitting the final object are common, and the final object is
+        the one that matters.
+        """
+        if not raw:
+            return None
+
+        # Markdown fences are the single most common wrapper.
+        fenced = re.findall(r"```(?:json)?\s*(.*?)```", raw, re.DOTALL)
+        candidates: list[str] = []
+        for block in fenced:
+            candidates.extend(AgentJudge._balanced_objects(block))
+        candidates.extend(AgentJudge._balanced_objects(raw))
+
+        for text in reversed(candidates):
+            try:
+                json.loads(text)
+                return text
+            except json.JSONDecodeError:
+                continue
+        return None
+
+    @staticmethod
+    def _balanced_objects(text: str) -> list[str]:
+        """Every balanced {...} span, string-literal aware."""
+        out, depth, start = [], 0, None
+        in_str = escape = False
+        for i, ch in enumerate(text):
+            if in_str:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_str = False
+                continue
+            if ch == '"':
+                in_str = True
+            elif ch == "{":
+                if depth == 0:
+                    start = i
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0 and start is not None:
+                    out.append(text[start:i + 1])
+                    start = None
+                elif depth < 0:
+                    depth = 0
+        return out
+
 
     def _parse_judge_response(self, raw: str) -> dict:
         """
@@ -147,10 +223,10 @@ class AgentJudge:
         Falls back to fallback_scores if parse fails.
         """
         # Try to find JSON object in response
-        match = re.search(r'\{.*\}', raw, re.DOTALL)
-        if match:
+        extracted = self._extract_json(raw)
+        if extracted is not None:
             try:
-                scores = json.loads(match.group())
+                scores = json.loads(extracted)
                 # Validate required fields
                 for dim in SCORE_DIMENSIONS:
                     if dim not in scores:
@@ -170,24 +246,33 @@ class AgentJudge:
             except json.JSONDecodeError:
                 pass
 
-        logger.debug(
-            f"[AgentJudge] Could not parse JSON from response: {raw[:100]}"
-        )
-        return self._fallback_scores("JSON parse failed")
+        logger.warning(
+            f"[AgentJudge] real reply could not be parsed as JSON — scoring "
+            f"this turn as parse_failed. First 200 chars: {raw[:200]!r}"
+         )
+        return self._fallback_scores("JSON parse failed", mode="parse_failed",
+                                     raw=raw)
 
-    def _fallback_scores(self, reason: str) -> dict:
+    def _fallback_scores(self, reason: str, mode: str = "unavailable",
+                         raw: str = "") -> dict:
         """
         Neutral fallback scores when Judge LLM is unavailable.
         Verdict 'flag' distinguishes mock from real evaluations.
         """
-        return {
+        out = {
             dim: FALLBACK_SCORE for dim in SCORE_DIMENSIONS
         } | {
             "overall_score": FALLBACK_SCORE,
             "verdict": "flag",
-            "reasoning": f"Fallback scores — Judge LLM unavailable: {reason}",
-            "judge_mode": "mock",
+            "reasoning": f"NOT MEASURED — neutral fallback ({mode}): {reason}",
+            "judge_mode": mode,
+            "judge_failure_reason": reason,
         }
+        if raw:
+            # Enough to diagnose prompt drift without dumping a full reply into
+            # every results file.
+            out["judge_raw_preview"] = raw[:300]
+        return out
 
     @property
     def eval_count(self) -> int:

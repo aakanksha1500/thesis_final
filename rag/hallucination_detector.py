@@ -1,10 +1,10 @@
 """
-Phase 8 - HHEM hallucination detector: the probabilistic half of the 
-two-layer hallucination mitigation approach, running in combination with the 
+Phase 8 - HHEM hallucination detector: the probabilistic half of the
+two-layer hallucination mitigation approach, running in combination with the
 deterministic constraint rules already in place.
 
-Claims scoring below settings.hallucination.hhem_threshold (0.85) are 
-flagged in the audit log and can be surfaced in the ExplainabilityAgent 
+Claims scoring below settings.hallucination.hhem_threshold (0.85) are
+flagged in the audit log and can be surfaced in the ExplainabilityAgent
 calibration note.
 
 HHEM scores a pair for factual consistency: does the

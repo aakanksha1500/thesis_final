@@ -1,7 +1,7 @@
 """
 Phase 4 - InvestmentAgent
 
-Implements the context-aware hybrid recommendations model described in the proposed approach: 
+Implements the context-aware hybrid recommendations model described in the proposed approach:
 rule-based constraints + feature-based scoring + LLM synthesis. This mirros
 the RiskProfilingAgent's hybrid pattern from Phase 3.
 
@@ -26,9 +26,9 @@ from agents.base_agent import AgentResult, BaseAgent
 from config.constraints import financial_constraints
 from config.prompts import INVESTMENT_SYSTEM
 from config.settings import settings
+from utils import trace
 from utils.llm_client import LLMClient
 from utils.logger import get_logger
-from utils import trace
 
 logger = get_logger(__name__)
 
@@ -343,7 +343,7 @@ def _apply_live_pricing(catalogue: list[dict[str, Any]]) -> list[dict[str, Any]]
         if product["expected_return_source"].startswith("sourced:"):
             enriched.append(product)
             continue
- 
+
 
         proxy = TICKER_PROXY_MAP.get(product["product_id"])
         if proxy and settings.market_data.enabled:
@@ -378,12 +378,12 @@ def _apply_live_pricing(catalogue: list[dict[str, Any]]) -> list[dict[str, Any]]
 class InvestmentAgent(BaseAgent):
     """
     Context-Aware hybrid investment product recommender
-    
+
     Pipeline :
         Layer 1 _filter_by_risk_class()   rule-based CBI suitability filter
         Layer 2 _rank_products()          feature-based scoring, no LLM
         Layer 3 LLM synthesis             explain the ranke shortlist
-        
+
     The LLM never sees the full catalogue and never sees rejected products -
     it only ever synthesises over what has already survived Layers 1 and 2.
     """
@@ -391,7 +391,7 @@ class InvestmentAgent(BaseAgent):
     def __init__(self, llm_client: LLMClient):
         super().__init__(llm_client, name="InvestmentAgent")
         self.catalogue = _apply_live_pricing(_apply_product_data(IRISH_PRODUCT_CATALOGUE))
- 
+
 
     @property
     def system_prompt(self) -> str:
@@ -408,15 +408,15 @@ class InvestmentAgent(BaseAgent):
         Layer 1: keeps only catalogue products whose category is in the
         CBI-suitability allow-list for this risk_class (from
         config/constraints.py), so the ranking layer never even sees an
-        unsuitable product. 
-        
-        Args: 
+        unsuitable product.
+
+        Args:
             risk_class: one of the five tiers in settings.risk.risk_classes.
-        
+
         Returns:
-            List of product dicts whose category is in the allow-set for 
-            risk_class. Empty list if risk_class is unrecognised or no 
-            catalogue products match (both are treated as caller errors 
+            List of product dicts whose category is in the allow-set for
+            risk_class. Empty list if risk_class is unrecognised or no
+            catalogue products match (both are treated as caller errors
             to surface explicitly rather than silently returning nothing)
         """
 
@@ -477,7 +477,7 @@ class InvestmentAgent(BaseAgent):
                                 normalisation
           horizon_fit_score  — from _horizon_fit_score() against the user's
                                 investment_horizon (default 5 years if absent)
-                                
+
         Args:
             products: output of _filter_by_risk_class() — already suitable.
             context:  run() context; reads 'user_features.investment_horizon'.

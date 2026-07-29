@@ -2,7 +2,7 @@
 Phase 7 - Self-healing failure detection and recovery.
 
 AgentFixer principle: a failed agent should not bring down
-the entire pipeline. Instead, a recovery strategy is applied and the 
+the entire pipeline. Instead, a recovery strategy is applied and the
 result is flagged as recovered (not hidden). The audit log records
 both the failure and recovery attempt.
 

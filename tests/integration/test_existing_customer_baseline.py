@@ -17,6 +17,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from data.customer_store import CustomerStore
 from evaluation.results_io import write_results
 from orchestrator.orchestrator import Orchestrator
@@ -26,6 +28,7 @@ RESULTS_DIR = Path(__file__).resolve().parents[2] / "results"
 
 DEMO_CUSTOMER_IDS = ["DEMO_GC_042", "DEMO_GC_107", "DEMO_GMSC_318"]
 
+@pytest.mark.evaluation   # produces results/*.json — see conftest._no_live_api_in_tests
 
 class TestExistingCustomerBaseline:
     def test_demo_profiles_full_fixture_evaluation_and_write_results(self):

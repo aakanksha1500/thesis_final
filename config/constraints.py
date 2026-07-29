@@ -11,8 +11,8 @@ Constraint categories:
 """
 
 from __future__ import annotations
-import re
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -80,12 +80,23 @@ class FinancialConstraints:
             r"past\s+performance",
     }
 
-    def check_disclaimers_present(self, text: str):
+    def check_disclaimers_present(self, text: str, advisory: bool = True):
         """
         Regex-based, not substring — see DISCLAIMER_PATTERNS for why.
         Violations are still reported using the canonical label, so nothing
         downstream (audit log, results JSON) changes shape.
+
+        R24 - `advisory` scopes the check to responses that actually give
+        advice. Requiring "past performance is not a guide to future returns"
+        on the reply to "hello" is not a compliance finding, it is noise: it
+        put a warn-level R004 in the audit log on literally every turn, which
+        is the fastest way to train a reviewer to ignore R004 entirely. CBI
+        consumer-protection disclosure obligations attach to advice, not to
+        conversation, so scoping the rule here matches the regulation the rule
+        is modelling rather than merely quietening the log.
         """
+        if not advisory:
+            return []
         return [
             ConstraintViolation(rule_id="R004", description=f"Missing disclaimer: '{label}'",
                                 severity="warn", field="response_text", value=label)
@@ -118,15 +129,6 @@ class FinancialConstraints:
                                 severity="hard_block", field="response_text", value=label)
             for label in self.PROHIBITED_PHRASES
             if re.search(self.PROHIBITED_PATTERNS[label], text, re.IGNORECASE)
-         ]
-
-    def check_disclaimers_present(self, text: str, advisory: bool = True):
-        if not advisory:
-            return []
-        return [
-             ConstraintViolation(rule_id="R004", description=f"Missing disclaimer: '{label}'",
-                                 severity="warn", field="response_text", value=label)
-
         ]
 
     def validate_response(self, response_text: str, risk_class=None,
@@ -135,10 +137,12 @@ class FinancialConstraints:
         violations = []
         if claimed_return is not None:
             v = self.check_return_plausibility(claimed_return)
-            if v: violations.append(v)
+            if v:
+                violations.append(v)
         if risk_class and product_category:
             v = self.check_risk_product_compatibility(risk_class, product_category)
-            if v: violations.append(v)
+            if v:
+                violations.append(v)
         violations.extend(self.check_prohibited_phrases(response_text))
         violations.extend(self.check_disclaimers_present(response_text, advisory=advisory))
         has_hard_block = any(v.severity == "hard_block" for v in violations)

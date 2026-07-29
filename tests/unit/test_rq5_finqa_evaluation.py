@@ -13,6 +13,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from evaluation.metrics import finqa_exact_match, hallucination_rate
 from evaluation.results_io import write_results
 from rag.hallucination_detector import HallucinationDetector
@@ -179,6 +181,7 @@ def _run_finqa_condition(
 
     return results
 
+@pytest.mark.evaluation   # produces results/*.json — see conftest._no_live_api_in_tests
 
 class TestRQ5FinQAEvaluation:
 

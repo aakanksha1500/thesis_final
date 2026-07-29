@@ -60,8 +60,8 @@ def make_agent(mock_response: str = "[MOCK RESPONSE]") -> ConversationalAgent:
 
 def make_real_agent() -> ConversationalAgent:
     """Return a ConversationalAgent using the real API key from .env."""
-    from dotenv import load_dotenv
-    load_dotenv()
+    # from dotenv import load_dotenv
+    # load_dotenv()
     client = LLMClient()
     return ConversationalAgent(client)
 
@@ -268,6 +268,8 @@ BANKING77_FIXTURE: list[dict] = [
     {"message": "Explain your reasoning.",                 "bucket": "explanation_request"},
 ]
 
+@pytest.mark.evaluation   # produces results/*.json — see conftest._no_live_api_in_test
+
 
 class TestIntentAccuracyEvaluation:
     """
@@ -325,7 +327,9 @@ class TestIntentAccuracyEvaluation:
         predictions = []
         for item in BANKING77_FIXTURE:
             result = agent.run({"user_message": item["message"]})
-            time.sleep(2)
+            # time.sleep(2)
+            if agent.llm.mode != "mock":
+                time.sleep(2)
             predictions.append(result.payload.get("intent", "general_query"))
 
         gold = [item["bucket"] for item in BANKING77_FIXTURE]

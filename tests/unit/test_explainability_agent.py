@@ -475,6 +475,8 @@ def _run_ablation_condition(
 
     return results
 
+@pytest.mark.evaluation   # produces results/*.json — see conftest._no_live_api_in_tests
+
 class TestRQ3AblationEvaluation:
 
     def test_condition_a_shap_only(self):

@@ -102,10 +102,20 @@ ECB_SERIES: dict[str, dict[str, str]] = {
     # than substitute the 10-year and call it short-dated — which would be a
     # fabrication with a real-looking citation attached — this key resolves
     # only from the snapshot, where a curator has to state what they used.
-    "ecb.ie_govt_yield_short": {
-        "series": "",
-        "label": "Ireland, short-dated sovereign yield (snapshot-only — no ECB convergence series exists)",
+    "ecb.ea_aaa_govt_yield_3y": {
+        "series": "YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_3Y",
+        "label": "Euro area AAA-rated 3-year spot rate — PROXY for short-dated "
+                 "sovereign; NOT Ireland-specific, and AAA understates an Irish yield",
     },
+    "cbi.household_deposit_overnight": {
+        "series": "MIR/M.IE.B.L21.A.R.A.2250.EUR.N",
+        "label": "Ireland, households — overnight deposits, annualised agreed rate",
+    },
+    "cbi.household_deposit_agreed_maturity": {
+        "series": "MIR/M.IE.B.L22.F.R.A.2250.EUR.N",
+        "label": "Ireland, households — deposits with agreed maturity up to 1 year, "
+                 "annualised agreed rate",
+     },
 }
 
 ECB_BASE = "https://data-api.ecb.europa.eu/service/data"
@@ -122,7 +132,7 @@ class ProductDataClient:
         if settings.product_data.enabled:
             self._probe_live()
 
-    # snapshot 
+    # snapshot
     def _load_snapshot(self) -> None:
         path = settings.product_data.snapshot_path
         if not path.exists():
@@ -175,7 +185,7 @@ class ProductDataClient:
             return "snapshot"
         return "synthetic"
 
-    # staleness 
+    # staleness
     def _is_fresh(self, as_of: str | None) -> bool:
         if not as_of:
             return False
@@ -186,7 +196,7 @@ class ProductDataClient:
         age = (datetime.now(timezone.utc).date() - observed).days
         return age <= settings.product_data.max_age_days
 
-    # the one public method 
+    # the one public method
     def get_fact(self, real_data_key: str, field: str = "expected_return_pct") -> ProductFact | None:
         """
         Resolve one sourced field, or None. Never raises.
@@ -242,7 +252,7 @@ class ProductDataClient:
             )
             return None
 
-    # live 
+    # live
     def _fetch_ecb(self, real_data_key: str, field: str) -> ProductFact | None:
         """
         One observation from the ECB Statistical Data Warehouse.
@@ -295,7 +305,7 @@ class ProductDataClient:
             return None
 
 
-# lazy singleton, matching the R14 pattern used everywhere else 
+# lazy singleton, matching the R14 pattern used everywhere else
 _product_data_client: "ProductDataClient | None" = None
 
 
@@ -316,4 +326,3 @@ def __getattr__(name: str):
     if name == "product_data_client":
         return get_product_data_client()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
- 

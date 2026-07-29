@@ -3,7 +3,7 @@ Phase 8b - SessionRegistry: holds one Orchestrator instance per
 concurrent user, so the prototype can demostrate mutiple customers
 seeking advice at the same time without their sessions interfacing.
 
-This exists because Orchestrator itself is stateful per-session but 
+This exists because Orchestrator itself is stateful per-session but
 it otherwise stateless in how it's constructed - nothing about it assumes
 there's only ever one instance alive. SessionRegistry just gives that
 multi-instance usage a single, obvious place to live, instead of leaving
@@ -39,7 +39,7 @@ class SessionEntry:
 class SessionRegistry:
     """
     Thread-safe in-memory registry of active Orchestrator sessions.
-    
+
     One registry instance should be shared process-wide - NOT one per
     request, or you lose the whole point of it.
     """
@@ -66,7 +66,7 @@ class SessionRegistry:
         Return the existing Orchestrator for session_id, or create a new one.
 
         customer_id / customer_context are only used on FIRST creation of
-        this session_id - once a session exists, its customer identity is 
+        this session_id - once a session exists, its customer identity is
         fixed for the life of that session.
         """
         with self._lock:

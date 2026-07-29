@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-07-28T09:59:35.848797+00:00",
-    "git_sha": "9383271-dirty",
+    "generated_at_utc": "2026-07-29T09:20:03.006702+00:00",
+    "git_sha": "54dfee1-dirty",
     "prompt_version": "v1.0",
     "llm_mode": "groq",
     "orchestrator_model": "llama-3.3-70b-versatile",
@@ -9,11 +9,19 @@
     "judge_model": "llama-3.3-70b-versatile",
     "environment": "development",
     "subsystem_modes": {
-      "embedder": "sentence-transformers",
-      "vector_store": "faiss",
-      "hallucination_detector": "hhem",
       "market_data": "unavailable"
     },
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "record",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
     "explainability_ablation": {
       "use_shap": true,
       "use_rag_citation": false,
@@ -25,8 +33,8 @@
   "dataset": "hand_labelled_fixture_5_queries",
   "note": "Pure InvestmentAgent baseline (filter + rank layers only, no LLM synthesis, no ExplainabilityAgent, no Orchestrator). RQ2 pre-explainability / pre-orchestration reference point.",
   "metrics": {
-    "mean_precision_at_3": 0.8,
-    "mean_ndcg_at_3": 0.7861
+    "mean_precision_at_3": 0.4,
+    "mean_ndcg_at_3": 0.4728
   },
   "per_query": [
     {
@@ -34,23 +42,29 @@
       "risk_class": "conservative",
       "investment_horizon": 1,
       "ranked_ids_full": [
+        "TDP003",
+        "TDP002",
         "TDP001",
-        "GOV001",
+        "SAV002",
+        "MMK002",
         "SAV001",
+        "GOV001",
+        "SAV003",
         "MMK001",
-        "GOV002"
+        "GOV002",
+        "GOV003"
       ],
       "precision_at_3": {
         "metric": "precision_at_k",
-        "value": 0.6667,
+        "value": 0.3333,
         "details": {
           "k": 3,
           "top_k_ids": [
-            "TDP001",
-            "GOV001",
-            "SAV001"
+            "TDP003",
+            "TDP002",
+            "TDP001"
           ],
-          "hits": 2,
+          "hits": 1,
           "relevant_ids": [
             "MMK001",
             "SAV001",
@@ -60,15 +74,15 @@
       },
       "ndcg_at_3": {
         "metric": "ndcg_at_k",
-        "value": 0.6646,
+        "value": 0.2658,
         "details": {
           "k": 3,
           "top_k_ids": [
-            "TDP001",
-            "GOV001",
-            "SAV001"
+            "TDP003",
+            "TDP002",
+            "TDP001"
           ],
-          "dcg": 2.5,
+          "dcg": 1.0,
           "idcg": 3.7619,
           "ideal_order": [
             "TDP001",
@@ -84,22 +98,27 @@
       "investment_horizon": 5,
       "ranked_ids_full": [
         "CBI001",
+        "GOV003",
         "GOV002",
         "GOV001",
+        "CBI002",
         "MXL001",
-        "SAV001"
+        "MXL002",
+        "SAV002",
+        "SAV001",
+        "SAV003"
       ],
       "precision_at_3": {
         "metric": "precision_at_k",
-        "value": 0.6667,
+        "value": 0.3333,
         "details": {
           "k": 3,
           "top_k_ids": [
             "CBI001",
-            "GOV002",
-            "GOV001"
+            "GOV003",
+            "GOV002"
           ],
-          "hits": 2,
+          "hits": 1,
           "relevant_ids": [
             "CBI001",
             "GOV001",
@@ -109,15 +128,15 @@
       },
       "ndcg_at_3": {
         "metric": "ndcg_at_k",
-        "value": 0.6646,
+        "value": 0.5317,
         "details": {
           "k": 3,
           "top_k_ids": [
             "CBI001",
-            "GOV002",
-            "GOV001"
+            "GOV003",
+            "GOV002"
           ],
-          "dcg": 2.5,
+          "dcg": 2.0,
           "idcg": 3.7619,
           "ideal_order": [
             "CBI001",
@@ -132,24 +151,31 @@
       "risk_class": "moderate",
       "investment_horizon": 8,
       "ranked_ids_full": [
+        "ETB002",
         "ETB001",
+        "ETB003",
+        "REIT002",
         "REIT001",
         "GOV002",
+        "GOV003",
+        "MXM002",
         "MXM001",
         "CB001",
+        "CB002",
+        "MXM003",
         "GOV001"
       ],
       "precision_at_3": {
         "metric": "precision_at_k",
-        "value": 0.6667,
+        "value": 0.3333,
         "details": {
           "k": 3,
           "top_k_ids": [
+            "ETB002",
             "ETB001",
-            "REIT001",
-            "GOV002"
+            "ETB003"
           ],
-          "hits": 2,
+          "hits": 1,
           "relevant_ids": [
             "CB001",
             "ETB001",
@@ -160,15 +186,15 @@
       },
       "ndcg_at_3": {
         "metric": "ndcg_at_k",
-        "value": 0.6013,
+        "value": 0.1677,
         "details": {
           "k": 3,
           "top_k_ids": [
+            "ETB002",
             "ETB001",
-            "REIT001",
-            "GOV002"
+            "ETB003"
           ],
-          "dcg": 2.2619,
+          "dcg": 0.6309,
           "idcg": 3.7619,
           "ideal_order": [
             "MXM001",
@@ -184,22 +210,30 @@
       "investment_horizon": 10,
       "ranked_ids_full": [
         "ETS001",
+        "ETB002",
+        "ETS002",
+        "ETB003",
         "ETB001",
+        "ETS003",
+        "EQF003",
         "EQF001",
+        "EQF002",
+        "REIT002",
         "REIT001",
+        "CB002",
         "CB001"
       ],
       "precision_at_3": {
         "metric": "precision_at_k",
-        "value": 1.0,
+        "value": 0.3333,
         "details": {
           "k": 3,
           "top_k_ids": [
             "ETS001",
-            "ETB001",
-            "EQF001"
+            "ETB002",
+            "ETS002"
           ],
-          "hits": 3,
+          "hits": 1,
           "relevant_ids": [
             "EQF001",
             "ETB001",
@@ -210,15 +244,15 @@
       },
       "ndcg_at_3": {
         "metric": "ndcg_at_k",
-        "value": 1.0,
+        "value": 0.5317,
         "details": {
           "k": 3,
           "top_k_ids": [
             "ETS001",
-            "ETB001",
-            "EQF001"
+            "ETB002",
+            "ETS002"
           ],
-          "dcg": 3.7619,
+          "dcg": 2.0,
           "idcg": 3.7619,
           "ideal_order": [
             "ETB001",
@@ -235,20 +269,26 @@
       "ranked_ids_full": [
         "VEN001",
         "EQI001",
+        "ETS003",
         "ETS001",
-        "EQF001"
+        "EQI002",
+        "EQF003",
+        "ETS002",
+        "VEN002",
+        "EQF001",
+        "EQF002"
       ],
       "precision_at_3": {
         "metric": "precision_at_k",
-        "value": 1.0,
+        "value": 0.6667,
         "details": {
           "k": 3,
           "top_k_ids": [
             "VEN001",
             "EQI001",
-            "ETS001"
+            "ETS003"
           ],
-          "hits": 3,
+          "hits": 2,
           "relevant_ids": [
             "EQI001",
             "ETS001",
@@ -258,15 +298,15 @@
       },
       "ndcg_at_3": {
         "metric": "ndcg_at_k",
-        "value": 1.0,
+        "value": 0.8671,
         "details": {
           "k": 3,
           "top_k_ids": [
             "VEN001",
             "EQI001",
-            "ETS001"
+            "ETS003"
           ],
-          "dcg": 3.7619,
+          "dcg": 3.2619,
           "idcg": 3.7619,
           "ideal_order": [
             "EQI001",

@@ -1,0 +1,105 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-07-28T10:00:50.359790+00:00",
+    "git_sha": "9383271-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "groq",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama-3.1-8b-instant",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {
+      "embedder": "sentence-transformers",
+      "vector_store": "faiss",
+      "hallucination_detector": "hhem",
+      "market_data": "unavailable"
+    },
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 8,
+  "research_question": "RQ5",
+  "condition": "with_rag",
+  "rag_grounding_used": true,
+  "fixture_note": "Synthetic FinQA-style fixture (n=10) standing in for the full FinQA Verified [D1] split \u2014 replace with the downloaded split (scripts/download_datasets.py --phase 8) before final dissertation RQ5 numbers are reported.",
+  "metrics": {
+    "finqa_exact_match": {
+      "metric": "finqa_exact_match",
+      "value": 0.7,
+      "details": {
+        "n": 10,
+        "correct": 7,
+        "unparseable": 0,
+        "tolerance": 0.01
+      }
+    },
+    "hallucination_rate": {
+      "metric": "hallucination_rate",
+      "value": 0.4286,
+      "details": {
+        "n_responses": 10,
+        "total_claims": 28,
+        "total_flagged": 12,
+        "response_level_hallucination_rate": 0.9,
+        "detector_modes_seen": [
+          "hhem"
+        ]
+      }
+    }
+  },
+  "predictions_sample": [
+    {
+      "question": "What is the net expected annual return on a fund with a 6.0% gross return and 0.6% expense ratio?",
+      "predicted": "5.4%",
+      "verified": "5.4%"
+    },
+    {
+      "question": "What is the interest earned on a EUR 10,000 term deposit paying 2.5% annually after one year?",
+      "predicted": "0",
+      "verified": "250"
+    },
+    {
+      "question": "Revenue grew from $1,204 million to $1,389 million. What was the percentage increase?",
+      "predicted": "20300.0%",
+      "verified": "15.4%"
+    },
+    {
+      "question": "Operating expenses were $342 million, of which $210 million was personnel. What percent was administrative?",
+      "predicted": "38.6%",
+      "verified": "38.6%"
+    },
+    {
+      "question": "A portfolio returns 7.0% before a 0.2% expense ratio. What is the net return?",
+      "predicted": "6.8%",
+      "verified": "6.8%"
+    },
+    {
+      "question": "A EUR 5,000 investment grows to EUR 5,400 in one year. What is the percentage return?",
+      "predicted": "-100.0%",
+      "verified": "8.0%"
+    },
+    {
+      "question": "A fund charges a 0.35% expense ratio on a 4.2% expected gross return. What is the net expected return?",
+      "predicted": "3.85%",
+      "verified": "3.85%"
+    },
+    {
+      "question": "Government bond yield is 3.2% and inflation is 2.0%. What is the approximate real yield?",
+      "predicted": "1.2%",
+      "verified": "1.2%"
+    },
+    {
+      "question": "A mixed fund returns 6.0% gross with a 0.6% expense ratio. What is the net return?",
+      "predicted": "5.4%",
+      "verified": "5.4%"
+    },
+    {
+      "question": "An equity ETF with 0.2% expense ratio has a 7.0% gross expected return. What is the net return?",
+      "predicted": "6.8%",
+      "verified": "6.8%"
+    }
+  ]
+}

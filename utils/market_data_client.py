@@ -1,5 +1,5 @@
 """
-Phase 8c - live fund/ETF pricing, replacing IRISH_PRODUCT_CATALOGUE's synthetic 
+Phase 8c - live fund/ETF pricing, replacing IRISH_PRODUCT_CATALOGUE's synthetic
     expected_return_pct where a real market proxy ticker exists.
 """
 
@@ -29,12 +29,12 @@ class MarketDataClient:
     """
     Fetches a trailing annualised return for a ticker. Three data paths,
     tried in order:
-        1. Frozen snapshot at settings.market_data.snapshot_path, if present - 
+        1. Frozen snapshot at settings.market_data.snapshot_path, if present -
             the reproducible-evaluation path.
         2. Live yfinance fetch, if settings.market_data.enabled and yfinance
             is installed.
         3. None - caller keeps the synthetic catalogue value.
-        
+
     An in memory TTL cache sits in front of (2) so a single process
     doesn't refetch mid-run and drift.
     """

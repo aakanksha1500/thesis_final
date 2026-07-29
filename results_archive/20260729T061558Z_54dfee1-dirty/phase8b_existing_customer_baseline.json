@@ -1,0 +1,33 @@
+{
+  "phase": "8b",
+  "component": "existing_customer_pipeline",
+  "dataset": "demo_customers.json (3 profiles)",
+  "metrics": {
+    "predicted_vs_ground_truth_agreement": 1.0,
+    "n_correct": 3,
+    "n_total": 3
+  },
+  "per_profile": [
+    {
+      "customer_id": "DEMO_GC_042",
+      "predicted_risk_class": "moderate",
+      "ground_truth_risk_class": "moderate",
+      "correct": true,
+      "status": "complete"
+    },
+    {
+      "customer_id": "DEMO_GC_107",
+      "predicted_risk_class": "moderately_aggressive",
+      "ground_truth_risk_class": "moderately_aggressive",
+      "correct": true,
+      "status": "complete"
+    },
+    {
+      "customer_id": "DEMO_GMSC_318",
+      "predicted_risk_class": "conservative",
+      "ground_truth_risk_class": "conservative",
+      "correct": true,
+      "status": "complete"
+    }
+  ]
+}

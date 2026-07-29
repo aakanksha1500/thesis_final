@@ -46,14 +46,14 @@ def intent_accuracy(
 ) -> EvalResult:
     """
     Intent classification accuracy against banking77 [D5] ground truth.
-    
+
     This is a flat accuracy metric - fraction of messages where the
     predicted routing bucket matches the labelled bucket exactly.
-    
+
     Args:
         predictions: list of predicted bucket strings from ConversationalAgent
         ground_truth: list of labelled bucket strings from Banking77 fixtures
-        
+
     Returns:
         EvalResult with value in [0, 1] and per-bucket breakdown in details.
     """
@@ -160,12 +160,12 @@ def risk_alignment_rate(
 ) -> EvalResult:
     """
     Risk Alignment Rate (RAR) - primary RQ1 metric.
-    
+
     Fraction of predictions within 1 tier of ground_truth.
     Used instead of exact match because risk profiling has inherent
     subjectivity - adjacent tier predictions are clinically acceptable
     (e.g. predicting 'moderate' when true label is 'moderately_conservative').
-    
+
     Args:
         predictions: list of predicted risk class strings
         ground_truth: list of labelled risk class strings (from test fixtures)
@@ -217,9 +217,9 @@ def f1_risk_classification(
 ) -> EvalResult:
     """
     Macro-averaged F1 score for 5-class risk classification (RQ1).
-    
+
     Uses macro averaging (equal weight per class) rather than weighted,
-    because all five risk tiers are equally important to classify correctly - 
+    because all five risk tiers are equally important to classify correctly -
     we do not want the dominant class to inflate the score.
     """
 
@@ -272,7 +272,7 @@ def auc_roc(
         hybrid_scores: continuous hybrid scores in [0, 1], one per profile
                         (output of RiskProfilingAgent._hybrid_score()).
         ground_truth: labelled risk class strings, same order/length.
-        risk_classes: ordered tier names low->high risk. Defaults to the 
+        risk_classes: ordered tier names low->high risk. Defaults to the
                         five standard tiers.
     """
     TIERS = risk_classes or [
@@ -624,20 +624,20 @@ def step_progress_rate(
 ) -> EvalResult:
     """
     Step-level Progress Rate - AgentBoard (E1)
-    
+
     Measures fraction of agent execution steps successfully completed
-    across a sesson or scenario. Enables failure LOCALISATION within the 
+    across a sesson or scenario. Enables failure LOCALISATION within the
     pipeline (which agent failed?) rather than only end-task success/failure.
-    
+
     This is the key methodological contribution of E1:
     Existing benchmarks only measured final task success. AgentBoard
     showed that stage-level measurement reveals failure patterns invisible
     at the taask level - e.g. an agent that partially completes and
     produces plausible-looking output before failing.
-    
+
     step_records: list of dicts from AgentResult.to_step_record():
         {"step_id": str, "agent": str, "completed": bool, "duration_ms": float}
-    
+
     Written to: results/rq4_mas_coherence.json
     """
     if not step_records:
@@ -681,17 +681,17 @@ def component_synergy_score(
 ) -> EvalResult:
     """
     Component Synergy Score (CSS)
-    
+
     Measures how effectively the agents collaborate as a system.
     Penalises conflicts and failures: rewards successful handoffs.
-    
+
     CSS = (successful_calls - 0.5 * conflicts - failures) / total_calls
     Range [0, 1]: clamped to [0, 1].
-    
+
     The 0.5 penalty for conflicts (vs 1.0 for failures) reflects the
     ConflictResolver's ability to recover from conflicts gracefully -
     they reduce quality but do not break the pipelne.
-    
+
     audit_records: JSONL records from Auditing.read_all().
     Written to: results/rq4_mas_coherence.json
     """
@@ -750,11 +750,11 @@ def tool_utilisation_efficacy(
 ) -> EvalResult:
     """
     Tool Utilisation Efficacy
-    
-    Measures whether agents were invoked appropriately - not too many 
+
+    Measures whether agents were invoked appropriately - not too many
     (wasteful), not too few (incomplete). The ideal is that every agent
     invoked was necessary and every necessary agent was invoked.
-    
+
     In Phase 7 without a ground-truth routing plan, TUE is computed as:
       TUE = 1 - (redundant_calls / total_calls)
 
@@ -817,12 +817,12 @@ def routing_accuracy(
     """
     Routing accuracy - fraction of turns where the Orchestrator chose
     the correct agent sequence
-    
+
     Directly measures the HALO layer 1 decomposition quality.
     A wrong routing (e.g. CONVERSATIONAL_ONLY when  INVESTMENT was needed)
     is the primary failure mode in muti-agent systems - the right answer
     cannot be produced if the wrong agents are called.
-    
+
     Written to: results/rq4_mas_coherence.json alongside CSS and TUE
     """
     if not predicted_routings:

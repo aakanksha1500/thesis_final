@@ -6,7 +6,7 @@ Resposibilities:
     4. Safe escalation signal to the Orchestrator when the user's intent requires a specialist agent.
 
 Literature grounding:
-    - Gap 1 (monolithic bottleneck): this agent is the ONLY user-facing surface. It never produces financial 
+    - Gap 1 (monolithic bottleneck): this agent is the ONLY user-facing surface. It never produces financial
         content itself - It routes
     - Sharma et al. [5] identify the absence of this separation as the primary scalability bottleneck
         in existing financial AI systems.
@@ -58,6 +58,26 @@ INTENT_BUCKETS: dict[str, list[str]] = {
     "explanation_request": [
         "why", "explain", "how_did_you", "reasoning",
     ],
+    # R7 - the bucket that makes RoutingDecision.FULL_ADVISORY reachable.
+    #
+    # FULL_ADVISORY had a definition, an agent sequence and a test, but no
+    # intent mapped to it, so the most comprehensive route in the system could
+    # never be selected at runtime. The tests passed because they called
+    # _get_agent_sequence() directly, which made it look covered.
+    #
+    # The target user is the one who arrives with no specific question:
+    # "I know nothing about finance, tell me what to do." That request is not
+    # investment_advice (no product question), not budget_analysis (no spending
+    # question) and not general_query (it wants advice, not a fact).
+    #
+    # DISCRIMINATOR: scope, not topic. See the SCOPE RULE in _classify_intent's
+    # prompt — without it this bucket becomes a magnet and steals traffic from
+    # investment_advice and budget_analysis, which would quietly degrade RQ4
+    # routing accuracy rather than improve coverage.
+    "full_advisory": [
+        "complete_financial_review", "where_do_i_start", "holistic_plan",
+        "new_to_finance", "overall_situation",
+    ],
     "out_of_scope": [
         "legal_advice", "medical", "complaint_other",
     ],
@@ -87,14 +107,14 @@ class ConversationalAgent(BaseAgent):
 
     Owns its own session state (slots + history) rather than relying on
     the Orchestrator to track it — one instance per user session.
-    
+
     State management:
         self._slots - dict of slot_name -> value, persists across turns
         self._history - list of {"role": str, "content": str} dicts
     """
 
     def __init__(self, llm_client: LLMClient):
-        super().__init__(llm_client, 
+        super().__init__(llm_client,
         name="ConversationalAgent")
         self._slots: dict[str, Any] = {}
         self._history: list[dict] = []
@@ -140,7 +160,7 @@ class ConversationalAgent(BaseAgent):
         duty as both classifier and responder. Falls back to
         ("general_query", 0.5) on any parse failure so a malformed LLM
         reply can never crash the turn.
-        
+
         Returns:
             (bucket_name, confidence_float)
         """

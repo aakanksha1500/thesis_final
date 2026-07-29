@@ -4,7 +4,7 @@ Phase 8 - builds and persists the RAG vector store index
 Referenced from scripts/download_datasets.py's phase8_downloads() docstring
 as the automated fetch setup for CBI open data. Run this AFTER
 'python scripts/download_datasets.py --phase 8' so anu manually-downloaded
-EU Digital Financial CSVs and FINQA splits are picked up too - set if the 
+EU Digital Financial CSVs and FINQA splits are picked up too - set if the
 corresponding raw data isn't present, so this script always produces a usable index.
 
 Usage:

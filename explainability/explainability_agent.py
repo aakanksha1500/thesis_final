@@ -12,8 +12,8 @@ THREE-LAYER STACK (Decision X2):
     Layer A: SHAP feature attributions
     Layer B: RAG source citations
     LAyer C: Counterfactual NL rationale
-    
-Each evaluation commit re-runs the same test fixutre and records the 
+
+Each evaluation commit re-runs the same test fixutre and records the
 transperancy_perception_Score and trust_calibration_index. The three
 JSON files constitute the ablation table for dissertation
 
@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import time
 from typing import Any
-from utils import trace
 
 from agents.base_agent import AgentResult, BaseAgent
 from config.prompts import (
@@ -35,6 +34,7 @@ from config.prompts import (
     EXPLAINABILITY_SHAP_PROMPT,
 )
 from config.settings import settings
+from utils import trace
 from utils.llm_client import LLMClient
 from utils.logger import get_logger
 
@@ -43,12 +43,12 @@ logger = get_logger(__name__)
 class ExplainabilityAgent(BaseAgent):
     """
     In-pipeline XAI module
-    
+
     Consumes output from RiskProfilingAgent and InvestmentAgent and
     wraps them with a layered explanation before delivery to the user.
-    
+
     Layer activation is controlled by settings.explainability booleans,
-    not by constructor arguments, so ablation conditions are reproducible 
+    not by constructor arguments, so ablation conditions are reproducible
     from config alone
     """
     def __init__(self, llm_client: LLMClient):
@@ -67,7 +67,7 @@ class ExplainabilityAgent(BaseAgent):
         """
         Variant of _Call_llm that accepts an explicit system prompt.
         Used by XAI layers that each have their own system prompt
-        (SHAP, counterfactual, calibration) rather than sharing the 
+        (SHAP, counterfactual, calibration) rather than sharing the
         agent-level system_prompt.
         """
         start = time.perf_counter()
@@ -101,12 +101,12 @@ class ExplainabilityAgent(BaseAgent):
             risk_class: str,
     ) -> str:
         """
-        Convert SHAP attribution dict from RiskProfilingAgent into a 
+        Convert SHAP attribution dict from RiskProfilingAgent into a
         plain-English narrative for the user.
-        
+
         shap_summary format (from RiskProfilingAgent._compute_shap_proxy()):
             {feature_name: {"value": user_value, "shap_impact": float}}
-            
+
         Sorted by absolute impact — top 3 features form the narrative.
         LLM generates the text; SHAP data is the grounding so the LLM
         cannot fabricate feature contributions (Klesel & Wittmann [6]).
@@ -363,7 +363,7 @@ class ExplainabilityAgent(BaseAgent):
     ) -> str | None:
         """
         One sentence per proxied field, naming the field, its estimated
-        value, and the basis it was estimated from. Returns None if no 
+        value, and the basis it was estimated from. Returns None if no
         fields were proxied for this customer.
         """
         if not proxy_fields:
@@ -418,14 +418,14 @@ class ExplainabilityAgent(BaseAgent):
     def run(self, context: dict[str, Any]) -> AgentResult:
         """
         Generate layered explanation for a risk + investment recommendation
-        
+
         context keys used:
             'risk_agent_payload'    (dict) -> from RiskProfilingAgent.run()
             'investment_agent_payload'  (dict) -> from InvestmentAgent.run()
-        
+
         Both payloads are optional - agent degrades gracefully if either
         is missing (e.g. when called standalone in tests).
-        
+
         Returns AgentResult with payload:
             layers_applied, shap_narrative, rag_citations, counterfactual,
             calibration_note, confidence, full_explanation, prompt_version
@@ -451,7 +451,7 @@ class ExplainabilityAgent(BaseAgent):
         if budget_only:
             benchmark = budget_payload.get("benchmark_comparison") or {}
             expenses = budget_payload.get("monthly_expenses") or {}
-            coverage = (len(benchmark) / len(expenses)) if expenses else 0.0            
+            coverage = (len(benchmark) / len(expenses)) if expenses else 0.0
             confidence = round(min(max(coverage, 0.0), 1.0), 4)
             risk_class = ""          # honestly absent, not silently "moderate"
             top_product_name = "this budget analysis"

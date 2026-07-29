@@ -1,5 +1,5 @@
 """
-Normalises German Credit and GiveMeSomeCredit raw 
+Normalises German Credit and GiveMeSomeCredit raw
 files into data/preprocess/customers.csv, in the exact schema
 RiskProfilingAgent consumes (config.settings.RiskConfig.required_features)
 
@@ -9,7 +9,7 @@ Run:
 Inputs:
     data/raw/german_credit.data
     data/raw/give_me_some_credit.csv
-    
+
 Output:
     data/prepossed/customers.csv
 """

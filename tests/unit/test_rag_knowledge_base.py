@@ -184,7 +184,7 @@ class TestKnowledgeBase:
         for r in results:
             assert r["document_set"] == "cbi_open_data"
 
-    def test_seed_fallback_used_when_no_downloaded_data_present(self):
+    def test_absent_sources_stay_absent_rather_than_seeding_regulation(self):
         """
         In this test environment, no live CBI API access and no downloaded
         D1/D2/D4 files exist, so every document_set should fall back to its
@@ -193,7 +193,15 @@ class TestKnowledgeBase:
         """
         kb = KnowledgeBase()
         kb.rebuild()
-        document_sets_present = {doc.document_set for doc in kb.store._documents}
-        assert document_sets_present == {
-            "cbi_open_data", "eu_digital_finance", "finqa_original", "finqa_verified",
-        }
+        present = {doc.document_set for doc in kb.store._documents}
+
+        assert "eu_digital_finance" not in present, (
+            "EU set must be empty without real data — no synthetic regulation"
+        )
+        assert "regulatory" not in present, (
+            "curated regulatory set must be empty until "
+            "scripts/build_regulatory_corpus.py has run"
+        )
+        # The illustrative sets still seed, and still say so.
+        assert present <= {"cbi_open_data", "finqa_original", "finqa_verified"}
+

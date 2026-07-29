@@ -13,7 +13,7 @@ Dataset inventory (from literature review):
     [D8] GiveMeSomeCredit    -   (RiskProfilingAgent ML training)
     [D9] Bank Marketing      -   (supplementary risk features)
     [D10] Personal Finance   -   (BudgetAgent income/expenditure)
-    [D11] Ireland HBS        -   (BudgetAgent Irish spending benchmarks) 
+    [D11] Ireland HBS        -   (BudgetAgent Irish spending benchmarks)
 """
 
 from __future__ import annotations

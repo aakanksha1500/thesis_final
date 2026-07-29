@@ -1,10 +1,10 @@
 """
 Shared logger for all modules in the project.
-So every subsequent model can use the same logger instance 
+So every subsequent model can use the same logger instance
 without circular dependencies. All agents, the orchestrator, and the
 evaluation pipeline use get_logger() to obtain the logger instance.
 
-Log level is controlled by DEBUG env var (set in .env file). 
+Log level is controlled by DEBUG env var (set in .env file).
 DEBUG=true  -> DEBUG + above
 DEBUG=false -> INFO + above
 """
@@ -21,7 +21,7 @@ def get_logger(name: str) -> logging.Logger:
     Returns a named logger with a consistent format.
     Safe to call multiple times; will return the same logger instance for the same name.
     Handlers are added only once to prevent duplicate logs.
-    
+
     Usage:
         from utlis.logger import get_logger
         logger = get_logger(__name__)

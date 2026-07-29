@@ -5,20 +5,20 @@ Committed before the Orchestrator so it is testable in isolation.
 The Orchestrator calls resolve() after all agents have run.
 
 Conflict types detected:
-    RISK_PRODUCT_MISMATCH - InvestmentAgent shortlist contains a product 
+    RISK_PRODUCT_MISMATCH - InvestmentAgent shortlist contains a product
     category incompatible with the RiskProfilingAgent's risk class.
     Resolution: remove incompatible products from shortlist.
     Grounded in CBI suitability rules (config/constraints.py)
-    
+
     LOW_CONFIDENCE_AGGRESSIVE - RiskProfileAgent confidence is below
     min_confidence threshold but routig selected an aggressive product.
     Resoution: downgrade shortlist to the next more conservative tier.
-    
-    MISSING_RISK_BEFORE_INVESTMENT - InvestmentAgent ran without a 
+
+    MISSING_RISK_BEFORE_INVESTMENT - InvestmentAgent ran without a
     confirmed risk class. This should not happen if Orchestrator routing
     is correct, but is detected defensively here.
     Resolution: mark InvestmentAgent result as undeliverable.
-    
+
 All conflicts are returned as a list of dicts for the audit log.
 """
 
@@ -30,8 +30,8 @@ from dataclasses import replace
 from agents.base_agent import AgentResult
 from config.constraints import financial_constraints
 from config.settings import settings
-from utils.logger import get_logger
 from utils import trace
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 

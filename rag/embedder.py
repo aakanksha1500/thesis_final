@@ -6,7 +6,7 @@ FALLBACK MODE: hashing-trick bag-og-words embedding - deterministic,
     dependency-free, same output dimensionality, cosine-comparable.
     Not semantically strong, but sufficient to exercise retrieval, ranking,
     and ablation-condition plumbing without the model download.
-    
+
 The fallback is intentional and is flagged loudly, same as LLMClient - a reader
 of the logs should never wonder which mode ran.
 """
@@ -35,9 +35,9 @@ _STOPWORDS = frozenset({
 class Embedder:
     """
     The wrapper around a sentence-embedding model.
-    
+
     Args:
-        model_name: sentence-transformers model id. Defaults to 
+        model_name: sentence-transformers model id. Defaults to
                     settings.rag.embedding_model.
         dim: output vector dimensionality. Defaults to settings.
             rag.embedding_dim. The fallback embedder always produces
@@ -130,7 +130,7 @@ class Embedder:
     def _hash_embed(self, text: str) -> list[float]:
         """
         Deterministic bag-of-words hashing embedding.
-        
+
         Each token is hashed into one of self.dim` buckets (sign determined
         by a second hash, standard hashing-trick practice to reduce
         collision bias). The resulting vector is L2-normalised so cosine

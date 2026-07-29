@@ -4,8 +4,8 @@ Phase 4 - InvestmentAgent evaluation, RQ2 metrics baseline.
 3 test groups:
 GROUP A: Ranking unit tests (no LLM, no API key)
     Tests the pure arithmatic of _normalise(), _horizon_fit_score(), and
-    _rank_products(). mirrors the RiskProfilingAgent Group A design (Phase 3): 
-    (hybrid vs baseline recommendation comparison) depends on the ranking 
+    _rank_products(). mirrors the RiskProfilingAgent Group A design (Phase 3):
+    (hybrid vs baseline recommendation comparison) depends on the ranking
     arithmethic being correct, independent of any LLM output.
 
 GROUP B: Full run() pipeline tests (mock mode)
@@ -17,7 +17,7 @@ GROUP C: Evaluation - NDCG@3 / Precision@3 baseline on 5 fixed queries
     Each query is a (risk_class, investment_horizon) pair with a hand-labelled
     set of "known correct products" (graded relevance), assigned by applying
     the same horizon-fit-plus-cost-plus-return reasoning that _rank_products()
-    implements, following the RiskProfilingAgent hand-labelled fixture pattern. 
+    implements, following the RiskProfilingAgent hand-labelled fixture pattern.
     This is a PURE InvestmentAgent baseline: no ExplainabilityAgent, no
     Orchestrator involved yet (those arrive in later phases) - it isolates ranking
     quality as its own measurable quantity. Writes result to results/rq2_investment_baseline.json.
@@ -245,6 +245,8 @@ RQ2_FIXTURE: list[dict] = [
         },
     },
 ]
+
+@pytest.mark.evaluation   # produces results/*.json — see conftest._no_live_api_in_tests
 
 class TestRQ2Evaluation:
 

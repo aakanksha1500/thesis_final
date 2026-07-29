@@ -6,12 +6,12 @@ GROUP A: Cashflow arithmetic (no LLM, no API key)
     Tests _compute_cashflow() in complete isolation.
     Verifies: disposable = income - expenses, savings rate formula,
     expense fractions, edge cases (zero income, empty expenses).
-    
+
 GROUP B: Benchmark comparison logic (no LLM)
     Tests _compare_to_benchmarks() against the Ireland HBS benchmark
     Verifies: above/below/inline classification, tolerance band, gap_pct_points
     direction, unkown categories.
-    
+
 GROUP C: Full run() integration (mock LLM)
     Tests the full agent pipeline: input validation, cashflow + benchmark
     computation wired together, AgentResult structure.
@@ -19,7 +19,7 @@ GROUP C: Full run() integration (mock LLM)
 
 RUNNING:
     pytest tests/unit/test_budget_agent.py -v
-    pytest tests/unit/test_budget_agent.py -v -s 
+    pytest tests/unit/test_budget_agent.py -v -s
 """
 from __future__ import annotations
 
@@ -243,6 +243,8 @@ class TestSavingsRateFlag:
         agent = make_agent()
         flag = agent._savings_rate_flag(-5.0)
         assert flag is not None
+
+@pytest.mark.evaluation   # produces results/*.json — see conftest._no_live_api_in_tests
 
 # GROUP C: Full run() integration + Phase 5 results file
 class TestBudgetAgentRun:

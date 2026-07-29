@@ -147,7 +147,7 @@ class TestAuditLog:
             mock_settings.orchestrator.audit_log_dir = Path("/nonexistent/path/xyz")
             # Should not raise even with bad path
             try:
-                log = AuditLog(session_id="bad-path-test")
+                AuditLog(session_id="bad-path-test")
             except Exception:
                 pass  # init may fail — that's acceptable
 

@@ -1,5 +1,5 @@
 """
-Verify logger and LLM client work correctly in 
+Verify logger and LLM client work correctly in
 mock mode before any agent or config code exists.
 
 Run:

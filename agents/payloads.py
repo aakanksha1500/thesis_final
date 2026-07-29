@@ -83,7 +83,7 @@ def validate_payload(
                 f"{key!r} is {type(value).__name__}, expected {names}"
             )
     return problems
-    
+
 
 def enforce(
     agent_name: str,

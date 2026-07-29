@@ -1,0 +1,206 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-07-29T05:41:47.985475+00:00",
+    "git_sha": "3f24f5a-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "mock",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama-3.1-8b-instant",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {
+      "embedder": "sentence-transformers",
+      "vector_store": "faiss",
+      "hallucination_detector": "hhem",
+      "product_data": "snapshot",
+      "market_data": "unavailable"
+    },
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 5,
+  "agent": "BudgetAgent",
+  "dataset": "Ireland HBS 2022-23 [D11] benchmarks",
+  "note": "No RQ accuracy metric. Results validate benchmark comparison logic against three synthetic Irish household profiles. Manual inspection of benchmark_comparison confirms CSO HBS data is applied correctly.",
+  "profiles": [
+    {
+      "profile": "stretched_household",
+      "description": "High housing costs, below-average savings, moderate income",
+      "monthly_income": 3500.0,
+      "total_expenses": 3050.0,
+      "disposable_income": 450.0,
+      "savings_rate_pct": 12.86,
+      "savings_rate_healthy": true,
+      "benchmark_comparison": {
+        "housing": {
+          "user_fraction": 0.4,
+          "benchmark_fraction": 0.28,
+          "label": "above",
+          "gap_pct_points": 12.0
+        },
+        "food": {
+          "user_fraction": 0.1429,
+          "benchmark_fraction": 0.14,
+          "label": "inline",
+          "gap_pct_points": 0.29
+        },
+        "transport": {
+          "user_fraction": 0.1,
+          "benchmark_fraction": 0.13,
+          "label": "below",
+          "gap_pct_points": -3.0
+        },
+        "utilities": {
+          "user_fraction": 0.0629,
+          "benchmark_fraction": 0.07,
+          "label": "below",
+          "gap_pct_points": -0.71
+        },
+        "healthcare": {
+          "user_fraction": 0.0286,
+          "benchmark_fraction": 0.05,
+          "label": "below",
+          "gap_pct_points": -2.14
+        },
+        "entertainment": {
+          "user_fraction": 0.0514,
+          "benchmark_fraction": 0.06,
+          "label": "below",
+          "gap_pct_points": -0.86
+        },
+        "other": {
+          "user_fraction": 0.0857,
+          "benchmark_fraction": 0.17,
+          "label": "below",
+          "gap_pct_points": -8.43
+        }
+      },
+      "savings_rate_flag": null,
+      "recommendations_text": "[MOCK RESPONSE] Agent role: 'You are the Budget Agent in a multi-agent financial advisory...' | User said: 'Monthly income: \u20ac3500.00\nMonthly expense...' | Set OPENAI_API_KEY in .env for real API responses."
+    },
+    {
+      "profile": "healthy_household",
+      "description": "Balanced spending, good savings rate, above-average income",
+      "monthly_income": 5500.0,
+      "total_expenses": 4000.0,
+      "disposable_income": 1500.0,
+      "savings_rate_pct": 27.27,
+      "savings_rate_healthy": true,
+      "benchmark_comparison": {
+        "housing": {
+          "user_fraction": 0.2545,
+          "benchmark_fraction": 0.28,
+          "label": "inline",
+          "gap_pct_points": -2.55
+        },
+        "food": {
+          "user_fraction": 0.1273,
+          "benchmark_fraction": 0.14,
+          "label": "inline",
+          "gap_pct_points": -1.27
+        },
+        "transport": {
+          "user_fraction": 0.1091,
+          "benchmark_fraction": 0.13,
+          "label": "below",
+          "gap_pct_points": -2.09
+        },
+        "utilities": {
+          "user_fraction": 0.0636,
+          "benchmark_fraction": 0.07,
+          "label": "inline",
+          "gap_pct_points": -0.64
+        },
+        "healthcare": {
+          "user_fraction": 0.0455,
+          "benchmark_fraction": 0.05,
+          "label": "inline",
+          "gap_pct_points": -0.45
+        },
+        "entertainment": {
+          "user_fraction": 0.0545,
+          "benchmark_fraction": 0.06,
+          "label": "inline",
+          "gap_pct_points": -0.55
+        },
+        "other": {
+          "user_fraction": 0.0727,
+          "benchmark_fraction": 0.17,
+          "label": "below",
+          "gap_pct_points": -9.73
+        }
+      },
+      "savings_rate_flag": null,
+      "recommendations_text": "[MOCK RESPONSE] Agent role: 'You are the Budget Agent in a multi-agent financial advisory...' | User said: 'Monthly income: \u20ac5500.00\nMonthly expense...' | Set OPENAI_API_KEY in .env for real API responses."
+    },
+    {
+      "profile": "low_income_household",
+      "description": "Low income, stretched across essentials, negative savings",
+      "monthly_income": 2200.0,
+      "total_expenses": 2060.0,
+      "disposable_income": 140.0,
+      "savings_rate_pct": 6.36,
+      "savings_rate_healthy": false,
+      "benchmark_comparison": {
+        "housing": {
+          "user_fraction": 0.4091,
+          "benchmark_fraction": 0.28,
+          "label": "above",
+          "gap_pct_points": 12.91
+        },
+        "food": {
+          "user_fraction": 0.1818,
+          "benchmark_fraction": 0.14,
+          "label": "above",
+          "gap_pct_points": 4.18
+        },
+        "transport": {
+          "user_fraction": 0.0909,
+          "benchmark_fraction": 0.13,
+          "label": "below",
+          "gap_pct_points": -3.91
+        },
+        "utilities": {
+          "user_fraction": 0.0818,
+          "benchmark_fraction": 0.07,
+          "label": "above",
+          "gap_pct_points": 1.18
+        },
+        "healthcare": {
+          "user_fraction": 0.0364,
+          "benchmark_fraction": 0.05,
+          "label": "below",
+          "gap_pct_points": -1.36
+        },
+        "entertainment": {
+          "user_fraction": 0.0455,
+          "benchmark_fraction": 0.06,
+          "label": "below",
+          "gap_pct_points": -1.45
+        },
+        "other": {
+          "user_fraction": 0.0909,
+          "benchmark_fraction": 0.17,
+          "label": "below",
+          "gap_pct_points": -7.91
+        }
+      },
+      "savings_rate_flag": "Your current savings rate of 6.4% is below the 10% threshold generally recommended for financial resilience. Addressing this before committing to long-term investments is advisable.",
+      "recommendations_text": "[MOCK RESPONSE] Agent role: 'You are the Budget Agent in a multi-agent financial advisory...' | User said: 'Monthly income: \u20ac2200.00\nMonthly expense...' | Set OPENAI_API_KEY in .env for real API responses."
+    }
+  ]
+}

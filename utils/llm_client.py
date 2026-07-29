@@ -5,22 +5,24 @@ and any external language model API.
 
 from __future__ import annotations
 
+import os
 import random
 import time
-import os
 from dataclasses import dataclass
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 from config.settings import settings
 from utils import llm_cache
 from utils.logger import get_logger
-from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 logger = get_logger(__name__)
 
 _RETRYABLE_STATUS = {408, 409, 429, 500, 502, 503, 504}
+_TEST_MAX_RETRY_SLEEP = 5.0
 
 @dataclass
 class LLMResponse:
@@ -58,6 +60,9 @@ def _is_retryable(exc: Exception) -> bool:
         )
     )
 
+def _max_retry_sleep() -> float:
+    import os as _os  # noqa: PLC0415
+    return _TEST_MAX_RETRY_SLEEP if _os.getenv("PYTEST_CURRENT_TEST") else 120.0
 
 def _retry_delay(exc: Exception, attempt: int) -> float:
     """
@@ -65,33 +70,32 @@ def _retry_delay(exc: Exception, attempt: int) -> float:
     """
     import re as _re
 
+    ceiling = _max_retry_sleep()
+
     match = _re.search(r"try again in (\d+)m([\d.]+)s", str(exc))
     if match:
-        return min(
-            float(match.group(1)) * 60 + float(match.group(2)),
-            120.0
-        )
-
+        return min(float(match.group(1)) * 60 + float(match.group(2)), ceiling)
     match = _re.search(r"try again in ([\d.]+)s", str(exc))
-    if match:
-        return min(float(match.group(1)), 120.0)
 
-    return min(2.0 ** attempt, 30.0) + random.uniform(0, 0.5)
+    if match:
+        return min(float(match.group(1)), ceiling)
+
+    return min(2.0 ** attempt, 30.0, ceiling) + random.uniform(0, 0.5)
 
 class LLMClient:
     """
     Wrapper class around LLM provider APIs.
-    
+
     Initialisation is intentionally cheap and safe - it will never raise
     even if the API key is missing. Missing key = mock mode, logged at
     WARNING level.
 
     Args:
-        model: Override the default model string. If None, reads from 
+        model: Override the default model string. If None, reads from
                ORCHESTRATOR_MODEL env var, else falls back to gpt-4o-mini.
         temperature: Default sampling temperature. Agents may override
                     per-call by passing tempreature = to chat().
-                    max_tokens: Hard on response length.  
+                    max_tokens: Hard on response length.
     """
 
     DEFAULT_MODEL = "gpt-4o-mini"
@@ -179,7 +183,7 @@ class LLMClient:
     ) -> LLMResponse:
         """
         Send a chat completion request.
-        
+
         Args:
             system: System prompt string (agent-specific, from config/prompts.py)
             messages: List of {"role": "user"|"assistant", "content": str} dicts.
@@ -187,7 +191,7 @@ class LLMClient:
 
         Returns:
             LLMResponse with content, tokens_used, and model name.
-        
+
         Raises:
             Exception: Only in REAL mode if the API call fails. Mock mode never raises.
         """
@@ -211,7 +215,7 @@ class LLMClient:
                     f"LLM_CACHE=replay and no cached response for {cache_key[:12]}"
                 )
 
-        
+
         last_exc: Exception | None = None
         for attempt in range(settings.llm.max_retries + 1):
             try:
@@ -258,7 +262,7 @@ class LLMClient:
     def _mock_response(self, system: str, messages: list[dict]) -> LLMResponse:
             """
             Return a clearly labelled mock response for development and testing.
-            Content encodes the system prompt role so tests can assert routing 
+            Content encodes the system prompt role so tests can assert routing
             without any API calls.
             """
             # Extract first 60 chars of system prompt to identify which agent called

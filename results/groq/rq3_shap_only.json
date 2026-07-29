@@ -1,19 +1,25 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-07-28T09:59:32.975387+00:00",
-    "git_sha": "9383271-dirty",
+    "generated_at_utc": "2026-07-29T09:20:05.203965+00:00",
+    "git_sha": "54dfee1-dirty",
     "prompt_version": "v1.0",
     "llm_mode": "groq",
     "orchestrator_model": "llama-3.3-70b-versatile",
     "specialist_model": "llama-3.1-8b-instant",
     "judge_model": "llama-3.3-70b-versatile",
     "environment": "development",
-    "subsystem_modes": {
-      "embedder": "sentence-transformers",
-      "vector_store": "faiss",
-      "hallucination_detector": "hhem",
-      "market_data": "unavailable"
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 2,
+      "errors": 0,
+      "mode": "record",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
     },
+    "product_catalogue_mode": "synthetic",
     "explainability_ablation": {
       "use_shap": true,
       "use_rag_citation": false,
@@ -58,11 +64,11 @@
     }
   },
   "sample_explanation": {
-    "shap_narrative": "The most influential factor in your risk classification was your loss tolerance (value: 3), which pushed toward a higher risk tier.",
+    "shap_narrative": "Your ability to tolerate losses and long investment horizon had the most influence, leaning toward a more aggressive approach. Existing debt had a conservative effect.",
     "rag_citations": [],
     "counterfactual": null,
-    "calibration_note": "This recommendation assumes stable employment and income. A significan change to either would warrant reassessment.",
-    "full_explanation": "The most influential factor in your risk classification was your loss tolerance (value: 3), which pushed toward a higher risk tier. This recommendation assumes stable employment and income. A significan change to either would warrant reassessment."
+    "calibration_note": "If market volatility exceeds 20%, this moderate risk classification may no longer apply.",
+    "full_explanation": "Your ability to tolerate losses and long investment horizon had the most influence, leaning toward a more aggressive approach. Existing debt had a conservative effect. If market volatility exceeds 20%, this moderate risk classification may no longer apply."
   },
   "survey_note": "Synthetic survey fixture \u2014 replace with real pilot study responses (n\u226520) before dissertation submission."
 }

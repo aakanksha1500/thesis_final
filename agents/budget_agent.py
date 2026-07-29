@@ -3,7 +3,7 @@ Phase 5 - BudgetAgent
 
 Responsibilities:
     1. Cashflow analysis - income minus expenditure, savings rate calculations.
-    2. Benchmark comparison - each spending category classified as above / below / 
+    2. Benchmark comparison - each spending category classified as above / below /
        inline versus the Ireland HouseholdB Budget survey
     3. LLM synthesis - plain-english recommendations grounded in the benchmarkgaps.
 

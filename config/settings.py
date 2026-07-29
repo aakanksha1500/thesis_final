@@ -8,8 +8,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT_DIR / ".env")
@@ -30,7 +30,7 @@ class LLMConfig:
     temperature: float = 0.2
     max_tokens: int = 1024
     timeout_seconds: int = 30
-    max_retries: int = 2  
+    max_retries: int = 2
 
 @dataclass
 class ConversationalConfig:
@@ -98,12 +98,12 @@ class RiskConfig:
 class InvestmentConfig:
     """
     Hybrid product recommendation configuration. (rule filter + scoring + LLM synthesis).
-    
+
     Layer 1 (_filter_by_risk_class) reuses config.constraints.FinancialConstraints
     .RISK_PRODUCT_ALLOW as the single source of truth for CBI suitability rules,
     so the same rule set backs both response validation and product
     filtering.
-    
+
     Layer 2 (_rank_products) scoring weights. Must sum to 1.0.
         return_weight       -   favours higher expected_return_pct
         cost_weight         -   favours lower expense_ratio_pct
@@ -123,7 +123,7 @@ class BudgetConfig:
     Ireland HouseholdBudget Survey 2022-2023 spending bemchmarks.
     Values represent fraction of gross monthly income.
     Source: CSO Ireland HBS 2022-23.
-    
+
     Benchmarks used by BudgetAgent.compare_to_benchmarks() to classify
     eaxh spending category as above / below / inline vs national average.
     inline_tolerance: within ±10% of benchmark = inline (avoids false precision).
@@ -198,27 +198,27 @@ class OrchestratorConfig:
 class RAGConfig:
     """
     FAISS vector store + sentence-transformer embedding configuration.
-    
+
     embedding_model:
         sentence-transformers model id. Falss back to a deterministic hashing
-        embedder (rag/embedder.py) if sentence-transformers is not installed - 
+        embedder (rag/embedder.py) if sentence-transformers is not installed -
         mirrors LLMClient's mock-mode pattern (phase 1) so test never require
         the heavy dependency to be present.
-        
+
     top_k_citations:
         Number of retrieved chunks attached as citations per Layer B call.
         Kept small - in-pipeline explanations must stay concise, not overwhelm
         the user with a source dump).
-    
+
     min_relevance_score:
         Cosine-similarity floor below which a retrieved chunk is dropped
         rather than cited - an irrelevant "citation" would undermine the
         trust-calibration goal rather than support it.
-        
+
     index_dir:
         Where the built FAISS index + document store are persisted.
         Rebuilt via 'python scripts/build_knowledge_base.py'.
-        
+
     document_sets:
         The four corpora backing Layer B, per PDD dataset inventory.
         D1/D2 are also the evaluation corpus for RQ5 (evaluation/metrics.py)
@@ -235,6 +235,7 @@ class RAGConfig:
     chunk_size_chars: int = 500
     chunk_overlap_chars: int = 50
     document_sets: list = field(default_factory=lambda: [
+        "regulatory",
         "cbi_open_data",
         "eu_digital_finance",
         "finqa_original",
@@ -249,21 +250,21 @@ class HallucinationConfig:
     hhem_threshold:
         claims scoring below this on the HHEM consistency scale (0=hallucinated,
         1=fully grounded) are flagged. 0.85 follows Vectara's published
-        recommended operating threshold for factual/financial domains, where 
+        recommended operating threshold for factual/financial domains, where
         false negatives (missed hallucinations) are costlier than false positives (over-flagging).
 
     model_id:
         HugingFace model id. Falls back to a deterministic lexical-overlap
-        heuristic (rag/hallucination_detector.py) if transformers/torch are not 
-        installed, so unit tests run without the ~2.4GB model download - 
+        heuristic (rag/hallucination_detector.py) if transformers/torch are not
+        installed, so unit tests run without the ~2.4GB model download -
         same rationale as the RAG embedder fallback above.
-    
+
     run_inline:
         When True, InvestmentAgent runs the detector n its wn synthesis
         immediately after generation, before ExplainabilityAgent wraps it
 
     max_claims_per_response:
-        Celling on how many sentence-level claims are scored per response - 
+        Celling on how many sentence-level claims are scored per response -
         keeps evaluation latemcy bounded on log sysntheses.
     """
     hhem_threshold: float = 0.85

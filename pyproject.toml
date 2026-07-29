@@ -28,6 +28,7 @@ addopts = "-q -m 'not real'"
 markers = [
     "real: requires a live LLM API key (deselect with '-m \"not real\"')",
     "slow: evaluation runs that write results/*.json",
+    "evaluation: produces results/*.json; may use the live API when EVAL_LIVE_API=1",
 ]
 filterwarnings = ["ignore::DeprecationWarning"]
 

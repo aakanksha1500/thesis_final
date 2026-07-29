@@ -94,6 +94,7 @@ class Stage:
     # looks perfectly valid.
     depends_on: list[str] = field(default_factory=list)
     notes: str = ""
+    optional: bool = False
 
 
 PYTEST = [sys.executable, "-m", "pytest", "-q", "-s", "-p", "no:cacheprovider"]
@@ -110,6 +111,23 @@ STAGES: list[Stage] = [
         notes="No LLM. Must precede RQ5 and any RAG-citation measurement: an "
               "index built by a different embedder scores pure noise, and "
               "nothing errors when it does.",
+    ),
+    Stage(
+        key="fetchproduct",
+        label="Refresh real product data (ECB / An Post / CBI)",
+        command=[sys.executable, "scripts/fetch_product_data.py", "--write"],
+        produces=[],
+        est_tokens=0,
+        rq="RQ2 (inputs)",
+        optional=True,
+        notes="OPT-IN ONLY — deliberately not part of a default run. Unlike the "
+              "index and the risk model, which are deterministic given the repo, "
+              "this hits an EXTERNAL, TIME-VARYING source. Running it inside "
+              "every regeneration would mean two runs a month apart differ "
+              "because a sovereign yield moved, with nothing in git to explain "
+              "it — which is exactly the confound the frozen snapshot exists to "
+              "remove. Refresh deliberately, commit the snapshot, then "
+              "regenerate.",
     ),
     Stage(
         key="riskmodel",
@@ -254,6 +272,12 @@ def preflight(require_llm: bool = True) -> list[str]:
     else:
         print(f"  ok    risk model present ({model_path.name})")
 
+    if settings.product_data.use_real_product_data:
+        problems.extend(_check_product_snapshot())
+    else:
+        print("  ok    product data enrichment OFF (synthetic catalogue) — "
+              "set USE_REAL_PRODUCT_DATA=true to enable")
+
     # 4. Index exists and records which embedder built it
     index_dir = ROOT / "data" / "embeddings" / "rag_index"
     meta_file = index_dir / "meta.json"
@@ -288,6 +312,75 @@ def preflight(require_llm: bool = True) -> list[str]:
         print(f"  ok    working tree clean at {sha}")
 
     return problems
+
+def _check_product_snapshot() -> list[str]:
+    """
+    Report the product snapshot's freshness. Blocks only when the enrichment
+    flag would be a no-op; a partially-stale snapshot is a warning, because
+    ProductDataClient already refuses stale entries and degrades to the
+    honestly-labelled synthetic figure.
+    """
+    import json as _json
+    from datetime import date as _date
+
+    # settings is imported inside preflight(), not at module scope — this
+    # script must stay importable without a configured environment.
+    from config.settings import settings
+
+    path = settings.product_data.snapshot_path
+    if not path.exists():
+        return [
+            f"USE_REAL_PRODUCT_DATA=true but there is no snapshot at {path}. "
+            f"Every product would fall back to its synthetic figure while the "
+            f"results file claims real data. "
+            f"Run: python scripts/fetch_product_data.py --write"
+        ]
+
+    try:
+        entries = _json.loads(path.read_text(encoding="utf-8"))["entries"]
+    except Exception as exc:
+        return [f"product snapshot at {path} is unreadable: {exc}"]
+
+    max_age = settings.product_data.max_age_days
+    empty, stale, usable = [], [], []
+    today = datetime.now(timezone.utc).date()
+
+    for key, entry in entries.items():
+        if entry.get("value") is None:
+            empty.append(key)
+            continue
+        try:
+            age = (today - _date.fromisoformat(str(entry.get("as_of"))[:10])).days
+        except (TypeError, ValueError):
+            stale.append(key)
+            continue
+        (stale if age > max_age else usable).append(key)
+
+    print(f"  ok    product snapshot: {len(usable)} usable, "
+          f"{len(stale)} stale, {len(empty)} empty")
+
+    if stale:
+        print(f"  warn  stale and therefore REFUSED (falls back to synthetic): "
+              f"{', '.join(stale)}")
+        print("        refresh: python scripts/fetch_product_data.py --write")
+
+    if not usable:
+        return [
+            "USE_REAL_PRODUCT_DATA=true but NOT ONE snapshot entry is usable "
+            f"({len(empty)} empty, {len(stale)} stale). The run would produce a "
+            "results file named for real product data containing none of it. "
+            "Run: python scripts/fetch_product_data.py --write, then transcribe "
+            "the manual entries it lists."
+        ]
+    return []
+
+def _expected_llm_mode() -> str:
+    """The mode preflight observed, for comparison against where results landed."""
+    try:
+        from utils.llm_client import LLMClient
+        return LLMClient().mode
+    except Exception:
+        return ""
 
 
 def _git_state() -> tuple[str, bool]:
@@ -485,6 +578,10 @@ def main() -> int:
     ap.add_argument("--preflight", action="store_true", help="Readiness checks only")
     ap.add_argument("--only", nargs="+", metavar="KEY", help="Run only these stages")
     ap.add_argument("--skip", nargs="+", metavar="KEY", default=[], help="Skip these stages")
+    ap.add_argument("--refresh-inputs", action="store_true",
+                    help="Also run the opt-in input-refresh stages (fetchproduct) "
+                         "before regenerating. Use when you deliberately want new "
+                         "external data; commit the refreshed snapshot afterwards.")
     ap.add_argument("--replay", action="store_true",
                     help="LLM_CACHE=replay — reproduce from cache, zero API cost")
     ap.add_argument("--compare-only", action="store_true",
@@ -500,8 +597,14 @@ def main() -> int:
         print_comparison(compare(latest_archive()))
         return 0
 
-    selected = [s for s in STAGES
-                if (not args.only or s.key in args.only) and s.key not in args.skip]
+    if args.only:
+        selected = [s for s in STAGES if s.key in args.only]
+    else:
+        # Optional stages are opt-in. --refresh-inputs pulls them in for the
+        # deliberate "update external data, then regenerate" workflow.
+        selected = [s for s in STAGES
+                    if not s.optional or args.refresh_inputs]
+    selected = [s for s in selected if s.key not in args.skip]
     if not selected:
         print("  nothing selected.")
         return 1
@@ -561,6 +664,7 @@ def main() -> int:
     env = dict(os.environ)
     env["LLM_CACHE"] = "replay" if args.replay else "record"
     env["PYTHONPATH"] = str(ROOT)
+    env["EVAL_LIVE_API"] = "1"
     print(f"\n  LLM_CACHE={env['LLM_CACHE']}")
 
     records, run_start = [], time.perf_counter()
@@ -575,6 +679,23 @@ def main() -> int:
             break
 
     wall = time.perf_counter() - run_start
+    if not args.replay:
+        expected = _expected_llm_mode()
+        landed = sorted(
+            p.name for p in RESULTS.iterdir()
+            if p.is_dir() and any(p.glob("*.json"))
+        )
+        if expected and expected not in landed and landed:
+            print(f"\n{BAR}")
+            print(f" ✗ MODE MISMATCH — preflight saw {expected!r}, "
+                  f"results landed in {landed}")
+            print(f"{BAR}")
+            print(" The evaluation ran in a different LLM mode than the one")
+            print(" checked. If 'mock' is in that list, every figure just")
+            print(" written is scored against [MOCK RESPONSE] text.")
+            print("\n Check that the evaluation classes carry")
+            print(" @pytest.mark.evaluation and that EVAL_LIVE_API=1 reached")
+            print(" the subprocess.\n")
     rows = compare(archived)
     print_comparison(rows)
 

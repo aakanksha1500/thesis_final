@@ -1,6 +1,6 @@
 """
 Phase 8b — cumulative baseline covering: context-push mode and the estimated-input
-disclosure layer. 
+disclosure layer.
 
 Writes: results/phase8b_push_mode_baseline.json
 
@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+
+import pytest
 
 from evaluation.results_io import write_results
 from orchestrator.orchestrator import Orchestrator
@@ -56,6 +58,7 @@ PUSH_MODE_FIXTURES = [
     },
 ]
 
+@pytest.mark.evaluation   # produces results/*.json — see conftest._no_live_api_in_tests
 
 class TestPushModeBaseline:
     def test_push_mode_and_disclosure_fixture_evaluation(self):

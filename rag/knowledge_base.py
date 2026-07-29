@@ -6,19 +6,20 @@ The bundled seed corpora are explicitly syenthetic/illustrative - same
 disclosure pattern as IRISH_PRODUCT_CATALOGUE in agents/investment_agent.py.
 They exist so 'retrieved()' always returns something real to score against.
 
-Knowledge.retrieve() is the single entry point Explainability Agent 
+Knowledge.retrieve() is the single entry point Explainability Agent
 Layer B calls.
 """
 
 from __future__ import annotations
 
-import json
 import csv
+import json
 import re
+from pathlib import Path
+
 # import urllib.error
 # import urllib.request
 from typing import Any
-from pathlib import Path
 
 from config.settings import ROOT_DIR, settings
 from rag.embedder import Embedder
@@ -171,6 +172,7 @@ _SEED_BY_SET: dict[str, list[dict[str, str]]] = {
 }
 
 _SOURCE_LABEL: dict[str, str] = {
+    "regulatory": "Irish/EU regulatory sources [D12]",
     "cbi_open_data": "CBI Open Data Portal [D3]",
     "eu_digital_finance": "EU Digital Finance Platform [D4]",
     "finqa_original": "FinQA Original [D2]",
@@ -265,7 +267,7 @@ def _chunk_text(text: str, size: int, overlap: int) -> list[str]:
 class KnowledgeBase:
     """
     RAG Knowledge base - embeds and indexes D1-D4, exposes retrieve().
-    
+
     Lazily builds its index on first use (from live/downloaded data where
     available, seed corpora otherwise) unless a persisted index already
     exists at settings.rag.index_dir, in which case it loads that instead.
@@ -348,6 +350,8 @@ class KnowledgeBase:
 
     # Per-set loading — live fetch / downloaded file / seed fallback
     def _load_document_set(self, document_set: str) -> list[dict[str, str]]:
+        if document_set == "regulatory":
+            return self._load_regulatory_corpus()
         if document_set == "cbi_open_data":
             return self._load_cbi_open_data()
         if document_set == "eu_digital_finance":
@@ -359,6 +363,44 @@ class KnowledgeBase:
         logger.warning(f"[KnowledgeBase] Unknown document_set '{document_set}' — skipping")
         return []
 
+    def _load_regulatory_corpus(self) -> list[dict[str, str]]:
+        """
+        [D12] Curated Irish/EU regulatory text.
+
+        Built by scripts/build_regulatory_corpus.py from named official pages.
+        Every record carries source_url + retrieved date, so a citation is a
+        claim someone can check rather than a label.
+
+        NO SEED FALLBACK, deliberately. If the file is absent the set is empty
+        and retrieval simply has no regulatory text — which is visible and
+        honest. The alternative is what this replaces: synthetic paragraphs
+        about MiFID II being retrieved and cited as regulation.
+        """
+        path = DATA_RAW / "regulatory" / "regulatory_corpus.json"
+        if not path.exists():
+            logger.warning(
+                f"[KnowledgeBase] [D12] no regulatory corpus at {path} — the "
+                f"index will contain NO Irish/EU regulatory text, and any claim "
+                f"about regulatory grounding is unsupported. Build it with "
+                f"scripts/build_regulatory_corpus.py --write"
+            )
+            return []
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            records = doc.get("records", [])
+            meta = doc.get("_meta", {})
+            logger.info(
+                f"[KnowledgeBase] [D12] loaded {len(records)} regulatory records "
+                f"(built {meta.get('built')}, sources ok={meta.get('sources_ok')}, "
+                f"absent={meta.get('sources_absent')})"
+            )
+            # Keep only doc_id/text for the chunker; provenance travels in the
+            # source label and the corpus file itself.
+            return [{"doc_id": r["doc_id"], "text": r["text"]} for r in records]
+        except Exception as exc:
+            logger.warning(f"[KnowledgeBase] [D12] failed reading {path}: {exc}")
+            return []
+
     def _load_cbi_open_data(self) -> list[dict[str, str]]:
         """
         [D3] Attempt a live fetch from the CBI Open Data Portal API.
@@ -366,7 +408,7 @@ class KnowledgeBase:
         contract for opendata.centralbank.ie is not guaranteed stable
         enough to hard-depend on for reproducible test runs.
         """
-        
+
         directory = DATA_RAW / "cbi_open_data"
         records = _load_records_from_dir(directory, "cbi")
 
@@ -386,27 +428,7 @@ class KnowledgeBase:
 
         self._source_used["cbi_open_data"] = "seed"
         return list(_SEED_CBI_OPEN_DATA)
-        # try:
-        #     req = urllib.request.Request(
-        #         CBI_API_URL, headers={"Accept": "application/json"}
-        #     )
-        #     with urllib.request.urlopen(req, timeout=CBI_API_TIMEOUT_SECONDS) as resp:
-        #         payload = json.loads(resp.read().decode("utf-8"))
-        #     records = self._parse_cbi_payload(payload)
-        #     if records:
-        #         logger.info(f"[KnowledgeBase] Fetched {len(records)} live CBI records")
-        #         return records
-        # except (urllib.error.URLError, TimeoutError, ValueError, OSError) as exc:
-        #     logger.info(
-        #         f"[KnowledgeBase] CBI Open Data API unreachable ({exc}) — "
-        #         f"using bundled seed corpus for [D3]."
-        #     )
-        directory = DATA_RAW / "cbi_open_data"
-        records = _load_records_from_dir(directory, "cbi")
-        if records:
-            logger.info(
-                f"[KnowledgeBase] [D3] Loaded {len(records)} CBI records from {directory}"
-            )
+
 
 
     # @staticmethod
@@ -423,13 +445,25 @@ class KnowledgeBase:
         #             "text": str(item["description"]),
         #         })
         # return records
-        
+
 
     def _load_eu_digital_finance(self) -> list[dict[str, str]]:
         """
-        [D4] EU Digital Finance Platform requires manual CSV download per
-        scripts/download_datasets.py. Loads any CSVs found under
-        data/raw/eu_digital_finance/; falls back to seed corpus otherwise.
+        [D4] EU Digital Finance Platform — manual CSV/JSON download, per
+        scripts/download_datasets.py.
+
+        NO SEED FALLBACK.
+
+        This used to return four hand-written paragraphs about DORA, MiFID II,
+        ECB projections and SFDR. They were indexed and retrievable under the
+        label "EU Digital Finance Platform [D4]" — a real-looking citation on
+        text this project authored. A retrieval probe scored one of them 0.500
+        and reported regulatory grounding as working.
+
+        Real EU legislative text now comes from the 'regulatory' document set
+        (scripts/build_regulatory_corpus.py), which records a source_url and
+        retrieval date per chunk. An empty set here is visibly empty, which is
+        strictly better than plausibly wrong.
         """
         directory = DATA_RAW / "eu_digital_finance"
         records = _load_records_from_dir(directory, "eu")
@@ -439,35 +473,14 @@ class KnowledgeBase:
             )
             self._source_used["eu_digital_finance"] = f"local:{directory.name}"
             return records
+
         logger.warning(
-            f"[KnowledgeBase] [D4] No EU data in {directory} — falling back to "
-            f"{len(_SEED_EU_DIGITAL_FINANCE)} SYNTHETIC seed paragraphs."
+            f"[KnowledgeBase] [D4] No EU data in {directory} — set is EMPTY. "
+            f"No synthetic substitute is used. Real EU legislative text comes "
+            f"from the 'regulatory' set; run scripts/build_regulatory_corpus.py"
         )
-        self._source_used["eu_digital_finance"] = "seed"
-        return list(_SEED_EU_DIGITAL_FINANCE)
-        # if not directory.exists():
-        #     return list(_SEED_EU_DIGITAL_FINANCE)
-
-        # records: list[dict[str, str]] = []
-        # try:
-        #     import csv  # noqa: PLC0415
-
-        #     for csv_path in sorted(directory.glob("*.csv")):
-        #         with open(csv_path, newline="", encoding="utf-8") as f:
-        #             reader = csv.DictReader(f)
-        #             for i, row in enumerate(reader):
-        #                 text = " ".join(
-        #                     f"{k}: {v}" for k, v in row.items() if v
-        #                 )
-        #                 if text.strip():
-        #                     records.append({
-        #                         "doc_id": f"{csv_path.stem}-{i:05d}",
-        #                         "text": text,
-        #                     })
-        # except Exception as exc:
-        #     logger.warning(f"[KnowledgeBase] Failed reading EU Digital Finance CSVs: {exc}")
-
-        # return records if records else list(_SEED_EU_DIGITAL_FINANCE)
+        self._source_used["eu_digital_finance"] = "absent"
+        return []
 
     def _load_finqa_split(self, filename: str, document_set: str) -> list[dict[str, str]]:
         """[D2] FinQA Original — loaded from data/raw/ if download_datasets.py --phase 8 has run."""
@@ -521,7 +534,7 @@ class KnowledgeBase:
     ) -> list[dict[str, Any]]:
         """
         Retrieve the top_k most relevant chunks for 'query'
-        
+
         Args:
             query: Free-text query - typically buily by the caller
                     from the claim/synthesis text needing grounding.
@@ -567,7 +580,7 @@ class KnowledgeBase:
                 break
 
         return results
-    
+
     def _index_matches_current_embedder(self, index_dir: Path) -> bool:
         try:
             with open(index_dir / "meta.json") as f:

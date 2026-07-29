@@ -13,7 +13,7 @@ TRiSM requires:
     - Every cross-agent conflict detected and resolved is logged.
     - All records are machine-readable (JSONL) and self-describing.
     - Each record carries session_id + turn_id for trace reconstruction.
-    
+
 EU AI Act requirements addressed:
     - Traceability: full decision chain reconstructable from logs alone.
     - Human oversight: audit trail enables post-hoc review of any decision.
@@ -63,7 +63,7 @@ def _make_event(
 class AuditLog:
     """
     Per-session JSONL audit logger.
-    
+
     One instance per Orchestrator session.
     All writes are append only - rrec ords are never modified or deleted.
     If a write fails, it is logged to the appliation logger but does not raise -
@@ -157,7 +157,7 @@ class AuditLog:
     ) -> None:
         """
         Log an existing-customer lookup at session start.
-        GDPR: only the identifier, count, and field NAMES are logged - 
+        GDPR: only the identifier, count, and field NAMES are logged -
         never the feature VALUES (income, debt, etc.), matching the
         content-minimisation approach used by record_turn_start().
         """
