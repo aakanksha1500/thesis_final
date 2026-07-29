@@ -144,7 +144,7 @@ def main() -> int:
         if args.write:
             entry["value"] = round(value, 2)
             entry["as_of"] = as_of
-            updated = 1
+            updated += 1
 
     manual = [(k, e) for k, e in entries.items() if not e.get("fetchable")]
     print(f"\n{BAR}\n MANUAL - transcribe these yourself\n{BAR}")
