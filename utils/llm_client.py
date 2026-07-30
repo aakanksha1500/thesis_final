@@ -124,7 +124,13 @@ class LLMClient:
         "groq": "https://api.groq.com/openai/v1",
         "together": "https://api.together.xyz/v1",
         "openrouter": "https://openrouter.ai/api/v1",
+        "ollama": "http://localhost:11434/v1",  # local; override with OLLAMA_BASE_URL
     }
+
+    # Providers that don't require a real API key. Ollama's OpenAI-compatible
+    # server doesn't check the key at all, but the openai SDK still requires
+    # a non-empty string to construct the client.
+    _NO_AUTH_PROVIDERS = {"ollama"}
 
     def _init_client(self) -> None:
         """
@@ -139,6 +145,10 @@ class LLMClient:
           groq       -> GROQ_API_KEY
           together   -> TOGETHER_API_KEY
           openrouter -> OPENROUTER_API_KEY
+          ollama     -> none required (local server, no auth).
+                        Base URL defaults to http://localhost:11434/v1,
+                        override with OLLAMA_BASE_URL. Model name should be
+                        whatever you've pulled, e.g. "llama3.1:8b".
         """
         if self._force_mock:
             logger.info("[LLMClient] force_mock=True — running in MOCK mode regardless of environment.")
@@ -153,6 +163,8 @@ class LLMClient:
             return
         key_env_var = f"{provider.upper()}_API_KEY"
         api_key = os.getenv(key_env_var, "")
+        if not api_key and provider in self._NO_AUTH_PROVIDERS:
+            api_key = "ollama"  # dummy — the local server ignores this value
         if not api_key:
             logger.warning(
                 f"[LLMClient] {key_env_var} not set — running in MOCK mode. "
@@ -162,7 +174,11 @@ class LLMClient:
 
         try:
             import openai
-            base_url = self._PROVIDER_BASE_URLS[provider]
+            base_url = (
+                os.getenv("OLLAMA_BASE_URL", self._PROVIDER_BASE_URLS[provider])
+                if provider == "ollama"
+                else self._PROVIDER_BASE_URLS[provider]
+            )
             self._client = openai.OpenAI(
                 api_key=api_key,
                 base_url=base_url,

@@ -134,3 +134,40 @@ class TestLLMClientMock:
         r = repr(self.client)
         assert "mock" in r
         assert "gpt-4o-mini" in r
+
+
+class TestLLMClientOllama:
+    """
+    ollama is the odd one out among providers: no API key is required
+    because the local server doesn't check one, so LLMClient must not
+    fall back to mock mode just because OLLAMA_API_KEY is unset.
+    """
+
+    def setup_method(self):
+        self._saved = {
+            k: os.environ.get(k)
+            for k in ("LLM_PROVIDER", "OLLAMA_API_KEY", "OLLAMA_BASE_URL")
+        }
+        os.environ.pop("OLLAMA_API_KEY", None)
+        os.environ.pop("OLLAMA_BASE_URL", None)
+        os.environ["LLM_PROVIDER"] = "ollama"
+
+    def teardown_method(self):
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    def test_initialises_in_real_mode_without_api_key(self):
+        client = LLMClient(model="llama3.1:8b")
+        assert client.mode == "ollama"
+
+    def test_default_base_url(self):
+        client = LLMClient(model="llama3.1:8b")
+        assert str(client._client.base_url).rstrip("/") == "http://localhost:11434/v1"
+
+    def test_base_url_override(self):
+        os.environ["OLLAMA_BASE_URL"] = "http://192.168.1.50:11434/v1"
+        client = LLMClient(model="llama3.1:8b")
+        assert str(client._client.base_url).rstrip("/") == "http://192.168.1.50:11434/v1"
