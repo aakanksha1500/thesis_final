@@ -110,6 +110,13 @@ class HallucinationDetector:
         self._model = None
         self._mode = "fallback"
         self._force_fallback = force_fallback
+        # Populated only if real-mode init was attempted and failed — the
+        # exact reason, not just the fact that fallback happened. mode()
+        # alone can't distinguish "packages not installed" from "packages
+        # installed but the load itself failed" (network, version
+        # incompatibility, disk space, etc.), and those need different
+        # fixes.
+        self.init_error: str | None = None
         self._init_model()
 
     def _init_model(self) -> None:
@@ -127,7 +134,8 @@ class HallucinationDetector:
             )
             self._mode = "hhem"
             logger.info(f"[HallucinationDetector] Initialised in Real mode - model={self.model_id}")
-        except ImportError:
+        except ImportError as exc:
+            self.init_error = f"ImportError: {exc}"
             logger.warning(
                 "[HallucinationDetector] transformers/torch not installed - "
                 "running FALLBACK mode (lexical-overlap heuristic). Add "
@@ -135,9 +143,12 @@ class HallucinationDetector:
                 "and pip install for real HHEM scoring."
             )
         except Exception as exc:
+            self.init_error = f"{type(exc).__name__}: {exc}"
             logger.warning(
-                f"[HallucinationDetector] Failed to load '{self.model_id}': "
-                f"{exc} - falling back to lexical-overlap heuristic."
+                f"[HallucinationDetector] Failed to load '{self.model_id}' "
+                f"({self.init_error}) - falling back to lexical-overlap "
+                f"heuristic. transformers/torch ARE installed, so this is "
+                f"NOT a missing-package problem — see the reason above."
             )
 
     @property

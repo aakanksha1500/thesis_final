@@ -225,12 +225,25 @@ def check_hallucination():
     from rag.hallucination_detector import hallucination_detector as det
 
     if det.mode != "hhem":
+        if det.init_error and det.init_error.startswith("ImportError"):
+            fix = "pip install 'transformers<5' torch"
+        else:
+            fix = (
+                "This is NOT a missing-package problem — transformers/torch "
+                "loaded fine, the model load itself failed. See the reason "
+                "above and fix that specific cause (network access to "
+                "huggingface.co, disk space for the ~2.4GB download, a "
+                "transformers version incompatible with this model's "
+                "custom code, etc.)."
+            )
         report(
             "HHEM model",
             DEGRADED,
-            "Lexical Jaccard overlap heuristic. Deliberately over-flags.\n"
-            "Its scores are NOT comparable to HHEM scores.",
-            "pip install 'transformers<5' torch",
+            f"Reason: {det.init_error or 'unknown'}\n"
+            "Falling back to lexical Jaccard overlap heuristic. "
+            "Deliberately over-flags. Its scores are NOT comparable to "
+            "HHEM scores.",
+            fix,
         )
     else:
         report("HHEM model", REAL, f"model={det.model_id}")

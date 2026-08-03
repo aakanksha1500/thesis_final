@@ -289,6 +289,89 @@ class TestSHAPProxy:
             assert not np.isnan(info["shap_impact"]), f"NaN impact for {feat}"
             assert not np.isinf(info["shap_impact"]), f"Inf impact for {feat}"
 
+    def test_heuristic_fallback_tags_source_as_proxy(self):
+        """
+        The pure-heuristic path (no trained model at all) was the one
+        attribution path with no "source" tag — meaning downstream
+        consumers (ExplainabilityAgent) couldn't tell it apart from real
+        SHAP output. Every entry must now say where it came from.
+        """
+        agent = make_agent()
+        agent._ml_model = None  # force heuristic path regardless of env
+        shap = agent._compute_shap_proxy(FULL_FEATURES, 0.5)
+        assert len(shap) > 0
+        for feat, info in shap.items():
+            assert info.get("source") == "proxy", (
+                f"{feat} missing or incorrect source tag: {info.get('source')!r}"
+            )
+
+
+class TestSHAPAdditivity:
+    """
+    Proves shap.TreeExplainer actually ran against the trained model,
+    rather than a coefficient proxy silently substituting for it. This
+    is the test the plan is built around: a coefficient proxy cannot
+    satisfy SHAP's additivity property, so if this passes, real SHAP ran.
+
+    Skipped unless a trained model is loaded (requires both
+    data/processed/risk_model.pkl on disk — gitignored, built by
+    scripts/train_risk_model.py — and USE_TRAINED_RISK_MODEL=true).
+    """
+
+    def test_shap_values_satisfy_additivity(self):
+        agent = make_agent()
+        if not isinstance(agent._ml_model, dict):
+            pytest.skip(
+                "no trained model — run scripts/train_risk_model.py and "
+                "set USE_TRAINED_RISK_MODEL=true"
+            )
+
+        shap = pytest.importorskip("shap")
+
+        bundle = agent._ml_model
+        model = bundle["model"]
+        names = bundle["feature_names"]
+        medians = bundle["imputation_medians"]
+        vec = np.array([[
+            FULL_FEATURES.get(n, medians[i]) for i, n in enumerate(names)
+        ]], dtype=float)
+
+        explainer = shap.TreeExplainer(model)
+        raw = explainer.shap_values(vec)
+        contrib = raw[1][0] if isinstance(raw, list) else (
+            raw[0, :, 1] if raw.ndim == 3 else raw[0]
+        )
+        base = explainer.expected_value
+        base = base[1] if hasattr(base, "__len__") else base
+        predicted = model.predict_proba(vec)[0][1]
+
+        assert abs((base + contrib.sum()) - predicted) < 1e-6, (
+            "SHAP additivity violated — sum(shap_values) + expected_value "
+            "should equal the model's predicted probability. If this "
+            "fails, something downstream is not real TreeExplainer output."
+        )
+
+    def test_compute_shap_proxy_tags_trained_model_output_as_shap(self):
+        """
+        Same skip guard as above. Checks the agent's own output (not a
+        parallel TreeExplainer call) carries the "shap" source tag for
+        the four model features once a trained model is active.
+        """
+        agent = make_agent()
+        if not isinstance(agent._ml_model, dict):
+            pytest.skip(
+                "no trained model — run scripts/train_risk_model.py and "
+                "set USE_TRAINED_RISK_MODEL=true"
+            )
+        pytest.importorskip("shap")
+
+        shap_summary = agent._compute_shap_proxy(FULL_FEATURES, 0.5)
+        model_features = set(agent._ml_model["feature_names"])
+        for feat in model_features:
+            assert shap_summary[feat]["source"] == "shap", (
+                f"{feat} is a trained-model feature but wasn't tagged 'shap'"
+            )
+
 
 # GROUP C: Missing feature handling
 

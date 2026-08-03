@@ -230,7 +230,7 @@ STAGE_BY_KEY = {s.key: s for s in STAGES}
 
 # Preflight — refuse to produce evidence from a degraded pipeline
 
-def preflight(require_llm: bool = True) -> list[str]:
+def preflight(require_llm: bool = True, stages: list[Stage] | None = None) -> list[str]:
     """
     Return a list of blocking problems. Empty means go.
 
@@ -271,6 +271,26 @@ def preflight(require_llm: bool = True) -> list[str]:
         )
     else:
         print(f"  ok    risk model present ({model_path.name})")
+
+    # 3b. Hallucination detector in real HHEM mode — same silent-degrade
+    # risk as the trained model above, just not checked until now. Only
+    # relevant when RQ5 is actually part of this run: constructing the
+    # real detector means a ~2.4GB model load, not worth paying on every
+    # preflight() call for stages that never touch it.
+    if stages is None or any(s.key == "rq5" for s in stages):
+        from rag.hallucination_detector import get_hallucination_detector
+        detector = get_hallucination_detector()
+        if detector.mode != "hhem":
+            problems.append(
+                f"HallucinationDetector is in FALLBACK mode (lexical-overlap "
+                f"heuristic), not real HHEM — RQ5's hallucination_rate would "
+                f"measure token overlap, not entailment, and would not be "
+                f"comparable to a real-HHEM run. Reason: "
+                f"{detector.init_error or 'unknown'}. Run "
+                f"scripts/verify_real_pipeline.py for a fuller diagnostic."
+            )
+        else:
+            print(f"  ok    hallucination detector = hhem ({detector.model_id})")
 
     if settings.product_data.use_real_product_data:
         problems.extend(_check_product_snapshot())
@@ -631,7 +651,7 @@ def main() -> int:
 
     print(f"\n{SUB}\n  PREFLIGHT\n{SUB}")
     needs_llm = any(s.est_tokens > 0 for s in selected) and not args.replay
-    problems = preflight(require_llm=needs_llm)
+    problems = preflight(require_llm=needs_llm, stages=selected)
     if problems:
         print("\n  BLOCKED:")
         for p in problems:

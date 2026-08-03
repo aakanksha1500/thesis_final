@@ -1,20 +1,14 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-07-29T08:49:04.159805+00:00",
-    "git_sha": "54dfee1-dirty",
+    "generated_at_utc": "2026-08-01T20:10:29.018728+00:00",
+    "git_sha": "0dd36cd-dirty",
     "prompt_version": "v1.0",
     "llm_mode": "mock",
     "orchestrator_model": "llama-3.3-70b-versatile",
-    "specialist_model": "llama-3.1-8b-instant",
+    "specialist_model": "llama3.1:8b",
     "judge_model": "llama-3.3-70b-versatile",
     "environment": "development",
-    "subsystem_modes": {
-      "embedder": "sentence-transformers",
-      "vector_store": "faiss",
-      "hallucination_detector": "hhem",
-      "product_data": "snapshot",
-      "market_data": "unavailable"
-    },
+    "subsystem_modes": {},
     "llm_cache": {
       "hits": 0,
       "misses": 0,

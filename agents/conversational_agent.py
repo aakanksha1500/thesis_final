@@ -30,7 +30,7 @@ import time
 from typing import Any
 
 from agents.base_agent import AgentResult, BaseAgent
-from config.prompts import CONVERSATIONAL_SYSTEM
+from config.prompts import CONVERSATIONAL_SYSTEM, INTENT_CLASSIFIER_SYSTEM
 from config.settings import settings
 from utils.llm_client import LLMClient
 from utils.logger import get_logger
@@ -120,6 +120,8 @@ class ConversationalAgent(BaseAgent):
         self._history: list[dict] = []
         self._history_is_external: bool = False
         self._turn_count: int = 0
+        self.last_classification_error: str | None = None
+        self.last_classification_error_status: int | None = None
 
     @property
     def system_prompt(self) -> str:
@@ -175,8 +177,12 @@ class ConversationalAgent(BaseAgent):
             f"Respond with ONLY valid JSON, no other text: \n"
             f"{{\"intent\": \"<bucket_name>\", \"confidence\": <float 0.0-1.0>}}"
         )
+        self.last_classification_error = None
+        self.last_classification_error_status = None
         try:
-            raw, _ = self._call_llm(prompt, temperature=0.0)
+            raw, _ = self._call_llm(
+                prompt, temperature=0.0, system_override=INTENT_CLASSIFIER_SYSTEM
+            )
             # Extract JSON even if LLM adds surrounding text
             match = re.search(r'\{[^}]+\}', raw)
             if match:
@@ -191,8 +197,14 @@ class ConversationalAgent(BaseAgent):
                     )
                     intent = "general_query"
                 return intent, confidence
+            self.last_classification_error = f"No JSON object found in response: {raw[:200]!r}"
         except Exception as exc:
             logger.warning(f"[ConversationalAgent] Intent classification failed: {exc}")
+            self.last_classification_error = f"{type(exc).__name__}: {exc}"
+            self.last_classification_error_status = (
+                getattr(exc, "status_code", None)
+                or getattr(getattr(exc, "response", None), "status_code", None)
+            )
 
         return "general_query", 0.5
 

@@ -12,9 +12,16 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import datetime
 from typing import Any
 
 from agents.base_agent import AgentResult, BaseAgent
+from agents.data_sufficiency import assess_data_sufficiency
+from agents.periodicity_inference import (
+    AMBIGUOUS_CATEGORIES,
+    build_clarifying_question,
+    infer_periodicity,
+)
 from config.prompts import BUDGET_SYSTEM
 from config.settings import settings
 from utils.llm_client import LLMClient
@@ -156,6 +163,122 @@ class BudgetAgent(BaseAgent):
             )
         return None
 
+    # Transaction aggregation (Day 2a)
+    def _aggregate_transactions(
+        self,
+        transactions: list[dict[str, Any]],
+        months: int = 3,
+        as_of: str | None = None,
+        monthly_income: float | None = None,
+    ) -> dict[str, Any]:
+        """
+        Derive monthly_expenses from transactions rather than receiving it
+        pre-computed.
+
+        `months` is the finding, not a parameter to tune. A 1-month window
+        cannot see annual insurance; a 12-month window can. The gap between
+        them is a measurable statement about why single-snapshot budget
+        advice misleads.
+
+        transactions: [{"date": "YYYY-MM-DD", "category": str, "amount": float}, ...]
+            Not required to be sorted or pre-filtered to any window.
+        months: how many whole calendar months back from `as_of` to
+            include (e.g. months=1 is the single most recent calendar
+            month present, months=12 is the full year if that much
+            history exists).
+        as_of: ISO date string ("YYYY-MM-DD") treated as "today". Defaults
+            to the date of the latest transaction in the list, so this
+            works unmodified against historical/synthetic data without
+            needing the real wall-clock date.
+        monthly_income: if given, also runs periodicity ambiguity
+            detection (agents.periodicity_inference) per category within
+            the window — a category seen too infrequently, or with an
+            inconsistent gap between occurrences, to confidently tell how
+            often it recurs gets flagged rather than silently averaged
+            as if its observed frequency were reliable. None (default)
+            skips this — purely a widening of what this method reports,
+            never a behaviour change to monthly_expenses itself.
+
+        Returns:
+            {
+              "monthly_expenses": {category: average euros/month over the window},
+              "window_months": months,
+              "window_start": "YYYY-MM-DD",
+              "window_end": "YYYY-MM-DD",
+              "transaction_count": int,   # transactions actually inside the window
+              "total_transaction_count": int,  # transactions passed in, for reference
+              "periodicity_flags": {category: PeriodicityResult.to_dict()},
+                  # only categories where needs_clarification is True;
+                  # empty dict if monthly_income wasn't given or nothing
+                  # needs asking about
+              "clarifying_questions": {category: question_text},
+                  # ready-to-use text for each flagged category
+            }
+
+        No LLM involved — pure arithmetic and date filtering, fully testable.
+        """
+        if not transactions:
+            return {
+                "monthly_expenses": {},
+                "window_months": months,
+                "window_start": None,
+                "window_end": None,
+                "transaction_count": 0,
+                "total_transaction_count": 0,
+                "periodicity_flags": {},
+                "clarifying_questions": {},
+            }
+
+        dates = [datetime.strptime(t["date"], "%Y-%m-%d") for t in transactions]
+        end_date = datetime.strptime(as_of, "%Y-%m-%d") if as_of else max(dates)
+
+        # "months back" by calendar month arithmetic, not a flat 30*months
+        # days — so months=1 means "this calendar month", not "the last
+        # 30 days", and a customer's fixed-day-of-month rent transaction
+        # isn't at risk of falling just outside a rolling day count.
+        end_year, end_month = end_date.year, end_date.month
+        start_month_index = (end_year * 12 + (end_month - 1)) - (months - 1)
+        start_year, start_month = divmod(start_month_index, 12)
+        start_date = datetime(start_year, start_month + 1, 1)
+
+        totals: dict[str, float] = {}
+        by_category: dict[str, list[dict[str, Any]]] = {}
+        in_window = 0
+        for t, d in zip(transactions, dates):
+            if start_date <= d <= end_date:
+                totals[t["category"]] = totals.get(t["category"], 0.0) + t["amount"]
+                by_category.setdefault(t["category"], []).append(t)
+                in_window += 1
+
+        monthly_expenses = {
+            category: round(total / months, 2)
+            for category, total in totals.items()
+        }
+
+        periodicity_flags: dict[str, Any] = {}
+        clarifying_questions: dict[str, str] = {}
+        if monthly_income:
+            for category, txns in by_category.items():
+                if category not in AMBIGUOUS_CATEGORIES:
+                    continue
+                result = infer_periodicity(category, txns, monthly_income)
+                if result.needs_clarification:
+                    periodicity_flags[category] = result.to_dict()
+                    question = build_clarifying_question(result)
+                    if question:
+                        clarifying_questions[category] = question
+
+        return {
+            "monthly_expenses": monthly_expenses,
+            "window_months": months,
+            "window_start": start_date.strftime("%Y-%m-%d"),
+            "window_end": end_date.strftime("%Y-%m-%d"),
+            "transaction_count": in_window,
+            "total_transaction_count": len(transactions),
+            "periodicity_flags": periodicity_flags,
+            "clarifying_questions": clarifying_questions,
+        }
+
     # LLM synthesis prompt builder
     def _build_synthesis_prompt(
         self,
@@ -229,7 +352,14 @@ class BudgetAgent(BaseAgent):
 
         context keys used:
           'monthly_income'    (float, required) — gross monthly income in euros
-          'monthly_expenses'  (dict,  required) — category -> euros spent per month
+          'monthly_expenses'  (dict,  optional) — category -> euros spent per month
+          'transactions'      (list,  optional) — used to derive monthly_expenses
+                               via _aggregate_transactions() if monthly_expenses
+                               is not provided directly. See
+                               'aggregation_window_months' below.
+          'aggregation_window_months' (int, optional) — window size for
+                               transaction aggregation, default
+                               settings.budget.default_aggregation_window_months
           'user_features'     (dict,  optional) — reads income if monthly_income absent
 
         Returns AgentResult with payload:
@@ -245,6 +375,65 @@ class BudgetAgent(BaseAgent):
             or (context.get("user_features") or {}).get("income", 0) / 12
         )
         monthly_expenses: dict = context.get("monthly_expenses", {})
+        aggregation_info: dict | None = None
+        sufficiency_result = None
+
+        # Derive monthly_expenses from transactions if not given directly —
+        # transactions is the richer input; a pre-computed monthly_expenses
+        # dict, if present, is assumed deliberate (e.g. a test fixture) and
+        # takes priority rather than being silently overwritten.
+        if not monthly_expenses and "transactions" in context:
+            # Coverage/density is assessed against the FULL history the
+            # customer has, independent of whatever window we're about to
+            # average over — a customer with 3 months of data doesn't
+            # become "12-month reliable" just because
+            # min_aggregation_window_months asks for 12; it means we're
+            # about to average over a window mostly padded with months
+            # that have no data at all, which the sufficiency tier and
+            # density score need to reflect honestly.
+            sufficiency_result = assess_data_sufficiency(
+                context["transactions"], monthly_income=monthly_income or None,
+            )
+            if sufficiency_result.coverage_tier == "insufficient":
+                payload = {
+                    "status": "insufficient_history",
+                    "message": sufficiency_result.disclosure,
+                    "data_sufficiency": sufficiency_result.to_dict(),
+                }
+                duration_ms = (time.perf_counter() - start_time) * 1000
+                logger.warning(
+                    "[BudgetAgent] Insufficient transaction history "
+                    f"({sufficiency_result.available_months} month(s)) — "
+                    "not generating a budget from it."
+                )
+                return self._make_result(
+                    payload=payload,
+                    duration_ms=duration_ms,
+                    error="Insufficient transaction history",
+                )
+            requested_window = context.get(
+                "aggregation_window_months",
+                settings.budget.default_aggregation_window_months,
+            )
+            window_months = max(
+                requested_window, settings.budget.min_aggregation_window_months
+            )
+            if window_months != requested_window:
+                logger.warning(
+                    f"[BudgetAgent] Requested aggregation window "
+                    f"({requested_window} months) is below the "
+                    f"{settings.budget.min_aggregation_window_months}-month "
+                    f"minimum for reliable budget advice — clamped up. A "
+                    f"short window on an annual-lump cost (insurance, etc.) "
+                    f"either misses it entirely or overstates it several-fold; "
+                    f"see scripts/generate_transactions.py's window-comparison "
+                    f"evidence."
+                )
+            aggregation_info = self._aggregate_transactions(
+                context["transactions"], months=window_months,
+                monthly_income=monthly_income or None,
+            )
+            monthly_expenses = aggregation_info["monthly_expenses"]
 
         # Validate inputs
         if monthly_income <= 0:
@@ -329,6 +518,13 @@ class BudgetAgent(BaseAgent):
             "savings_rate_flag": savings_flag,
             "recommendations_text": recommendations_text,
             "data_source": "Ireland Household Budget Survey 2022-23 [D11]",
+            "transaction_aggregation": aggregation_info,
+            "clarifying_questions": (
+                (aggregation_info or {}).get("clarifying_questions", {})
+            ),
+            "data_sufficiency": (
+                    sufficiency_result.to_dict() if sufficiency_result else None
+                ),
         }
 
         duration_ms = (time.perf_counter() - start_time) * 1000
@@ -350,4 +546,3 @@ class BudgetAgent(BaseAgent):
                 "savings_rate_healthy": savings_flag is None,
             },
         )
-

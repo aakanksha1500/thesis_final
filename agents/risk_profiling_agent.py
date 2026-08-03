@@ -510,6 +510,7 @@ class RiskProfilingAgent(BaseAgent):
             feat: {
                 "value": features.get(feat, "N/A"),
                 "shap_impact": round(val, 4),
+                "source": "proxy",
             }
             for feat, val in attributions.items()
         }
@@ -638,7 +639,3 @@ class RiskProfilingAgent(BaseAgent):
                 "hybrid_score": round(hybrid, 4),
             },
         )
-
-
-
-

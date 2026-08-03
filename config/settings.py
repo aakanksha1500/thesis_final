@@ -21,8 +21,30 @@ class LLMConfig:
     orchestrator_model: str = field(
         default_factory=lambda: os.getenv("ORCHESTRATOR_MODEL", "gpt-4o-mini")
     )
+    # Specialist tier (RiskProfilingAgent, InvestmentAgent, BudgetAgent,
+    # ExplainabilityAgent — everything narrating figures Python already
+    # computed, never doing open-ended reasoning the orchestrator/judge
+    # tiers need a stronger cloud model for) runs on a DIFFERENT provider
+    # by design, not just a different model name — see
+    # Orchestrator._derive_client() and utils.llm_client.LLMClient's
+    # `provider` param. Deliberately does NOT read LLM_PROVIDER: the whole
+    # point is that specialist stays on the local provider regardless of
+    # what orchestrator_model/judge_model's provider is set to, so this
+    # can't drift back onto the cloud provider by a global env change made
+    # for an unrelated reason. Override with SPECIALIST_LLM_PROVIDER if
+    # you genuinely want to change it (e.g. back to a cloud provider for
+    # a specific evidence run) — it's still centralised here, just not
+    # coupled to LLM_PROVIDER.
+    specialist_provider: str = field(
+        default_factory=lambda: os.getenv("SPECIALIST_LLM_PROVIDER", "ollama")
+    )
+    # Ollama model tag, e.g. "llama3.1:8b" — NOT a Groq/OpenAI model id.
+    # Must match whatever you've actually pulled (`ollama pull <model>`);
+    # if SPECIALIST_MODEL in .env still holds a Groq-style name from
+    # before this split, update it, or ollama will 404 on load and this
+    # tier will fall back to mock mode like any other unreachable provider.
     specialist_model: str = field(
-        default_factory=lambda: os.getenv("SPECIALIST_MODEL", "gpt-4o-mini")
+        default_factory=lambda: os.getenv("SPECIALIST_MODEL", "llama3.1:8b")
     )
     judge_model: str = field(
         default_factory=lambda: os.getenv("JUDGE_MODEL", "gpt-4o-mini")
@@ -143,6 +165,14 @@ class BudgetConfig:
     min_healthy_savings_rate_pct: float = 10.0
     personal_finance_path: str = "data/raw/personal_finance"
     ireland_hbs_path: str = "data/raw/ireland_hbs"
+    default_aggregation_window_months: int = 12
+    min_aggregation_window_months: int = 12  # floor enforced in BudgetAgent.run() —
+    # a shorter window is still available directly via
+    # _aggregate_transactions() for comparison/evaluation purposes (see
+    # scripts/generate_transactions.py's 1/3/12-month finding), but the
+    # production run() path never silently gives budget advice off a
+    # window that demonstrably misreads annual-lump costs.
+    transactions_path: str = "data/processed/transactions.json"
 
 @dataclass
 class ExplainabilityConfig:

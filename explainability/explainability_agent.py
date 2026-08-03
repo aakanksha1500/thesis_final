@@ -95,6 +95,31 @@ class ExplainabilityAgent(BaseAgent):
     # Layer A - SHAP feature attribution narrative
     # always active across all ablation conditions.
 
+    def _attribution_method_label(self, shap_summary: dict[str, dict]) -> str:
+        """
+        Deterministic stamp distinguishing real SHAP output from a
+        coefficient estimate — computed from the same top-3 features the
+        narrative is built from, never left to the LLM to state (the
+        prompt is explicitly forbidden from naming the method, since an
+        LLM claim about its own grounding can't be trusted the way a
+        value read straight off the payload can).
+        """
+        if not shap_summary:
+            return "coefficient estimates"
+
+        top3 = sorted(
+            shap_summary.items(),
+            key=lambda x: abs(x[1].get("shap_impact", 0)),
+            reverse=True,
+        )[:3]
+        sources = {info.get("source", "proxy") for _, info in top3}
+
+        if sources == {"shap"}:
+            return "SHAP attribution"
+        if "shap" in sources:
+            return "a mix of SHAP attribution and coefficient estimates"
+        return "coefficient estimates"
+
     def _generate_shap_narrative(
             self,
             shap_summary: dict[str, dict],
@@ -105,17 +130,22 @@ class ExplainabilityAgent(BaseAgent):
         plain-English narrative for the user.
 
         shap_summary format (from RiskProfilingAgent._compute_shap_proxy()):
-            {feature_name: {"value": user_value, "shap_impact": float}}
+            {feature_name: {"value": user_value, "shap_impact": float,
+                             "source": "shap" | "proxy"}}
 
         Sorted by absolute impact — top 3 features form the narrative.
         LLM generates the text; SHAP data is the grounding so the LLM
         cannot fabricate feature contributions (Klesel & Wittmann [6]).
+        The method label (SHAP vs coefficient estimate) is prepended by
+        code, not asked of the LLM — see _attribution_method_label().
         """
         if not shap_summary:
             return(
                 "Insufficient feature data to produce an attribution "
                 "explanation for this classification."
             )
+
+        method_label = self._attribution_method_label(shap_summary)
 
         # Sort by absolute impact, take top 3
         sorted_features = sorted(
@@ -141,13 +171,14 @@ class ExplainabilityAgent(BaseAgent):
             raw, _ = self._call_with_system(
                 EXPLAINABILITY_SHAP_PROMPT, prompt, temperature=0.2
             )
-            return raw.strip()
+            return f"Based on {method_label}. {raw.strip()}"
         except Exception as exc:
             logger.warning(f"[ExplainablityAgent] SHAP narrative failed: {exc}")
             # Deterministic fallback - no LLM needed
             top_feat, top_info = sorted_features[0]
             direction = "toward a higher" if top_info["shap_impact"] >0 else "toward a lower"
             return (
+                f"Based on {method_label}. "
                 f"The most influential factor in your risk classification was "
                 f"your {top_feat.replace('_', ' ')} (value: {top_info['value']}), "
                 f"which pushed {direction} risk tier."
@@ -464,8 +495,10 @@ class ExplainabilityAgent(BaseAgent):
         trace.emit("LAYER A", "shap narrative" if cfg.use_shap
                    else "SKIPPED (use_shap=False)")
         shap_narrative: str | None = None
+        attribution_method: str | None = None
         if cfg.use_shap and shap_summary:
             shap_narrative = self._generate_shap_narrative(shap_summary, risk_class)
+            attribution_method = self._attribution_method_label(shap_summary)
             layers_applied.append("shap")
             logger.debug("[ExplainabilityAgent] Layer A (SHAP) applied")
 
@@ -537,6 +570,7 @@ class ExplainabilityAgent(BaseAgent):
             "prompt_version": cfg.prompt_version,
             "ablation_condition": self._label_ablation_condition(cfg),
             "shap_narrative": shap_narrative,
+            "attribution_method": attribution_method,
             "rag_citations": rag_citations,
             "counterfactual": counterfactual,
             "calibration_note": calibration_note,

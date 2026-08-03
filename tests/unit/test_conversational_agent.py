@@ -88,6 +88,60 @@ def make_agent_with_responses(responses: list[str]) -> ConversationalAgent:
 
 # GROUP A: Unit tests — logic only, no LLM
 
+class TestClassifyOnlyTokenCost:
+    """
+    Regression guard for the Day 2b Banking77 evaluation finding: a full
+    200-sample real run was hitting Groq's 100k-token/day on-demand quota
+    partway through, because classify_only()'s calls were going out at
+    ~715 tokens each (~396 of it the full CONVERSATIONAL_SYSTEM persona
+    prompt, entirely irrelevant to picking one of 8 buckets) instead of
+    the lean INTENT_CLASSIFIER_SYSTEM. 200 x 715 = 143,000 tokens needed
+    against a 100,000/day quota — the run could not complete regardless
+    of what else had used quota that day.
+    """
+
+    def test_classify_only_uses_lean_system_prompt_not_full_persona(self):
+        from config.prompts import CONVERSATIONAL_SYSTEM, INTENT_CLASSIFIER_SYSTEM
+
+        client = LLMClient()
+        agent = ConversationalAgent(client)
+
+        with patch.object(client, "chat", wraps=client.chat) as spy:
+            agent.classify_only("What's my card PIN?")
+
+        assert spy.call_count == 1
+        sent_system = spy.call_args.kwargs.get("system", spy.call_args.args[0] if spy.call_args.args else None)
+        assert sent_system == INTENT_CLASSIFIER_SYSTEM
+        assert sent_system != CONVERSATIONAL_SYSTEM
+        # The whole point: the lean prompt must actually be short.
+        assert len(sent_system) < len(CONVERSATIONAL_SYSTEM) / 4
+
+    def test_run_still_uses_full_persona_prompt(self):
+        """
+        The override is scoped to classify_only() specifically. run()
+        internally calls _classify_intent() first (which now correctly
+        also uses the lean prompt — same code path, same fix), but a
+        later call in the same turn (reply generation) must still use
+        the full persona/slot-tracking/elicitation system prompt, not
+        have regressed to the lean classifier prompt everywhere.
+        """
+        from config.prompts import CONVERSATIONAL_SYSTEM, INTENT_CLASSIFIER_SYSTEM
+
+        client = LLMClient()
+        agent = ConversationalAgent(client)
+
+        with patch.object(client, "chat", wraps=client.chat) as spy:
+            agent.run({"user_message": "Hello", "session_id": "s1"})
+
+        systems_sent = [
+            call.kwargs.get("system", call.args[0] if call.args else None)
+            for call in spy.call_args_list
+        ]
+        assert len(systems_sent) >= 2, "expected multiple LLM calls within one run() turn"
+        assert systems_sent[0] == INTENT_CLASSIFIER_SYSTEM  # the classify step
+        assert CONVERSATIONAL_SYSTEM in systems_sent  # at least one call still uses the full persona prompt
+
+
 class TestSlotManagement:
 
     def test_slots_empty_on_init(self):
@@ -136,6 +190,77 @@ class TestSlotManagement:
         agent = make_agent()
         agent.update_slots({"age": 40, "income": 75000, "investment_goal": "retirement"})
         assert len(agent.slots) == 3
+
+class TestClassificationErrorTracking:
+    """
+    last_classification_error / last_classification_error_status — needed
+    because _classify_intent()'s try/except swallows EVERY failure into
+    ("general_query", 0.5), including a rate limit. Without this, a batch
+    evaluation calling classify_only() in a loop (test_banking77_
+    evaluation.py) can't tell "the model genuinely thinks this is
+    general_query" apart from "the API call failed and this is a
+    meaningless placeholder" — it just silently keeps looping, burning
+    retry time on every subsequent call and writing fallback values into
+    what looks like real evidence.
+    """
+
+    def test_successful_classification_leaves_error_none(self):
+        agent = make_agent_with_responses(['{"intent": "budget_analysis", "confidence": 0.9}'])
+        agent.classify_only("What's my spending like?")
+        assert agent.last_classification_error is None
+        assert agent.last_classification_error_status is None
+
+    def test_failed_call_records_error_and_status(self):
+        class FakeRateLimitError(Exception):
+            status_code = 429
+
+        client = LLMClient(force_mock=True)
+        agent = ConversationalAgent(client)
+
+        def _raise(*a, **kw):
+            raise FakeRateLimitError("rate limit reached")
+
+        with patch.object(agent, "_call_llm", side_effect=_raise):
+            bucket, confidence = agent.classify_only("anything")
+
+        assert bucket == "general_query"
+        assert confidence == 0.5
+        assert agent.last_classification_error is not None
+        assert "rate limit reached" in agent.last_classification_error
+        assert agent.last_classification_error_status == 429
+
+    def test_error_state_does_not_leak_into_next_successful_call(self):
+        """
+        A failure on call N must not make call N+1 look like it also
+        failed, if N+1 genuinely succeeds.
+        """
+        client = LLMClient(force_mock=True)
+        agent = ConversationalAgent(client)
+
+        with patch.object(agent, "_call_llm", side_effect=Exception("boom")):
+            agent.classify_only("first call fails")
+        assert agent.last_classification_error is not None
+
+        with patch.object(
+            agent, "_call_llm",
+            return_value=('{"intent": "general_query", "confidence": 0.8}', 10),
+        ):
+            agent.classify_only("second call succeeds")
+        assert agent.last_classification_error is None
+
+    def test_no_json_in_response_is_also_recorded_as_an_error(self):
+        """
+        A response with no exception but no parseable JSON either is
+        still not a genuine classification — must be recorded, not left
+        looking identical to a real 'general_query' result.
+        """
+        client = LLMClient(force_mock=True)
+        agent = ConversationalAgent(client)
+        with patch.object(agent, "_call_llm", return_value=("not json at all", 5)):
+            bucket, confidence = agent.classify_only("test")
+        assert bucket == "general_query"
+        assert agent.last_classification_error is not None
+        assert "No JSON" in agent.last_classification_error
 
 
 class TestEscalationLogic:

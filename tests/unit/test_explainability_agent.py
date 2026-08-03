@@ -220,7 +220,7 @@ class TestAgentResultStructure:
         result = agent.run(SAMPLE_CONTEXT)
         for key in (
             "layers_applied", "prompt_version", "ablation_condition",
-            "shap_narrative", "rag_citations", "counterfactual",
+            "shap_narrative", "attribution_method", "rag_citations", "counterfactual",
             "calibration_note", "confidence", "low_confidence_flagged",
             "full_explanation", "risk_class", "top_product",
         ):
@@ -278,6 +278,43 @@ class TestSHAPNarrative:
         with ablation_condition(use_shap=False, use_rag=False, use_counterfactual=False):
             result = agent.run(SAMPLE_CONTEXT)
         assert result.payload["shap_narrative"] is None
+
+    def test_attribution_method_defaults_to_coefficient_estimates_when_untagged(self):
+        """
+        SAMPLE_CONTEXT's feature_importance predates the source-tagging fix
+        (agents/risk_profiling_agent.py) — every entry is missing "source".
+        Untagged must default to the conservative label, not silently
+        claim SHAP.
+        """
+        agent = make_agent()
+        with ablation_condition(use_shap=True, use_rag=False, use_counterfactual=False):
+            result = agent.run(SAMPLE_CONTEXT)
+        assert result.payload["attribution_method"] == "coefficient estimates"
+        assert "coefficient estimates" in result.payload["shap_narrative"]
+
+    def test_attribution_method_reports_shap_when_sources_tagged_shap(self):
+        agent = make_agent()
+        shap_tagged_context = {
+            **SAMPLE_CONTEXT,
+            "risk_agent_payload": {
+                **SAMPLE_CONTEXT["risk_agent_payload"],
+                "feature_importance": {
+                    feat: {**info, "source": "shap"}
+                    for feat, info in
+                    SAMPLE_CONTEXT["risk_agent_payload"]["feature_importance"].items()
+                },
+            },
+        }
+        with ablation_condition(use_shap=True, use_rag=False, use_counterfactual=False):
+            result = agent.run(shap_tagged_context)
+        assert result.payload["attribution_method"] == "SHAP attribution"
+        assert "SHAP attribution" in result.payload["shap_narrative"]
+
+    def test_attribution_method_none_when_layer_off(self):
+        agent = make_agent()
+        with ablation_condition(use_shap=False, use_rag=False, use_counterfactual=False):
+            result = agent.run(SAMPLE_CONTEXT)
+        assert result.payload["attribution_method"] is None
 
     def test_top_shap_feature_identified(self):
         agent = make_agent()

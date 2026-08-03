@@ -88,6 +88,36 @@ class TestScorePairFallback:
         assert 0.0 <= score <= 1.0
 
 
+# GROUP B2: init_error reporting
+#
+# mode alone can't distinguish "packages not installed" from "packages
+# installed but the load itself failed" (network, version incompatibility,
+# disk space, etc.), and those need different fixes — see
+# scripts/verify_real_pipeline.py's check_hallucination().
+
+class TestInitErrorReporting:
+
+    def test_force_fallback_never_attempts_init_so_no_error_recorded(self):
+        detector = HallucinationDetector(force_fallback=True)
+        assert detector.mode == "fallback"
+        assert detector.init_error is None
+
+    def test_init_error_consistent_with_mode(self):
+        """
+        Environment-agnostic: holds whether this runs somewhere HHEM loads
+        successfully, fails to load, or transformers/torch aren't
+        installed at all. Real-mode init either succeeds (mode="hhem",
+        no error to record) or was attempted and failed (mode="fallback",
+        and the reason must be recorded — never silently empty).
+        """
+        detector = HallucinationDetector()
+        if detector.mode == "hhem":
+            assert detector.init_error is None
+        else:
+            assert detector.init_error is not None
+            assert len(detector.init_error) > 0
+
+
 # GROUP C: score_response()
 
 class TestScoreResponse:
@@ -150,3 +180,50 @@ class TestScoreResponse:
         report = detector.score_response(text, [])
         assert report.hallucination_rate == 0.0
         assert len(report.claim_scores) == 0
+
+
+# GROUP D: premise sanity check (Day 1c, BUILD_PLAN.md)
+#
+# A claim lifted verbatim from its own premise must score highly — that's
+# the check that would have caught the RQ5 test-harness bug. What was
+# actually being scored as a "claim" there sometimes included the fixture
+# question sentence alongside the answer; an interrogative sentence has no
+# truth value to check against a premise, so it scored low almost by
+# construction, unrelated to whether the numeric answer was grounded.
+#
+# Deliberately NOT force_fallback: runs against whichever mode is active
+# (real HHEM if transformers/torch are installed, fallback otherwise). The
+# RQ5 numbers were produced in real HHEM mode, so a fallback-only test
+# would not have caught this — the assertion holds under both modes,
+# since a verbatim/near-verbatim claim should score high regardless of
+# which detector backs it.
+
+class TestPremiseSanityCheck:
+
+    def test_verbatim_claim_scores_above_threshold(self):
+        detector = HallucinationDetector()
+        premise = (
+            "Term deposit principal is EUR 10,000, annual rate 2.5 percent, "
+            "simple interest for one year."
+        )
+        claim = "Term deposit principal is EUR 10,000, annual rate 2.5 percent."
+        score = detector.score_pair(premise, claim)
+        assert score > 0.8, (
+            f"A claim copied verbatim from its own premise scored "
+            f"{score:.3f} (mode={detector.mode}). If this fails, whatever "
+            f"is being passed as 'premise' upstream is not the actual "
+            f"grounding text."
+        )
+
+    def test_interrogative_sentence_is_not_conflated_with_a_claim(self):
+        """
+        Locks in the actual Day 1c fix: extract_claims() should not be
+        asked to verify a question. Regression guard against
+        test_rq5_finqa_evaluation.py reintroducing item["question"] into
+        response_text.
+        """
+        from rag.hallucination_detector import extract_claims
+        response_text = "The answer is 250."
+        claims = extract_claims(response_text)
+        assert claims == ["The answer is 250."]
+        assert not any(c.strip().endswith("?") for c in claims)

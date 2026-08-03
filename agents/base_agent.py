@@ -141,6 +141,7 @@ class BaseAgent(abc.ABC):
             user_message: str,
             extra_messages: list[dict] | None = None,
             temperature: float | None = None,
+            system_override: str | None = None,
     ) -> tuple[str, int]:
         """
         The only path an agent should use to talk to the LLM. Centralising
@@ -152,6 +153,11 @@ class BaseAgent(abc.ABC):
             user_message: The primary user-turn content for this call.
             extra_messages: Optional prior turns to pretend (for multi-turn context).
             temperature: Per-call override; None uses client default.
+            system_override: Use this system message instead of
+                self.system_prompt for this one call. For a lightweight,
+                narrowly-scoped call (e.g. classification) where the
+                agent's full persona/instruction system prompt is mostly
+                irrelevant overhead — see INTENT_CLASSIFIER_SYSTEM.
 
         Returns:
             (response_text, tokens_used)
@@ -170,7 +176,7 @@ class BaseAgent(abc.ABC):
                    chars=len(user_message), temp=temperature)
 
         response = self.llm.chat(
-            system=self.system_prompt,
+            system=system_override if system_override is not None else self.system_prompt,
             messages=messages,
             temperature=temperature,
         )

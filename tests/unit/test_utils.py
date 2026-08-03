@@ -171,3 +171,48 @@ class TestLLMClientOllama:
         os.environ["OLLAMA_BASE_URL"] = "http://192.168.1.50:11434/v1"
         client = LLMClient(model="llama3.1:8b")
         assert str(client._client.base_url).rstrip("/") == "http://192.168.1.50:11434/v1"
+
+class TestLLMClientProviderOverride:
+    """
+    The `provider` constructor param — needed so the specialist tier can
+    run on a different provider (local Ollama) than orchestrator/judge
+    (whatever LLM_PROVIDER says), without a global env change affecting
+    every client. See Orchestrator._derive_client() and
+    settings.llm.specialist_provider.
+    """
+
+    def setup_method(self):
+        self._saved = {
+            k: os.environ.get(k)
+            for k in ("LLM_PROVIDER", "GROQ_API_KEY", "OLLAMA_API_KEY")
+        }
+        os.environ.pop("OLLAMA_API_KEY", None)
+
+    def teardown_method(self):
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    def test_explicit_provider_overrides_global_llm_provider(self):
+        os.environ["LLM_PROVIDER"] = "groq"
+        os.environ.setdefault("GROQ_API_KEY", "dummy-would-be-a-real-key")
+        client = LLMClient(model="llama3.1:8b", provider="ollama")
+        assert client.mode == "ollama"
+
+    def test_no_override_still_respects_global_llm_provider(self):
+        os.environ["LLM_PROVIDER"] = "ollama"
+        client = LLMClient(model="llama3.1:8b")  # provider not passed
+        assert client.mode == "ollama"
+
+    def test_provider_override_none_is_a_pure_noop(self):
+        """
+        provider=None (the default for every existing call site) must be
+        indistinguishable from not passing the parameter at all — no
+        behaviour change for any caller that doesn't opt in.
+        """
+        os.environ["LLM_PROVIDER"] = "ollama"
+        with_none = LLMClient(model="llama3.1:8b", provider=None)
+        without_param = LLMClient(model="llama3.1:8b")
+        assert with_none.mode == without_param.mode == "ollama"

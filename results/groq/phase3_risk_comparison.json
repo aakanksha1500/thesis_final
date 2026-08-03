@@ -1,0 +1,189 @@
+{
+  "metrics": [
+    {
+      "metric": "Risk Alignment Rate",
+      "heuristic": 1.0,
+      "trained": 0.9333,
+      "delta": -0.0667
+    },
+    {
+      "metric": "Macro F1",
+      "heuristic": 1.0,
+      "trained": 0.4989,
+      "delta": -0.5011
+    },
+    {
+      "metric": "AUC-ROC (macro OVR)",
+      "heuristic": 0.9923,
+      "trained": 0.8745,
+      "delta": -0.1178
+    },
+    {
+      "metric": "Hybrid vs Rule-only delta",
+      "heuristic": 0.2667,
+      "trained": 0.2,
+      "delta": -0.0667
+    }
+  ],
+  "disagreements": [
+    {
+      "expected": "conservative",
+      "heuristic_pred": "conservative",
+      "trained_pred": "moderate",
+      "features": {
+        "age": 68,
+        "income": 28000,
+        "employment_status": "retired",
+        "dependents": 0,
+        "existing_debt": 2000,
+        "investment_horizon": 3,
+        "loss_tolerance": 1,
+        "financial_knowledge_score": 2
+      }
+    },
+    {
+      "expected": "conservative",
+      "heuristic_pred": "conservative",
+      "trained_pred": "moderately_conservative",
+      "features": {
+        "age": 62,
+        "income": 22000,
+        "employment_status": "part_time",
+        "dependents": 1,
+        "existing_debt": 15000,
+        "investment_horizon": 3,
+        "loss_tolerance": 2,
+        "financial_knowledge_score": 2
+      }
+    },
+    {
+      "expected": "moderately_aggressive",
+      "heuristic_pred": "moderately_aggressive",
+      "trained_pred": "moderate",
+      "features": {
+        "age": 33,
+        "income": 95000,
+        "employment_status": "employed",
+        "dependents": 1,
+        "existing_debt": 8000,
+        "investment_horizon": 12,
+        "loss_tolerance": 4,
+        "financial_knowledge_score": 4
+      }
+    },
+    {
+      "expected": "aggressive",
+      "heuristic_pred": "aggressive",
+      "trained_pred": "moderately_aggressive",
+      "features": {
+        "age": 25,
+        "income": 120000,
+        "employment_status": "employed",
+        "dependents": 0,
+        "existing_debt": 0,
+        "investment_horizon": 30,
+        "loss_tolerance": 5,
+        "financial_knowledge_score": 5
+      }
+    },
+    {
+      "expected": "aggressive",
+      "heuristic_pred": "aggressive",
+      "trained_pred": "moderately_aggressive",
+      "features": {
+        "age": 27,
+        "income": 100000,
+        "employment_status": "employed",
+        "dependents": 0,
+        "existing_debt": 2000,
+        "investment_horizon": 25,
+        "loss_tolerance": 5,
+        "financial_knowledge_score": 5
+      }
+    },
+    {
+      "expected": "aggressive",
+      "heuristic_pred": "aggressive",
+      "trained_pred": "moderately_aggressive",
+      "features": {
+        "age": 29,
+        "income": 110000,
+        "employment_status": "self_employed",
+        "dependents": 0,
+        "existing_debt": 1000,
+        "investment_horizon": 20,
+        "loss_tolerance": 5,
+        "financial_knowledge_score": 4
+      }
+    },
+    {
+      "expected": "aggressive",
+      "heuristic_pred": "aggressive",
+      "trained_pred": "moderately_aggressive",
+      "features": {
+        "age": 31,
+        "income": 90000,
+        "employment_status": "employed",
+        "dependents": 0,
+        "existing_debt": 4000,
+        "investment_horizon": 22,
+        "loss_tolerance": 5,
+        "financial_knowledge_score": 5
+      }
+    }
+  ],
+  "heuristic_meta": {
+    "generated_at_utc": "2026-07-31T04:33:33.168525+00:00",
+    "git_sha": "0dd36cd-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "groq",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "record",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  },
+  "trained_meta": {
+    "generated_at_utc": "2026-07-31T04:34:49.873596+00:00",
+    "git_sha": "0dd36cd-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "groq",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "record",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  }
+}

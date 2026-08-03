@@ -108,6 +108,7 @@ class LLMClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
         force_mock: bool = False,
+        provider: str | None = None,
     ):
         self.model = model or os.getenv("ORCHESTRATOR_MODEL", self.DEFAULT_MODEL)
         self.temperature = temperature if temperature is not None else self.DEFAULT_TEMPERATURE
@@ -116,6 +117,7 @@ class LLMClient:
         self._client = None
         self._mode = "mock"
         self._force_mock = force_mock
+        self._provider_override = provider
         self._init_client()
 
     _PROVIDER_BASE_URLS = {
@@ -153,7 +155,7 @@ class LLMClient:
         if self._force_mock:
             logger.info("[LLMClient] force_mock=True — running in MOCK mode regardless of environment.")
             return
-        provider = os.getenv("LLM_PROVIDER", "openai").lower()
+        provider = (self._provider_override or os.getenv("LLM_PROVIDER", "openai")).lower()
 
         if provider not in self._PROVIDER_BASE_URLS:
             logger.warning(
@@ -184,7 +186,8 @@ class LLMClient:
                 base_url=base_url,
             )
             self._mode = provider
-            logger.info(f"[LLMClient] Initialised in REAL mode — provider={provider} model={self.model}")
+            override_note = " (explicit override)" if self._provider_override else ""
+            logger.info(f"[LLMClient] Initialised in REAL mode — provider={provider}{override_note} model={self.model}")
         except ImportError:
             logger.warning(
                 "[LLMClient] OpenAI package not installed. LLMClient will run in mock mode."

@@ -31,6 +31,7 @@ Routing decisions (5 buckets matching ConversationalAgent intent taxonomy):
 from __future__ import annotations
 
 import json
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -102,7 +103,8 @@ class Orchestrator:
         self.session_id = session_id or str(uuid.uuid4())[:12]
         self.llm = llm_client
         self.specialist_llm = self._derive_client(
-            llm_client, settings.llm.specialist_model, "specialist"
+            llm_client, settings.llm.specialist_model, "specialist",
+            provider=settings.llm.specialist_provider
         )
         self.judge_llm = self._derive_client(
             llm_client, settings.llm.judge_model, "judge"
@@ -149,7 +151,7 @@ class Orchestrator:
 
 
     @staticmethod
-    def _derive_client(primary: LLMClient, model: str, role: str) -> LLMClient:
+    def _derive_client(primary: LLMClient, model: str, role: str, provider: str | None = None) -> LLMClient:
         """
         Return a client for `role`, reusing `primary` where a second one would
         be pointless or harmful.
@@ -169,13 +171,16 @@ class Orchestrator:
         """
         if primary.mode == "mock":
             return primary
-        if not model or model == primary.model:
+        same_model = not model or model == primary.model
+        same_provider = provider is None or provider == primary.mode
+        if same_model and same_provider:
             return primary
 
-        client = LLMClient(model=model)
+        client = LLMClient(model=model, provider=provider)
         logger.info(
-            f"[Orchestrator] {role} tier → model={model} (mode={client.mode}); "
-            f"orchestrator tier → model={primary.model}"
+            f"[Orchestrator] {role} tier → provider={client.mode} model={model} "
+            f"(mode={client.mode}); orchestrator tier → provider={primary.mode} "
+            f"model={primary.model}"
         )
         return client
 

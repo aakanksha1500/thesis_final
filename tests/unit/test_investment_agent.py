@@ -265,6 +265,7 @@ class TestRQ2Evaluation:
         reversed_order = ndcg_at_k(["B", "A"], {"A": 2, "B": 1}, k=2)
         assert reversed_order.value < ideal.value
 
+    @pytest.mark.real
     def test_rq2_full_fixture_evaluation_and_write_results(self):
         """
         Full RQ2 evaluation on 5 fixed (risk_class, horizon) queries.

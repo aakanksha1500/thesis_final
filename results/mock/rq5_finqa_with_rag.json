@@ -1,19 +1,15 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-07-29T08:51:00.078191+00:00",
-    "git_sha": "54dfee1-dirty",
+    "generated_at_utc": "2026-07-31T18:37:14.136429+00:00",
+    "git_sha": "0dd36cd-dirty",
     "prompt_version": "v1.0",
     "llm_mode": "mock",
     "orchestrator_model": "llama-3.3-70b-versatile",
-    "specialist_model": "llama-3.1-8b-instant",
+    "specialist_model": "llama3.1:8b",
     "judge_model": "llama-3.3-70b-versatile",
     "environment": "development",
     "subsystem_modes": {
-      "embedder": "sentence-transformers",
-      "vector_store": "faiss",
-      "hallucination_detector": "hhem",
-      "product_data": "snapshot",
-      "market_data": "unavailable"
+      "hallucination_detector": "hhem"
     },
     "llm_cache": {
       "hits": 0,
@@ -40,21 +36,21 @@
   "metrics": {
     "finqa_exact_match": {
       "metric": "finqa_exact_match",
-      "value": 0.7,
+      "value": 1.0,
       "details": {
         "n": 10,
-        "correct": 7,
+        "correct": 10,
         "unparseable": 0,
         "tolerance": 0.01
       }
     },
     "hallucination_rate": {
       "metric": "hallucination_rate",
-      "value": 0.4286,
+      "value": 0.65,
       "details": {
         "n_responses": 10,
-        "total_claims": 28,
-        "total_flagged": 12,
+        "total_claims": 20,
+        "total_flagged": 13,
         "response_level_hallucination_rate": 0.9,
         "detector_modes_seen": [
           "hhem"
@@ -70,12 +66,12 @@
     },
     {
       "question": "What is the interest earned on a EUR 10,000 term deposit paying 2.5% annually after one year?",
-      "predicted": "0",
+      "predicted": "250",
       "verified": "250"
     },
     {
       "question": "Revenue grew from $1,204 million to $1,389 million. What was the percentage increase?",
-      "predicted": "20300.0%",
+      "predicted": "15.4%",
       "verified": "15.4%"
     },
     {
@@ -90,7 +86,7 @@
     },
     {
       "question": "A EUR 5,000 investment grows to EUR 5,400 in one year. What is the percentage return?",
-      "predicted": "-100.0%",
+      "predicted": "8.0%",
       "verified": "8.0%"
     },
     {

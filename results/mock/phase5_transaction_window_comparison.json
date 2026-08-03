@@ -1,0 +1,290 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-03T09:08:07.012209+00:00",
+    "git_sha": "0dd36cd-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "mock",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 5,
+  "agent": "BudgetAgent",
+  "finding": "1-month aggregation windows either completely miss an annual-lump category (insurance) or, if they happen to catch it, wrongly extrapolate it as if it recurred every window-length \u2014 never close to the true annualised rate. Only a 12-month window sees it correctly. The effect is scenario-dependent, not universal \u2014 TXN_BENCHMARK's low-variance spending is far more window-stable on non-lump categories, and TXN_INCOME_CHANGE inverts the usual direction (there, the SHORTER window is more accurate, because what changed was income, not lumpiness).",
+  "generator_seed": 42,
+  "hbs_anchoring_source": "config.settings.BudgetConfig.ireland_hbs_benchmarks (CSO Ireland HBS 2022-23 [D11])",
+  "customers": [
+    {
+      "customer_id": "TXN_LUMPY",
+      "scenario": "high_irregular_costs",
+      "narrative": "Oversized annual insurance renewal (5.5% of annual income, one lump in November) plus heavy-tailed discretionary spikes. A 1-month window misses it entirely unless it happens to land in November (100% underestimate). A 3-month window that DOES include November doesn't dilute the cost toward the truth \u2014 it roughly quadruples it, since a once-a-year payment gets wrongly treated as if it recurs every 3 months. Short windows on a lump cost are not 'a bit off either way' \u2014 they're either a complete miss or a large overstatement, never close. Only the 12-month window sees the true annualised rate.",
+      "monthly_income": 4200.0,
+      "windows": {
+        "1": {
+          "housing": 1176.0,
+          "food": 533.77,
+          "entertainment": 240.62
+        },
+        "3": {
+          "housing": 1176.0,
+          "entertainment": 352.32,
+          "food": 521.92,
+          "insurance": 924.0,
+          "utilities": 245.0
+        },
+        "12": {
+          "housing": 1176.0,
+          "food": 537.14,
+          "entertainment": 307.84,
+          "utilities": 294.0,
+          "insurance": 231.0
+        }
+      },
+      "per_category_error": {
+        "housing": {
+          "1m_estimate": 1176.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1176.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1176.0
+        },
+        "food": {
+          "1m_estimate": 533.77,
+          "1m_pct_error_vs_12m": 0.6,
+          "3m_estimate": 521.92,
+          "3m_pct_error_vs_12m": 2.8,
+          "12m_ground_truth": 537.14
+        },
+        "entertainment": {
+          "1m_estimate": 240.62,
+          "1m_pct_error_vs_12m": 21.8,
+          "3m_estimate": 352.32,
+          "3m_pct_error_vs_12m": 14.4,
+          "12m_ground_truth": 307.84
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 245.0,
+          "3m_pct_error_vs_12m": 16.7,
+          "12m_ground_truth": 294.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 924.0,
+          "3m_pct_error_vs_12m": 300.0,
+          "12m_ground_truth": 231.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_BENCHMARK",
+      "scenario": "entirely_within_benchmark",
+      "narrative": "Every category tracks its HBS benchmark fraction with low variance and a modest insurance line. Control case: if window size barely moves the estimate here while it moves it a lot for TXN_LUMPY, the effect is about lumpiness, not an artefact of the generator itself.",
+      "monthly_income": 4500.0,
+      "windows": {
+        "1": {
+          "food": 562.63,
+          "housing": 1260.0,
+          "entertainment": 236.98
+        },
+        "3": {
+          "food": 579.16,
+          "housing": 1260.0,
+          "entertainment": 223.42,
+          "utilities": 231.0
+        },
+        "12": {
+          "food": 574.5,
+          "housing": 1260.0,
+          "entertainment": 262.82,
+          "utilities": 315.0,
+          "insurance": 90.0
+        }
+      },
+      "per_category_error": {
+        "food": {
+          "1m_estimate": 562.63,
+          "1m_pct_error_vs_12m": 2.1,
+          "3m_estimate": 579.16,
+          "3m_pct_error_vs_12m": 0.8,
+          "12m_ground_truth": 574.5
+        },
+        "housing": {
+          "1m_estimate": 1260.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1260.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1260.0
+        },
+        "entertainment": {
+          "1m_estimate": 236.98,
+          "1m_pct_error_vs_12m": 9.8,
+          "3m_estimate": 223.42,
+          "3m_pct_error_vs_12m": 15.0,
+          "12m_ground_truth": 262.82
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 231.0,
+          "3m_pct_error_vs_12m": 26.7,
+          "12m_ground_truth": 315.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 90.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_INCOME_CHANGE",
+      "scenario": "mid_year_income_change",
+      "narrative": "Pay cut in month 7 (4000.0 -> 2800.0/month); food and discretionary spending drop in response, housing/utilities/insurance don't. Here the SHORTER window is more accurate: a 12-month average blends five months of stale pre-cut behaviour into an estimate of current reality. The window effect cuts both ways depending on what actually changed.",
+      "monthly_income": 2800.0,
+      "windows": {
+        "1": {
+          "food": 295.56,
+          "housing": 1120.0,
+          "entertainment": 55.92
+        },
+        "3": {
+          "housing": 1120.0,
+          "food": 266.15,
+          "utilities": 214.67,
+          "entertainment": 39.97
+        },
+        "12": {
+          "entertainment": 142.22,
+          "housing": 1120.0,
+          "food": 404.46,
+          "utilities": 280.0,
+          "insurance": 100.0
+        }
+      },
+      "per_category_error": {
+        "entertainment": {
+          "1m_estimate": 55.92,
+          "1m_pct_error_vs_12m": 60.7,
+          "3m_estimate": 39.97,
+          "3m_pct_error_vs_12m": 71.9,
+          "12m_ground_truth": 142.22
+        },
+        "housing": {
+          "1m_estimate": 1120.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1120.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1120.0
+        },
+        "food": {
+          "1m_estimate": 295.56,
+          "1m_pct_error_vs_12m": 26.9,
+          "3m_estimate": 266.15,
+          "3m_pct_error_vs_12m": 34.2,
+          "12m_ground_truth": 404.46
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 214.67,
+          "3m_pct_error_vs_12m": 23.3,
+          "12m_ground_truth": 280.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 100.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_NEGATIVE",
+      "scenario": "negative_disposable_income",
+      "narrative": "Housing alone is 55% of income (benchmark 28%); total expense fractions sum to ~1.16 of income by construction, so expenses exceed income in most months regardless of aggregation window. Not a window-size story \u2014 a savings_rate_flag story.",
+      "monthly_income": 2200.0,
+      "windows": {
+        "1": {
+          "housing": 1210.0,
+          "food": 534.02,
+          "entertainment": 519.23
+        },
+        "3": {
+          "housing": 1210.0,
+          "food": 474.2,
+          "entertainment": 336.6,
+          "insurance": 176.0,
+          "utilities": 168.67
+        },
+        "12": {
+          "food": 469.24,
+          "housing": 1210.0,
+          "entertainment": 457.31,
+          "utilities": 220.0,
+          "insurance": 44.0
+        }
+      },
+      "per_category_error": {
+        "food": {
+          "1m_estimate": 534.02,
+          "1m_pct_error_vs_12m": 13.8,
+          "3m_estimate": 474.2,
+          "3m_pct_error_vs_12m": 1.1,
+          "12m_ground_truth": 469.24
+        },
+        "housing": {
+          "1m_estimate": 1210.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1210.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1210.0
+        },
+        "entertainment": {
+          "1m_estimate": 519.23,
+          "1m_pct_error_vs_12m": 13.5,
+          "3m_estimate": 336.6,
+          "3m_pct_error_vs_12m": 26.4,
+          "12m_ground_truth": 457.31
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 168.67,
+          "3m_pct_error_vs_12m": 23.3,
+          "12m_ground_truth": 220.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 176.0,
+          "3m_pct_error_vs_12m": 300.0,
+          "12m_ground_truth": 44.0
+        }
+      }
+    }
+  ]
+}

@@ -1,5 +1,10 @@
 PROMPT_VERSION = "v1.0"
 
+INTENT_CLASSIFIER_SYSTEM = (
+    "You are an intent classifier for a retail banking assistant. "
+    "Respond with ONLY valid JSON, no other text, no explanation."
+)
+
 CONVERSATIONAL_SYSTEM = """
 You are the Conversational Agent in a multi-agent financial advisory \
     system designed for retail banking customers in Ireland.
