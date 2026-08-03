@@ -152,7 +152,41 @@ class TestReadinessGate:
         assert seq == [], "ExplainabilityAgent has nothing to explain on its own"
         assert unmet
 
+    def test_transactions_alone_satisfies_budget_agent(self, orch):
+        """
+        BudgetAgent has derived monthly_expenses from transactions since
+        Day 2a, but this satisfiability check only ever looked for
+        monthly_expenses directly — meaning FULL_ADVISORY would prune
+        BudgetAgent out for a customer whose data arrived as transactions,
+        even though BudgetAgent itself is perfectly able to run.
+        """
+        ok, _ = orch._agent_is_satisfiable(
+            "BudgetAgent",
+            {"monthly_income": 3000.0, "transactions": [
+                {"date": "2025-06-05", "category": "housing", "amount": 1000.0},
+            ]},
+        )
+        assert ok is True
 
+    def test_explicitly_empty_transactions_still_satisfies_budget_agent(self, orch):
+        """
+        An explicitly-empty list (TransactionStore.lookup() for a new
+        customer) is a real, meaningful BudgetAgent invocation --
+        BudgetAgent itself returns insufficient_history for it, which is
+        a genuine answer, not one to prune out before even trying.
+        """
+        ok, _ = orch._agent_is_satisfiable(
+            "BudgetAgent",
+            {"monthly_income": 3000.0, "transactions": []},
+        )
+        assert ok is True
+
+    def test_neither_expenses_nor_transactions_still_unsatisfiable(self, orch):
+        ok, reason = orch._agent_is_satisfiable(
+            "BudgetAgent", {"monthly_income": 3000.0},
+        )
+        assert ok is False
+        assert "spending" in reason
 
 # R15b — a safety downgrade must persist
 

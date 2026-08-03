@@ -104,7 +104,7 @@ class Orchestrator:
         self.llm = llm_client
         self.specialist_llm = self._derive_client(
             llm_client, settings.llm.specialist_model, "specialist",
-            provider=settings.llm.specialist_provider
+            provider=settings.llm.specialist_provider,
         )
         self.judge_llm = self._derive_client(
             llm_client, settings.llm.judge_model, "judge"
@@ -844,7 +844,10 @@ class Orchestrator:
                 context.get("monthly_income")
                 or (context.get("user_features") or {}).get("income")
             )
-            if not context.get("monthly_expenses"):
+            has_expense_data = bool(
+                context.get("monthly_expenses") or "transactions" in context
+            )
+            if not has_expense_data:
                 return False, "your monthly spending by category (rent, food, transport, ...)"
             if not has_income:
                 return False, "your monthly income"
