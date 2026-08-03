@@ -78,6 +78,13 @@ class ConversationalConfig:
             "investment_goal",
             "risk_tolerance",
             "time_horizon",
+            "housing_cost",
+            "rough_monthly_leftover",
+            "food_spend",
+            "utilities_spend",
+            "discretionary_spend",
+            "debt_repayments",
+            "large_recurring_items",
             ])
 
     #maximum conversation turns before forcing re-elicitation of stale slots

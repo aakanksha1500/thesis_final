@@ -16,6 +16,13 @@ from datetime import datetime
 from typing import Any
 
 from agents.base_agent import AgentResult, BaseAgent
+from agents.budget_questionnaire import (
+    blend_expenses,
+    build_monthly_expenses_from_slots,
+    is_sufficient,
+    next_question,
+    self_report_confidence,
+)
 from agents.data_sufficiency import assess_data_sufficiency
 from agents.periodicity_inference import (
     AMBIGUOUS_CATEGORIES,
@@ -203,7 +210,21 @@ class BudgetAgent(BaseAgent):
             {
               "monthly_expenses": {category: average euros/month over the window},
               "window_months": months,
+              "effective_months": int,
+                  # months actually averaged over — see window_start below.
+                  # Equals `months` whenever the customer has that much real
+                  # history; less than `months` when they don't. THIS is
+                  # the divisor used for monthly_expenses, never `months`
+                  # itself unconditionally — dividing a customer's only
+                  # real month of spending by a 12-month floor would
+                  # manufacture 11 fictional zero-spending months and
+                  # understate their true costs several-fold, which is a
+                  # worse failure than the short-window overstatement
+                  # problem this method was originally built to fix.
               "window_start": "YYYY-MM-DD",
+                  # clipped to the customer's earliest transaction if the
+                  # requested window would otherwise reach further back
+                  # than any real data exists
               "window_end": "YYYY-MM-DD",
               "transaction_count": int,   # transactions actually inside the window
               "total_transaction_count": int,  # transactions passed in, for reference
@@ -221,6 +242,7 @@ class BudgetAgent(BaseAgent):
             return {
                 "monthly_expenses": {},
                 "window_months": months,
+                "effective_months": 0,
                 "window_start": None,
                 "window_end": None,
                 "transaction_count": 0,
@@ -231,6 +253,7 @@ class BudgetAgent(BaseAgent):
 
         dates = [datetime.strptime(t["date"], "%Y-%m-%d") for t in transactions]
         end_date = datetime.strptime(as_of, "%Y-%m-%d") if as_of else max(dates)
+        earliest_date = min(dates)
 
         # "months back" by calendar month arithmetic, not a flat 30*months
         # days — so months=1 means "this calendar month", not "the last
@@ -239,7 +262,16 @@ class BudgetAgent(BaseAgent):
         end_year, end_month = end_date.year, end_date.month
         start_month_index = (end_year * 12 + (end_month - 1)) - (months - 1)
         start_year, start_month = divmod(start_month_index, 12)
-        start_date = datetime(start_year, start_month + 1, 1)
+        theoretical_start = datetime(start_year, start_month + 1, 1)
+
+        
+        earliest_month_start = datetime(earliest_date.year, earliest_date.month, 1)
+        start_date = max(theoretical_start, earliest_month_start)
+
+        effective_months = (
+            (end_date.year - start_date.year) * 12
+            + (end_date.month - start_date.month) + 1
+        )
 
         totals: dict[str, float] = {}
         by_category: dict[str, list[dict[str, Any]]] = {}
@@ -251,7 +283,7 @@ class BudgetAgent(BaseAgent):
                 in_window += 1
 
         monthly_expenses = {
-            category: round(total / months, 2)
+            category: round(total / effective_months, 2)
             for category, total in totals.items()
         }
 
@@ -271,6 +303,7 @@ class BudgetAgent(BaseAgent):
         return {
             "monthly_expenses": monthly_expenses,
             "window_months": months,
+            "effective_months": effective_months,
             "window_start": start_date.strftime("%Y-%m-%d"),
             "window_end": end_date.strftime("%Y-%m-%d"),
             "transaction_count": in_window,
@@ -286,10 +319,29 @@ class BudgetAgent(BaseAgent):
         benchmark_comparison: dict[str, dict],
         monthly_income: float,
         monthly_expenses: dict[str, float],
+        sufficiency_result: Any = None,
+        clarifying_questions: dict[str, str] | None = None,
+        questionnaire_confidence: dict[str, Any] | None = None,
     ) -> str:
         """
         Build the structured prompt for BUDGET_SYSTEM synthesis.
         All inputs are deterministically computed — LLM only narrates them.
+
+        sufficiency_result: agents.data_sufficiency.DataSufficiencyResult,
+            if this run derived monthly_expenses from transactions. None
+            (the explicit-monthly_expenses path) means no disclosure is
+            added — there's no coverage/density basis to disclose against.
+        clarifying_questions: from BudgetAgent._aggregate_transactions()'s
+            periodicity_flags. If non-empty, the LLM is told to surface
+            these rather than state the flagged categories' figures as
+            settled fact.
+        questionnaire_confidence: from agents.budget_questionnaire.
+            self_report_confidence(), if this run's monthly_expenses came
+            (fully or partly) from Section 2's questionnaire rather than
+            transaction history. Always capped at "medium" confidence
+            regardless of completeness — the LLM is told this explicitly
+            rather than left to infer confidence from how complete the
+            answers happen to look.
         """
         above_benchmark = {
             cat: data for cat, data in benchmark_comparison.items()
@@ -339,6 +391,36 @@ class BudgetAgent(BaseAgent):
         if savings_flag:
             prompt_lines.append(f"\nSAVINGS ALERT: {savings_flag}")
 
+        if sufficiency_result is not None:
+            prompt_lines.append(
+                f"\nDATA CONFIDENCE ({sufficiency_result.coverage_tier}): "
+                f"{sufficiency_result.disclosure}"
+            )
+            unverified = [
+                cs.category for cs in sufficiency_result.category_sufficiency.values()
+                if not cs.verified
+            ]
+            if unverified:
+                prompt_lines.append(
+                    f"Not yet verified, mention as uncertain rather than "
+                    f"stated fact: {', '.join(unverified)}"
+                )
+
+        if clarifying_questions:
+            prompt_lines.append(
+                "\nOPEN QUESTIONS — ask these rather than presenting the "
+                "flagged figures as settled:"
+            )
+            for category, question in clarifying_questions.items():
+                prompt_lines.append(f"  {category}: {question}")
+
+        if questionnaire_confidence is not None:
+            prompt_lines.append(
+                f"\nDATA CONFIDENCE (self-reported, capped at "
+                f"{questionnaire_confidence['confidence_tier']}): "
+                f"{questionnaire_confidence['disclosure']}"
+            )
+
         prompt_lines.append(
             "\nWrite your cashflow summary and recommendations now, "
             "per your system instructions."
@@ -377,63 +459,88 @@ class BudgetAgent(BaseAgent):
         monthly_expenses: dict = context.get("monthly_expenses", {})
         aggregation_info: dict | None = None
         sufficiency_result = None
+        questionnaire_confidence = None
 
-        # Derive monthly_expenses from transactions if not given directly —
-        # transactions is the richer input; a pre-computed monthly_expenses
-        # dict, if present, is assumed deliberate (e.g. a test fixture) and
-        # takes priority rather than being silently overwritten.
         if not monthly_expenses and "transactions" in context:
-            # Coverage/density is assessed against the FULL history the
-            # customer has, independent of whatever window we're about to
-            # average over — a customer with 3 months of data doesn't
-            # become "12-month reliable" just because
-            # min_aggregation_window_months asks for 12; it means we're
-            # about to average over a window mostly padded with months
-            # that have no data at all, which the sufficiency tier and
-            # density score need to reflect honestly.
             sufficiency_result = assess_data_sufficiency(
                 context["transactions"], monthly_income=monthly_income or None,
             )
-            if sufficiency_result.coverage_tier == "insufficient":
-                payload = {
-                    "status": "insufficient_history",
-                    "message": sufficiency_result.disclosure,
-                    "data_sufficiency": sufficiency_result.to_dict(),
-                }
-                duration_ms = (time.perf_counter() - start_time) * 1000
-                logger.warning(
-                    "[BudgetAgent] Insufficient transaction history "
-                    f"({sufficiency_result.available_months} month(s)) — "
-                    "not generating a budget from it."
+            if sufficiency_result.coverage_tier != "insufficient":
+                requested_window = context.get(
+                    "aggregation_window_months",
+                    settings.budget.default_aggregation_window_months,
                 )
-                return self._make_result(
-                    payload=payload,
-                    duration_ms=duration_ms,
-                    error="Insufficient transaction history",
+                window_months = max(
+                    requested_window, settings.budget.min_aggregation_window_months
                 )
-            requested_window = context.get(
-                "aggregation_window_months",
-                settings.budget.default_aggregation_window_months,
-            )
-            window_months = max(
-                requested_window, settings.budget.min_aggregation_window_months
-            )
-            if window_months != requested_window:
-                logger.warning(
-                    f"[BudgetAgent] Requested aggregation window "
-                    f"({requested_window} months) is below the "
-                    f"{settings.budget.min_aggregation_window_months}-month "
-                    f"minimum for reliable budget advice — clamped up. A "
-                    f"short window on an annual-lump cost (insurance, etc.) "
-                    f"either misses it entirely or overstates it several-fold; "
-                    f"see scripts/generate_transactions.py's window-comparison "
-                    f"evidence."
+                if window_months != requested_window:
+                    logger.warning(
+                        f"[BudgetAgent] Requested aggregation window "
+                        f"({requested_window} months) is below the "
+                        f"{settings.budget.min_aggregation_window_months}-month "
+                        f"minimum for reliable budget advice — clamped up. A "
+                        f"short window on an annual-lump cost (insurance, etc.) "
+                        f"either misses it entirely or overstates it several-fold; "
+                        f"see scripts/generate_transactions.py's window-comparison "
+                        f"evidence."
+                    )
+                aggregation_info = self._aggregate_transactions(
+                    context["transactions"], months=window_months,
+                    monthly_income=monthly_income or None,
                 )
-            aggregation_info = self._aggregate_transactions(
-                context["transactions"], months=window_months,
-                monthly_income=monthly_income or None,
+                monthly_expenses = aggregation_info["monthly_expenses"]
+
+       
+        questionnaire_answers = context.get("questionnaire_answers")
+        if questionnaire_answers:
+            customer_wants_to_stop = bool(context.get("customer_wants_to_stop", False))
+            if is_sufficient(questionnaire_answers, customer_wants_to_stop=customer_wants_to_stop):
+                self_reported_expenses = build_monthly_expenses_from_slots(questionnaire_answers)
+                
+                verified_categories = (
+                    {
+                        cat for cat, cs in sufficiency_result.category_sufficiency.items()
+                        if cs.verified
+                    }
+                    if sufficiency_result is not None else set()
+                )
+                monthly_expenses = blend_expenses(
+                    self_reported_expenses,
+                    monthly_expenses,  # whatever transactions already produced, if anything
+                    verified_categories,
+                )
+                questionnaire_confidence = self_report_confidence(questionnaire_answers)
+                if not monthly_income and questionnaire_answers.get("income"):
+                    monthly_income = float(questionnaire_answers["income"])
+
+        
+        if not monthly_expenses and (sufficiency_result is not None or questionnaire_answers is not None):
+            next_q = next_question(
+                questionnaire_answers or {},
+                customer_wants_to_stop=bool(context.get("customer_wants_to_stop", False)),
             )
-            monthly_expenses = aggregation_info["monthly_expenses"]
+            payload = {
+                "status": "insufficient_history",
+                "message": (
+                    sufficiency_result.disclosure if sufficiency_result is not None
+                    else "There isn't enough information yet to generate a reliable budget."
+                ),
+                "data_sufficiency": (
+                    sufficiency_result.to_dict() if sufficiency_result is not None else None
+                ),
+                "next_questionnaire_question": next_q.to_dict() if next_q is not None else None,
+            }
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            logger.warning(
+                "[BudgetAgent] Insufficient data from transactions and/or "
+                f"questionnaire — next question: "
+                f"{next_q.slot_name if next_q else 'none (nothing left to ask)'}"
+            )
+            return self._make_result(
+                payload=payload,
+                duration_ms=duration_ms,
+                error="Insufficient transaction history",
+            )
 
         # Validate inputs
         if monthly_income <= 0:
@@ -487,7 +594,10 @@ class BudgetAgent(BaseAgent):
 
         # Step 4 — LLM synthesis
         prompt = self._build_synthesis_prompt(
-            cashflow, benchmark_comparison, monthly_income, monthly_expenses
+            cashflow, benchmark_comparison, monthly_income, monthly_expenses,
+            sufficiency_result=sufficiency_result,
+            clarifying_questions=(aggregation_info or {}).get("clarifying_questions", {}),
+            questionnaire_confidence=questionnaire_confidence,
         )
         try:
             raw_text, tokens = self._call_llm(prompt)
@@ -523,8 +633,9 @@ class BudgetAgent(BaseAgent):
                 (aggregation_info or {}).get("clarifying_questions", {})
             ),
             "data_sufficiency": (
-                    sufficiency_result.to_dict() if sufficiency_result else None
-                ),
+                sufficiency_result.to_dict() if sufficiency_result else None
+            ),
+            "questionnaire_confidence": questionnaire_confidence,
         }
 
         duration_ms = (time.perf_counter() - start_time) * 1000

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -247,6 +248,87 @@ class TestSavingsRateFlag:
 @pytest.mark.evaluation   # produces results/*.json — see conftest._no_live_api_in_tests
 
 # GROUP C: Full run() integration + Phase 5 results file
+class TestSynthesisPromptSufficiencyContent:
+    """
+    The gap this closes: data_sufficiency and clarifying_questions were
+    computed and attached to the payload (Sections 1 and 3) but never
+    reached the actual LLM-generated narrative text a customer reads —
+    they sat in a separate payload field a caller had to know to look
+    for. Confirms the prompt itself, not just the payload, carries this.
+    """
+
+    def _cashflow_and_benchmark(self):
+        cashflow = {
+            "total_expenses": 2000.0, "disposable_income": 1000.0,
+            "savings_rate_pct": 25.0, "expense_fractions": {},
+        }
+        benchmark = {}
+        return cashflow, benchmark
+
+    def test_prompt_includes_disclosure_when_sufficiency_result_given(self):
+        from agents.data_sufficiency import assess_data_sufficiency
+        agent = make_agent()
+        cashflow, benchmark = self._cashflow_and_benchmark()
+        sufficiency = assess_data_sufficiency(
+            [{"date": "2025-06-05", "category": "housing", "amount": 1000.0}]
+        )
+        prompt = agent._build_synthesis_prompt(
+            cashflow, benchmark, 3000.0, {"housing": 1000.0},
+            sufficiency_result=sufficiency,
+        )
+        assert "DATA CONFIDENCE" in prompt
+        assert sufficiency.disclosure in prompt
+
+    def test_prompt_lists_unverified_categories(self):
+        from agents.data_sufficiency import assess_data_sufficiency
+        agent = make_agent()
+        cashflow, benchmark = self._cashflow_and_benchmark()
+        sufficiency = assess_data_sufficiency(
+            [{"date": "2025-06-01", "category": "insurance", "amount": 500.0}],
+            monthly_income=3000.0,
+        )
+        prompt = agent._build_synthesis_prompt(
+            cashflow, benchmark, 3000.0, {"insurance": 500.0},
+            sufficiency_result=sufficiency,
+        )
+        assert "insurance" in prompt
+        assert "Not yet verified" in prompt
+
+    def test_prompt_includes_clarifying_questions_when_given(self):
+        agent = make_agent()
+        cashflow, benchmark = self._cashflow_and_benchmark()
+        prompt = agent._build_synthesis_prompt(
+            cashflow, benchmark, 3000.0, {"insurance": 500.0},
+            clarifying_questions={"insurance": "Is this monthly, quarterly, half-yearly, or annual?"},
+        )
+        assert "OPEN QUESTIONS" in prompt
+        assert "Is this monthly, quarterly, half-yearly, or annual?" in prompt
+
+    def test_prompt_unaffected_when_neither_given(self):
+        """Backward compatibility: the explicit-monthly_expenses path
+        (no transactions) has neither -- prompt must be identical to
+        before this feature existed."""
+        agent = make_agent()
+        cashflow, benchmark = self._cashflow_and_benchmark()
+        prompt = agent._build_synthesis_prompt(cashflow, benchmark, 3000.0, {"housing": 1000.0})
+        assert "DATA CONFIDENCE" not in prompt
+        assert "OPEN QUESTIONS" not in prompt
+
+    def test_run_end_to_end_passes_sufficiency_into_the_prompt(self):
+        """Full run() with mock LLM -- spy on _call_llm to confirm the
+        actual prompt sent includes the disclosure, not just that the
+        payload has the field."""
+        agent = make_agent()
+        with patch.object(agent, "_call_llm", wraps=agent._call_llm) as spy:
+            agent.run({
+                "monthly_income": 3000.0,
+                "transactions": [
+                    {"date": "2025-06-05", "category": "housing", "amount": 1000.0},
+                ],
+            })
+        sent_prompt = spy.call_args[0][0]
+        assert "DATA CONFIDENCE" in sent_prompt
+
 class TestBudgetAgentRun:
 
     def test_missing_income_returns_incomplete(self):
@@ -434,6 +516,46 @@ SAMPLE_TRANSACTIONS = [
 
 class TestAggregateTransactions:
 
+    def test_divisor_is_actual_history_not_requested_window_when_shorter(self):
+        """
+        The bug: a customer with ONE real month of data, requesting a
+        12-month window (e.g. via the min_aggregation_window_months
+        floor), used to get that one month's total divided by 12 —
+        manufacturing 11 fictional zero-spending months and understating
+        true costs twelvefold. Found via a real session run producing a
+        95.8% savings rate for a customer whose true rate was ~50%.
+        """
+        agent = make_agent()
+        one_month_only = [
+            {"date": "2025-06-05", "category": "housing", "amount": 1200.0},
+        ]
+        result = agent._aggregate_transactions(one_month_only, months=12)
+        assert result["monthly_expenses"]["housing"] == pytest.approx(1200.0)
+        assert result["effective_months"] == 1
+        assert result["window_months"] == 12  # requested window is still reported
+
+    def test_effective_months_equals_requested_when_history_is_long_enough(self):
+        """The Day 2a customers (full 12 months of real data) must be
+        completely unaffected — effective_months == window_months
+        whenever real history covers the full requested window."""
+        agent = make_agent()
+        twelve_months = [
+            {"date": f"2025-{m:02d}-05", "category": "housing", "amount": 1000.0}
+            for m in range(1, 13)
+        ]
+        result = agent._aggregate_transactions(twelve_months, months=12, as_of="2025-12-31")
+        assert result["effective_months"] == 12
+        assert result["monthly_expenses"]["housing"] == pytest.approx(1000.0)
+
+    def test_partial_history_between_the_two_extremes(self):
+        """3 real months, 12-month window requested -- divisor should be
+        3, matching exactly what run() now asserts end to end."""
+        agent = make_agent()
+        result = agent._aggregate_transactions(SAMPLE_TRANSACTIONS, months=12)
+        assert result["effective_months"] == 3
+        assert result["monthly_expenses"]["housing"] == pytest.approx(1000.0)
+
+
     def test_empty_transactions_returns_empty_expenses(self):
         agent = make_agent()
         result = agent._aggregate_transactions([], months=3)
@@ -499,13 +621,14 @@ class TestTransactionBackedRun:
             "aggregation_window_months": 12,
         })
         assert result.success is True
-        # 3 months of €1000 housing = €3000 total / 12-month window = €250/month.
+        # 3 months of €1000 housing = €3000 total / 3 REAL months = €1000/month.
         # This IS correct, not a bug: SAMPLE_TRANSACTIONS only has 3 months of
         # data, so a genuine 12-month average is diluted by the 9 months with
         # no recorded spending — exactly the "measurable gap" the window
         # arithmetic is supposed to expose, not paper over.
-        assert result.payload["monthly_expenses"]["housing"] == pytest.approx(250.0)
+        assert result.payload["monthly_expenses"]["housing"] == pytest.approx(1000.0)
         assert result.payload["transaction_aggregation"]["window_months"] == 12
+        assert result.payload["transaction_aggregation"]["effective_months"] == 3
 
     def test_explicit_monthly_expenses_takes_priority_over_transactions(self):
         """
@@ -666,6 +789,100 @@ class TestDataSufficiencyIntegration:
         assert suff["coverage_tier"] == "high"
         assert suff["confidence_score"] < 0.3
 
+    # GROUP G: questionnaire integration (Section 2)
+
+_SUFFICIENT_QUESTIONNAIRE = {
+    "income": 3000.0, "housing_cost": 1200.0, "rough_monthly_leftover": 500.0,
+    "food_spend": 400.0, "utilities_spend": 150.0, "discretionary_spend": 200.0,
+}
+_PARTIAL_QUESTIONNAIRE = {"income": 3000.0, "housing_cost": 1200.0}
+
+
+class TestQuestionnaireIntegration:
+
+    def test_no_transactions_but_sufficient_questionnaire_produces_a_budget(self):
+        agent = make_agent()
+        result = agent.run({
+            "monthly_income": 3000.0,
+            "questionnaire_answers": _SUFFICIENT_QUESTIONNAIRE,
+        })
+        assert result.payload["status"] == "complete"
+        assert result.payload["monthly_expenses"]["housing"] == 1200.0
+        assert result.payload["monthly_expenses"]["food"] == 400.0
+
+    def test_questionnaire_confidence_capped_at_medium(self):
+        agent = make_agent()
+        result = agent.run({
+            "monthly_income": 3000.0,
+            "questionnaire_answers": _SUFFICIENT_QUESTIONNAIRE,
+        })
+        assert result.payload["questionnaire_confidence"]["confidence_tier"] == "medium"
+
+    def test_partial_questionnaire_returns_insufficient_with_next_question(self):
+        """Mandatory not fully answered (missing rough_monthly_leftover)
+        -- must report insufficient_history AND say what to ask next,
+        not just dead-end."""
+        agent = make_agent()
+        result = agent.run({
+            "monthly_income": 3000.0,
+            "questionnaire_answers": _PARTIAL_QUESTIONNAIRE,
+        })
+        assert result.payload["status"] == "insufficient_history"
+        assert result.payload["next_questionnaire_question"]["slot_name"] == "rough_monthly_leftover"
+
+    def test_empty_transactions_with_sufficient_questionnaire_uses_questionnaire(self):
+        """A brand-new customer (transactions=[]) who's answered the
+        questionnaire should get a budget from it, not just
+        insufficient_history — the questionnaire is exactly the
+        fallback for this case."""
+        agent = make_agent()
+        result = agent.run({
+            "monthly_income": 3000.0,
+            "transactions": [],
+            "questionnaire_answers": _SUFFICIENT_QUESTIONNAIRE,
+        })
+        assert result.payload["status"] == "complete"
+
+    def test_neither_transactions_nor_questionnaire_falls_through_to_incomplete(self):
+        """Confirms the restructure didn't break the original plain
+        caller-error path — no signal attempted at all still reports the
+        original generic 'incomplete', not insufficient_history."""
+        agent = make_agent()
+        result = agent.run({"monthly_income": 3000.0})
+        assert result.payload["status"] == "incomplete"
+
+    def test_verified_transaction_category_overrides_questionnaire_answer(self):
+        """A customer answers the questionnaire, but also has SOME real
+        transaction data that happens to verify a category (e.g. 2
+        months of consistent housing payments) -- the verified real
+        figure should win for that category, self-report elsewhere."""
+        agent = make_agent()
+        two_months_housing = [
+            {"date": "2025-05-05", "category": "housing", "amount": 1150.0},
+            {"date": "2025-06-05", "category": "housing", "amount": 1150.0},
+        ]
+        result = agent.run({
+            "monthly_income": 3000.0,
+            "transactions": two_months_housing,
+            "questionnaire_answers": _SUFFICIENT_QUESTIONNAIRE,
+            "aggregation_window_months": 2,
+        })
+        # housing was self-reported as 1200 but transaction-verified at 1150
+        assert result.payload["monthly_expenses"]["housing"] == pytest.approx(1150.0)
+        # food has no transaction data at all -- self-report survives
+        assert result.payload["monthly_expenses"]["food"] == 400.0
+
+    def test_synthesis_prompt_includes_questionnaire_disclosure(self):
+        agent = make_agent()
+        with patch.object(agent, "_call_llm", wraps=agent._call_llm) as spy:
+            agent.run({
+                "monthly_income": 3000.0,
+                "questionnaire_answers": _SUFFICIENT_QUESTIONNAIRE,
+            })
+        sent_prompt = spy.call_args[0][0]
+        assert "self-reported" in sent_prompt
+        assert "medium" in sent_prompt
+
     def test_missing_transactions_key_vs_explicit_empty_list_both_handled(self):
         """
         Regression guard: context.get("transactions") is falsy for [],
@@ -684,7 +901,7 @@ class TestDataSufficiencyIntegration:
         empty_list = agent.run({"monthly_income": 3000.0, "transactions": []})
         assert empty_list.payload["status"] == "insufficient_history"
         assert empty_list.payload["data_sufficiency"]["coverage_tier"] == "insufficient"
-        
+
     def test_requested_window_below_minimum_is_clamped_up(self):
         """
         A proper budget plan needs at least a year of history — a request
