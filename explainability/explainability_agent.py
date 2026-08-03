@@ -222,6 +222,10 @@ class ExplainabilityAgent(BaseAgent):
             parts.append(f"{top.get('category', '')} {top.get('name', '')}")
         return " ".join(parts).strip()
 
+    _CITATION_DOCUMENT_SETS: tuple[str, ...] = (
+        "regulatory", "cbi_open_data", "eu_digital_finance",
+    )
+
     def _get_rag_citations(
             self, context: dict[str, Any]
     ) -> list[dict]:
@@ -254,14 +258,16 @@ class ExplainabilityAgent(BaseAgent):
             return []
 
         try:
-            citations = knowledge_base.retrieve(query)
+            citations = knowledge_base.retrieve(
+                query, document_sets=list(self._CITATION_DOCUMENT_SETS)
+            )
         except Exception as exc:
             logger.warning(f"[ExplainabilityAgent] RAG retrieval failed: {exc} — returning []")
             return []
 
         logger.debug(
             f"[ExplainabilityAgent] RAG citations: {len(citations)} retrieved "
-            f"for query={query[:60]!r}..."
+             f"for query={query[:60]!r}... (scoped to {self._CITATION_DOCUMENT_SETS})"
         )
         return citations
 

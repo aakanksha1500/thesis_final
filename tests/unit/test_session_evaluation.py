@@ -274,3 +274,24 @@ class TestRealModeNarrativeContent:
         # Not a strict assertion on exact wording (LLM phrasing varies) --
         # printed for manual read-through rather than a brittle keyword
         # match on generated text.
+    
+    def test_questionnaire_only_narrative_mentions_self_reported_confidence(self):
+        """
+        Section 2's questionnaire disclosure is new prompt content, never
+        checked against a real LLM before. No transactions at all -- pure
+        self-report path.
+        """
+        orch = Orchestrator(LLMClient(), session_id="test-real-mode-eval-3")
+        _force(orch)
+        orch._session_state["monthly_income"] = 3000.0
+        orch._session_state["questionnaire_answers"] = {
+            "income": 3000.0, "housing_cost": 1200.0, "rough_monthly_leftover": 500.0,
+            "food_spend": 400.0, "utilities_spend": 150.0, "discretionary_spend": 200.0,
+        }
+        result = orch.process_turn("What does my budget look like?")
+        budget_text = _budget_result(result).payload["recommendations_text"]
+        print(f"\n[Session eval] BudgetAgent narrative (questionnaire path):\n{budget_text}\n")
+        assert any(
+            phrase in budget_text.lower()
+            for phrase in ("self-report", "estimate", "provided", "starting point")
+        ), "Expected the narrative to reflect the self-reported/medium-confidence basis somehow"

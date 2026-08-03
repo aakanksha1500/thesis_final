@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from data.customer_store import CustomerStore
+from evaluation.metrics import risk_alignment_rate
 from evaluation.results_io import write_results
 from orchestrator.orchestrator import Orchestrator
 from utils.llm_client import LLMClient
@@ -37,6 +38,8 @@ class TestExistingCustomerBaseline:
 
         per_profile = []
         correct = 0
+        predictions: list[str] = []
+        ground_truths: list[str] = []
 
         for customer_id in DEMO_CUSTOMER_IDS:
             orch = Orchestrator(
@@ -55,16 +58,21 @@ class TestExistingCustomerBaseline:
             expected = orch._session_state["ground_truth_risk_class"]
             is_correct = predicted == expected
             correct += int(is_correct)
+            predictions.append(predicted)
+            ground_truths.append(expected)
 
             per_profile.append({
                 "customer_id": customer_id,
                 "predicted_risk_class": predicted,
                 "ground_truth_risk_class": expected,
                 "correct": is_correct,
+                "confidence": risk_result.payload.get("confidence"),
+                "low_confidence": bool(risk_result.payload.get("confidence_flag")),
                 "status": risk_result.payload.get("status"),
             })
 
         agreement_rate = correct / len(DEMO_CUSTOMER_IDS)
+        alignment_result = risk_alignment_rate(predictions, ground_truths)
 
         results_payload = {
             "phase": "8b",
@@ -72,6 +80,7 @@ class TestExistingCustomerBaseline:
             "dataset": "demo_customers.json (3 profiles)",
             "metrics": {
                 "predicted_vs_ground_truth_agreement": agreement_rate,
+                "risk_alignment_rate": alignment_result.to_dict(),
                 "n_correct": correct,
                 "n_total": len(DEMO_CUSTOMER_IDS),
             },
@@ -81,15 +90,12 @@ class TestExistingCustomerBaseline:
             results_payload, "phase8b_existing_customer_baseline.json", llm.mode
         )
 
-        print(f"\n[Phase 8b] Demo profile agreement: {correct}/{len(DEMO_CUSTOMER_IDS)}")
+        print(f"\n[Phase 8b] Demo profile exact agreement: {correct}/{len(DEMO_CUSTOMER_IDS)}")
+        print(f"[Phase 8b] Demo profile tier-alignment rate: {alignment_result.value:.2f}")
         print(f"[Phase 8b] Results written to {results_path}")
 
-        # This is a fixture-quality gate, not a strict pass/fail RQ metric —
-        # demo profiles were hand-labelled to be internally consistent, so
-        # agreement should be perfect. A failure here means either the demo
-        # fixture or RiskProfilingAgent's scoring drifted — investigate,
-        # don't just relax the assertion.
-        assert agreement_rate == 1.0, (
-            f"Demo profile agreement dropped to {agreement_rate:.2f} — "
-            f"see per_profile in {results_path} for which profile mismatched."
-        )
+        assert alignment_result.value == 1.0, (
+            f"Demo profile tier-alignment dropped to {alignment_result.value:.2f} "
+            f"(exact agreement {agreement_rate:.2f}) — see per_profile in "
+            f"{results_path} for which profile is more than one tier off."
+         )

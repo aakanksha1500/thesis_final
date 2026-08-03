@@ -312,6 +312,65 @@ class BudgetAgent(BaseAgent):
             "clarifying_questions": clarifying_questions,
         }
 
+    def _deterministic_fallback_narrative(
+        self,
+        cashflow: dict[str, float],
+        savings_flag: str | None,
+        sufficiency_result: Any = None,
+        clarifying_questions: dict[str, str] | None = None,
+        questionnaire_confidence: dict[str, Any] | None = None,
+    ) -> str:
+        """
+        Used when the LLM synthesis call itself fails (rate limit,
+        timeout, provider outage — Section 4, production readiness
+        review: operational failures). No LLM available here by
+        definition, so this can't phrase anything naturally — but it
+        must not silently drop the disclosure or clarifying questions
+        just because the call that would have phrased them nicely
+        failed. An earlier version of this fallback did exactly that:
+        it reported the cashflow numbers fine, but a customer whose
+        insurance payment needed a clarifying question, or whose budget
+        was built on 1 month of history, would have gotten a
+        confident-sounding fallback with no caveat at all — worse than
+        the "normal" failure mode of a garbled LLM response, since a
+        human reading this would have no reason to doubt it.
+        """
+        lines = [
+            f"Your monthly disposable income is €{cashflow['disposable_income']:.2f} "
+            f"({cashflow['savings_rate_pct']:.1f}% savings rate). "
+            + (savings_flag or "Your savings rate appears healthy.")
+        ]
+
+        if sufficiency_result is not None:
+            lines.append(sufficiency_result.disclosure)
+            unverified = [
+                cs.category for cs in sufficiency_result.category_sufficiency.values()
+                if not cs.verified
+            ]
+            if unverified:
+                lines.append(
+                    f"Not yet verified from your transaction history: "
+                    f"{', '.join(unverified)}."
+                )
+        elif questionnaire_confidence is not None:
+            lines.append(questionnaire_confidence["disclosure"])
+        else:
+            lines.append(
+                "This analysis is based solely on the figures provided "
+                "and may not reflect your full financial picture."
+            )
+
+        if clarifying_questions:
+            lines.append("Before finalising this budget, we'd also like to confirm:")
+            for question in clarifying_questions.values():
+                lines.append(f"- {question}")
+
+        lines.append(
+            "(This summary was generated from your figures directly — "
+            "our usual narrative explanation wasn't available just now.)"
+        )
+        return " ".join(lines[:2]) + "".join(f"\n{line}" for line in lines[2:])
+    
     # LLM synthesis prompt builder
     def _build_synthesis_prompt(
         self,
@@ -385,6 +444,14 @@ class BudgetAgent(BaseAgent):
             prompt_lines.append(
                 f"Categories below benchmark: "
                 f"{', '.join(below_benchmark.keys())}"
+            )
+            prompt_lines.append(
+                "For categories below benchmark: this could reflect healthy "
+                "frugality, not necessarily something to correct. Don't "
+                "reflexively suggest cutting back further on spending "
+                "that's already below the national average — only flag it "
+                "if there's a specific reason to (e.g. it looks unusually "
+                "low relative to the category's typical minimum, like food)."
             )
 
         savings_flag = self._savings_rate_flag(cashflow["savings_rate_pct"])
@@ -491,7 +558,7 @@ class BudgetAgent(BaseAgent):
                 monthly_expenses = aggregation_info["monthly_expenses"]
 
        
-        questionnaire_answers = context.get("questionnaire_answers")
+        questionnaire_answers = context.get("questionnaire_answers") or None
         if questionnaire_answers:
             customer_wants_to_stop = bool(context.get("customer_wants_to_stop", False))
             if is_sufficient(questionnaire_answers, customer_wants_to_stop=customer_wants_to_stop):
@@ -606,13 +673,10 @@ class BudgetAgent(BaseAgent):
             logger.warning(
                 f"[BudgetAgent] Synthesis failed: {exc} — using fallback"
             )
-            recommendations_text = (
-                f"Your monthly disposable income is "
-                f"€{cashflow['disposable_income']:.2f} "
-                f"({cashflow['savings_rate_pct']:.1f}% savings rate). "
-                + (savings_flag or "Your savings rate appears healthy.")
-                + " This analysis is based solely on the figures provided "
-                "and may not reflect your full financial picture."
+            recommendations_text = self._deterministic_fallback_narrative(
+                cashflow, savings_flag, sufficiency_result,
+                (aggregation_info or {}).get("clarifying_questions", {}),
+                questionnaire_confidence,
             )
             tokens = 0
 

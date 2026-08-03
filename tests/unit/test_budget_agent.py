@@ -248,7 +248,7 @@ class TestSavingsRateFlag:
 @pytest.mark.evaluation   # produces results/*.json — see conftest._no_live_api_in_tests
 
 # GROUP C: Full run() integration + Phase 5 results file
-class TestSynthesisPromptSufficiencyContent:
+class TestDeterministicFallbackNarrative:
     """
     The gap this closes: data_sufficiency and clarifying_questions were
     computed and attached to the payload (Sections 1 and 3) but never
@@ -256,6 +256,77 @@ class TestSynthesisPromptSufficiencyContent:
     they sat in a separate payload field a caller had to know to look
     for. Confirms the prompt itself, not just the payload, carries this.
     """
+    def _cashflow(self):
+        return {
+            "total_expenses": 2000.0, "disposable_income": 1000.0,
+            "savings_rate_pct": 25.0, "expense_fractions": {},
+        }
+
+    def test_fallback_includes_sufficiency_disclosure(self):
+        from agents.data_sufficiency import assess_data_sufficiency
+        agent = make_agent()
+        sufficiency = assess_data_sufficiency(
+            [{"date": "2025-06-05", "category": "housing", "amount": 1000.0}]
+        )
+        text = agent._deterministic_fallback_narrative(
+            self._cashflow(), None, sufficiency_result=sufficiency,
+        )
+        assert sufficiency.disclosure in text
+
+    def test_fallback_lists_unverified_categories(self):
+        from agents.data_sufficiency import assess_data_sufficiency
+        agent = make_agent()
+        sufficiency = assess_data_sufficiency(
+            [{"date": "2025-06-01", "category": "insurance", "amount": 500.0}],
+            monthly_income=3000.0,
+        )
+        text = agent._deterministic_fallback_narrative(
+            self._cashflow(), None, sufficiency_result=sufficiency,
+        )
+        assert "insurance" in text
+
+    def test_fallback_includes_clarifying_questions(self):
+        agent = make_agent()
+        text = agent._deterministic_fallback_narrative(
+            self._cashflow(), None,
+            clarifying_questions={"insurance": "Is this monthly, quarterly, half-yearly, or annual?"},
+        )
+        assert "Is this monthly, quarterly, half-yearly, or annual?" in text
+
+    def test_fallback_includes_questionnaire_disclosure(self):
+        agent = make_agent()
+        text = agent._deterministic_fallback_narrative(
+            self._cashflow(), None,
+            questionnaire_confidence={
+                "source": "self_reported", "confidence_tier": "medium",
+                "disclosure": "This budget is based on your own estimates, not transaction history.",
+            },
+        )
+        assert "based on your own estimates" in text
+
+    def test_fallback_uses_generic_text_when_nothing_else_given(self):
+        """Backward compatible default: a fully-verified, high-confidence
+        run with no disclosure to add still gets a sensible fallback,
+        not an empty or broken one."""
+        agent = make_agent()
+        text = agent._deterministic_fallback_narrative(self._cashflow(), None)
+        assert "may not reflect your full financial picture" in text
+
+    def test_run_end_to_end_fallback_still_carries_clarifying_question(self):
+        """Force the LLM call to fail entirely -- the resulting
+        recommendations_text must still carry the insurance clarifying
+        question, not just the bare cashflow numbers."""
+        agent = make_agent()
+        with patch.object(agent, "_call_llm", side_effect=Exception("rate limited")):
+            result = agent.run({
+                "monthly_income": 3000.0,
+                "transactions": [
+                    {"date": f"2025-{m:02d}-01", "category": "housing", "amount": 1000.0}
+                    for m in range(1, 13)
+                ] + [{"date": "2025-06-01", "category": "insurance", "amount": 600.0}],
+            })
+        assert result.payload["status"] == "complete"
+        assert "monthly, quarterly, half-yearly, or annual" in result.payload["recommendations_text"]
 
     def _cashflow_and_benchmark(self):
         cashflow = {
@@ -313,6 +384,27 @@ class TestSynthesisPromptSufficiencyContent:
         prompt = agent._build_synthesis_prompt(cashflow, benchmark, 3000.0, {"housing": 1000.0})
         assert "DATA CONFIDENCE" not in prompt
         assert "OPEN QUESTIONS" not in prompt
+
+    def test_below_benchmark_prompt_warns_against_reflexive_cutback_advice(self):
+        """
+        Real-mode run produced contradictory advice for a below-benchmark
+        food category: 'align with the national average (14%)' followed
+        immediately by 'reduce your food expenses further' -- reducing
+        further moves AWAY from 14%, not toward it. Confirms the prompt
+        now tells the LLM not to reflexively suggest cutting back on
+        spending that's already below benchmark.
+        """
+        agent = make_agent()
+        cashflow, _ = self._cashflow_and_benchmark()
+        benchmark = {
+            "food": {
+                "user_fraction": 0.10, "benchmark_fraction": 0.14,
+                "label": "below", "gap_pct_points": -4.0,
+            },
+        }
+        prompt = agent._build_synthesis_prompt(cashflow, benchmark, 3000.0, {"food": 300.0})
+        assert "healthy frugality" in prompt
+        assert "Don't reflexively suggest cutting back" in prompt
 
     def test_run_end_to_end_passes_sufficiency_into_the_prompt(self):
         """Full run() with mock LLM -- spy on _call_llm to confirm the

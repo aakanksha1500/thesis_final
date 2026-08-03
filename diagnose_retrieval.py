@@ -32,7 +32,7 @@ QUERIES = [
     "what disclosures must an investment firm give a retail client",
 ]
 
-REGULATORY = ("cbi_open_data", "eu_digital_finance")
+REGULATORY = ("regulatory", "cbi_open_data", "eu_digital_finance")
 BAR = "=" * 78
 
 

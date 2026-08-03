@@ -611,6 +611,14 @@ class Orchestrator:
                 results_summary_parts.append(
                     f"[{r.agent_name}]\n{json.dumps(key_fields, indent=2)}"
                 )
+            elif r.payload.get("message"):
+                status_fields = {
+                    k: v for k, v in r.payload.items()
+                    if k in ("status", "message")
+                }
+                results_summary_parts.append(
+                    f"[{r.agent_name} — UNSUCCESSFUL]\n{json.dumps(status_fields, indent=2)}"
+                )
 
         results_summary = "\n\n".join(results_summary_parts)
         slots = self._session_state.get("user_features", {})
@@ -622,7 +630,10 @@ class Orchestrator:
             f"Agent outputs:\n{results_summary}\n\n"
             f"Synthesise a coherent, concise response (max 150 words) "
             f"for the retail investor. Include the CBI disclaimer if any "
-            f"investment content is present."
+            f"investment content is present. If any agent output above is "
+            f"marked UNSUCCESSFUL, state its 'message' plainly and honestly "
+            f"as part of your response — do not omit it and do not invent "
+            f"a recommendation to fill the gap."
         )
 
         try:

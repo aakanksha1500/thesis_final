@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from typing import Any
 
 from utils.logger import get_logger
@@ -100,4 +101,102 @@ def enforce(
     message = f"[{agent_name}] payload contract violation: " + "; ".join(problems)
     if strict_mode():
         raise PayloadContractError(message)
-    logger.error(message + "  (set STRICT_PAYLOADS=true to make this fatal)")
+    logger.error(message + "  (STRICT_PAYLOADS=false — logged, not raised)")
+
+
+
+@dataclass(frozen=True)
+class AgentCapability:
+    """
+    What an agent NEEDS and what it PRODUCES, expressed as context-dict keys.
+
+    A planner can never propose a step whose `requires` nothing in the
+    graph produces — see validate_capability_graph() below — because that
+    check runs over this exact declaration.
+    """
+    name: str
+    requires: frozenset[str]      # context keys that must be present
+    produces: frozenset[str]      # context keys it adds
+    description: str              # shown to the planner LLM
+    cost_hint: str                # "cheap" | "llm" | "expensive"
+
+
+CAPABILITIES: dict[str, AgentCapability] = {
+    "RiskProfilingAgent": AgentCapability(
+        name="RiskProfilingAgent",
+        requires=frozenset({"user_features"}),
+        produces=frozenset({"risk_class", "confidence", "feature_importance"}),
+        description="Classifies a customer's risk tier from their financial "
+                     "features. Required before any investment recommendation.",
+        cost_hint="llm",
+    ),
+    "InvestmentAgent": AgentCapability(
+        name="InvestmentAgent",
+        requires=frozenset({"risk_class", "user_features"}),
+        produces=frozenset({"shortlist", "synthesis"}),
+        description="Recommends products suitable for a given risk class.",
+        cost_hint="llm",
+    ),
+    "BudgetAgent": AgentCapability(
+        name="BudgetAgent",
+        requires=frozenset({"monthly_income", "monthly_expenses"}),
+        produces=frozenset({"disposable_income", "savings_rate_pct",
+                             "benchmark_comparison"}),
+        description="Analyses spending against Irish household benchmarks.",
+        cost_hint="cheap",
+    ),
+    "ExplainabilityAgent": AgentCapability(
+        name="ExplainabilityAgent",
+        requires=frozenset(),
+        produces=frozenset({"full_explanation", "calibration_note"}),
+        description="Explains whatever prior agents produced. Runs last.",
+        cost_hint="llm",
+    ),
+    "ConversationalAgent": AgentCapability(
+        name="ConversationalAgent",
+        requires=frozenset(),
+        produces=frozenset({"response", "intent"}),
+        description="Handles general conversation and clarification.",
+        cost_hint="llm",
+    ),
+}
+
+# Context keys that arrive from the user/customer record rather than from
+# any agent's `produces` — user_features via conversation slot-filling or a
+# CustomerStore lookup, monthly_income/monthly_expenses as direct turn
+# input. validate_capability_graph() treats these as satisfied without
+# requiring a producing capability.
+ORCHESTRATOR_SUPPLIED_KEYS = frozenset({
+    "user_features",
+    "monthly_income",
+    "monthly_expenses",
+})
+
+
+def validate_capability_graph() -> list[str]:
+    """
+    Static check on CAPABILITIES itself, independent of any particular run.
+
+    A capability graph with an unsatisfiable requirement is a bug the
+    planner would otherwise hit at runtime: PlanValidator (Day 4-5) would
+    reject every plan containing that agent, silently, for the life of the
+    project, because nothing declared anywhere can ever satisfy it. This
+    catches that at import/test time instead of via an unexplained
+    rejection-rate metric nobody investigates.
+
+    Returns a list of human-readable problems; empty means every
+    `requires` key is covered by either some capability's `produces` or
+    ORCHESTRATOR_SUPPLIED_KEYS.
+    """
+    produced = {key for cap in CAPABILITIES.values() for key in cap.produces}
+    satisfiable = produced | ORCHESTRATOR_SUPPLIED_KEYS
+    problems: list[str] = []
+    for cap in CAPABILITIES.values():
+        unmet = cap.requires - satisfiable
+        if unmet:
+            problems.append(
+                f"{cap.name}: requires {sorted(unmet)}, which nothing in "
+                f"CAPABILITIES produces and which is not in "
+                f"ORCHESTRATOR_SUPPLIED_KEYS"
+            )
+    return problems

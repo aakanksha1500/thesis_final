@@ -198,10 +198,7 @@ class TestKnowledgeBase:
         assert "eu_digital_finance" not in present, (
             "EU set must be empty without real data — no synthetic regulation"
         )
-        assert "regulatory" not in present, (
-            "curated regulatory set must be empty until "
-            "scripts/build_regulatory_corpus.py has run"
-        )
-        # The illustrative sets still seed, and still say so.
-        assert present <= {"cbi_open_data", "finqa_original", "finqa_verified"}
+        assert present <= {
+            "cbi_open_data", "finqa_original", "finqa_verified", "regulatory",
+        }
 

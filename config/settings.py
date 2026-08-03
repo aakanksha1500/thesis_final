@@ -106,7 +106,7 @@ class RiskConfig:
     capacity_weight: float = 0.5
     use_trained_model: bool = field(
         default_factory=lambda: (
-            os.getenv("USE_TRAINED_RISK_MODEL", "false").lower() == "true"
+            os.getenv("USE_TRAINED_RISK_MODEL", "true").lower() == "true"
         )
     )
     risk_classes: list = field(default_factory=lambda: [
@@ -188,7 +188,7 @@ class ExplainabilityConfig:
     needed to switch ablation conditions. Calibration note (X3) always on.
     """
     use_shap: bool = True
-    use_rag_citation: bool = False  # off until Phase 8 RAG is built
+    use_rag_citation: bool = True  
     use_counterfactual: bool = True
     use_calibration_note: bool = True  # X3 — never ablated
     prompt_version: str = "v1.0"
