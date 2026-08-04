@@ -109,8 +109,11 @@ class TestMarketDataClient:
     def test_write_snapshot_skips_unfetchable_tickers_without_raising(self, tmp_path):
         # enabled=False -> _fetch_live always returns None -> snapshot ends
         # up empty, but write_snapshot must still complete and write valid JSON.
+        print(tmp_path, "testing^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
         client = MarketDataClient()
+        print(client,"@##########################################################")
         out_path = client.write_snapshot(["VT", "BND"], path=tmp_path / "out.json")
+        print(out_path, "55555555555555555555555555555555555")
         assert out_path.exists()
         with open(out_path) as f:
             data = json.load(f)

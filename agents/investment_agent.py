@@ -23,6 +23,11 @@ import time
 from typing import Any
 
 from agents.base_agent import AgentResult, BaseAgent
+from agents.periodicity_inference import (
+    PERIOD_TO_MONTHLY_DIVISOR,
+    build_clarifying_question,
+    infer_periodicity,
+)
 from config.constraints import financial_constraints
 from config.prompts import INVESTMENT_SYSTEM
 from config.settings import settings
@@ -537,11 +542,125 @@ class InvestmentAgent(BaseAgent):
 
     # Hybrid layer 3 — LLM synthesis
 
+    # Existing-contribution detection (Section 3, reused not duplicated)
+    CONTRIBUTION_CATEGORIES: tuple[str, ...] = ("sip", "pension")
+
+    def _detect_contributions(
+        self,
+        transactions: list[dict[str, Any]],
+        monthly_income: float | None,
+    ) -> dict[str, Any]:
+        """
+        Detect what the customer is ALREADY contributing to investments or a
+        pension, from their transaction history.
+
+        WHY THIS AGENT NEEDS IT
+            Recommending a €300/month equity fund to someone already putting
+            €400/month into a SIP and €250 into a pension is not a suitability
+            failure the constraint layer can catch — every individual product
+            passes the CBI allow-list. It's a failure to look at what's
+            already there. Left undetected, the agent's advice is
+            systematically additive: it can only ever tell people to invest
+            more, because it has no representation of what they already do.
+
+        WHY IT REUSES periodicity_inference RATHER THAN ITS OWN HEURISTIC
+            This is exactly the same problem BudgetAgent has with insurance —
+            one observed contribution could be a monthly standing order or a
+            one-off lump, and the two imply very different monthly capacity.
+            The Section 3 design doc named InvestmentAgent as the second
+            consumer of that component and it was never actually wired; this
+            is that wiring. A separate heuristic here would be a second,
+            differently-wrong answer to a question already answered once.
+
+        THE DISCIPLINE THAT MATTERS
+            A contribution whose period is CONFIDENTLY inferred is converted
+            to a monthly equivalent and stated as fact. One that is not is
+            reported as ambiguous with a clarifying question, and its amount
+            is deliberately NOT annualised using the category prior — the
+            prior is a phrasing hint, and turning it into a number in a
+            suitability assessment is the silent-assumption failure the whole
+            component exists to prevent.
+
+        Returns:
+            {
+              "confirmed": {category: {"monthly_equivalent": float,
+                                       "period": str, "observed_count": int}},
+              "ambiguous": {category: PeriodicityResult.to_dict()},
+              "clarifying_questions": {category: question_text},
+              "total_monthly_committed": float,   # confirmed ONLY, never ambiguous
+              "has_unquantified_commitments": bool,
+            }
+        """
+        empty: dict[str, Any] = {
+            "confirmed": {}, "ambiguous": {}, "clarifying_questions": {},
+            "total_monthly_committed": 0.0, "has_unquantified_commitments": False,
+        }
+        if not transactions:
+            return empty
+
+        by_category: dict[str, list[dict[str, Any]]] = {}
+        for txn in transactions:
+            category = txn.get("category")
+            if category in self.CONTRIBUTION_CATEGORIES:
+                by_category.setdefault(category, []).append(txn)
+        if not by_category:
+            return empty
+
+        # Materiality is judged against income when we have it. Without
+        # income, infer_periodicity() can still establish the PERIOD from
+        # gap consistency (which needs no income at all) — it only loses the
+        # ability to decide whether an ambiguous case is worth asking about,
+        # which is the correct thing to lose.
+        income_for_materiality = float(monthly_income or 0.0)
+
+        confirmed: dict[str, Any] = {}
+        ambiguous: dict[str, Any] = {}
+        questions: dict[str, str] = {}
+
+        for category, txns in by_category.items():
+            result = infer_periodicity(category, txns, income_for_materiality)
+            avg_amount = sum(t["amount"] for t in txns) / len(txns)
+
+            if result.inferred_period and not result.needs_clarification:
+                divisor = PERIOD_TO_MONTHLY_DIVISOR.get(result.inferred_period)
+                if divisor is None:
+                    continue
+                confirmed[category] = {
+                    "monthly_equivalent": round(avg_amount * divisor, 2),
+                    "period": result.inferred_period,
+                    "observed_count": result.occurrence_count,
+                    "average_amount": round(avg_amount, 2),
+                    "basis": result.reason,
+                }
+            else:
+                ambiguous[category] = result.to_dict()
+                question = build_clarifying_question(result)
+                if question:
+                    questions[category] = question
+                elif result.occurrence_count:
+                    # Not material enough to interrupt over, but still real
+                    # money we can't quantify. Recorded rather than dropped.
+                    ambiguous[category]["suppressed_question_reason"] = (
+                        "Immaterial relative to income — not worth interrupting "
+                        "the conversation, but still unquantified."
+                    )
+
+        return {
+            "confirmed": confirmed,
+            "ambiguous": ambiguous,
+            "clarifying_questions": questions,
+            "total_monthly_committed": round(
+                sum(c["monthly_equivalent"] for c in confirmed.values()), 2
+            ),
+            "has_unquantified_commitments": bool(ambiguous),
+        }
+
     def _build_synthesis_prompt(
         self,
         risk_class: str,
         shortlist: list[dict[str, Any]],
         user_features: dict[str, Any],
+        contributions: dict[str, Any] | None = None,
     ) -> str:
         """
         Builds the LLM prompt using ONLY the already-filtered, already-
@@ -549,6 +668,10 @@ class InvestmentAgent(BaseAgent):
         any rejected product, so it has no way to reference something it
         wasn't given (a concrete anti-hallucination guardrail for this
         agent).
+        contributions: from _detect_contributions(). Confirmed commitments
+            are stated as fact; ambiguous ones are handed to the model as
+            open questions to ASK, never as figures to reason over — same
+            treatment BudgetAgent gives its own periodicity flags.
         """
         horizon = user_features.get("investment_horizon", "not stated")
         lines = [
@@ -566,6 +689,34 @@ class InvestmentAgent(BaseAgent):
                 f"typical_horizon_years={product['typical_horizon_years']}, "
                 f"score={product['score']}"
             )
+        if contributions and contributions.get("confirmed"):
+            lines.append(
+                "\nEXISTING COMMITMENTS the customer already makes (detected "
+                "from their transaction history, period confirmed by repeated "
+                "observation — treat these as established fact, and take them "
+                "into account rather than recommending on top of them as "
+                "though they didn't exist):"
+            )
+            for category, info in contributions["confirmed"].items():
+                lines.append(
+                    f"  {category}: €{info['monthly_equivalent']:.2f}/month "
+                    f"(observed {info['observed_count']}x, "
+                    f"{info['period'].replace('_', ' ')})"
+                )
+            lines.append(
+                f"  Total already committed: "
+                f"€{contributions['total_monthly_committed']:.2f}/month"
+            )
+
+        if contributions and contributions.get("clarifying_questions"):
+            lines.append(
+                "\nOPEN QUESTIONS about existing commitments — the customer "
+                "appears to contribute to these, but how often could not be "
+                "determined from the data. ASK, do not assume a figure and do "
+                "not fold these into any total:"
+            )
+            for category, question in contributions["clarifying_questions"].items():
+                lines.append(f"  {category}: {question}")
         lines.append(
             "\nWrite the recommendation now, per your system instructions."
         )
@@ -635,9 +786,25 @@ class InvestmentAgent(BaseAgent):
         if shortlist:
             trace.emit("RANK", f"top={shortlist[0]['product_id']}",
                        score=shortlist[0]["score"], shortlisted=len(shortlist))
+        # Section 3 reuse — what is the customer ALREADY contributing?
+        # Runs after ranking (so it can't affect which products survive
+        # suitability filtering — that stays a pure CBI rule decision) and
+        # before synthesis (so the narrative can account for it).
+        contributions = self._detect_contributions(
+            context.get("transactions") or [],
+            context.get("monthly_income")
+            or (user_features.get("income", 0) / 12 if user_features.get("income") else None),
+        )
+        if contributions["confirmed"] or contributions["ambiguous"]:
+            trace.emit(
+                "CONTRIB", "existing commitments",
+                confirmed=len(contributions["confirmed"]),
+                ambiguous=len(contributions["ambiguous"]),
+                committed=contributions["total_monthly_committed"],
+            )
 
         # Layer 3 — LLM synthesis over the shortlist only
-        prompt = self._build_synthesis_prompt(risk_class, shortlist, user_features)
+        prompt = self._build_synthesis_prompt(risk_class, shortlist, user_features, contributions=contributions)
         try:
             raw_synthesis, tokens = self._call_llm(prompt)
             synthesis = raw_synthesis.strip()
@@ -720,6 +887,8 @@ class InvestmentAgent(BaseAgent):
             "hallucination_flagged": bool(
                 hallucination_report and hallucination_report["n_flagged"] > 0
             ),
+            "existing_contributions": contributions,
+            "clarifying_questions": contributions["clarifying_questions"],
         }
 
         duration_ms = (time.perf_counter() - start_time) * 1000

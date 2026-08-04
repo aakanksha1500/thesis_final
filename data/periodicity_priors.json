@@ -1,0 +1,104 @@
+{
+  "_meta": {
+    "schema_version": "1.0",
+    "generated": false,
+    "status": "illustrative_defaults",
+    "last_reviewed": "2026-08-03",
+    "purpose": "Category-level periodicity priors for agents/periodicity_inference.py. This file IS the methodology for Section 3's step-3 'category prior' signal, in the same way data/banking77_bucket_map.json is the methodology for the intent taxonomy: the values are visible, versioned, dated and attributed rather than being an undocumented dict inside a module.",
+    "honest_limitation": "Every entry below with source='illustrative_default' is exactly that — a plausible modal period chosen to make the clarifying question read naturally, NOT a figure derived from any dataset. No public dataset of retail payment periodicity by expense category was available for this project, and inventing an empirical-looking citation for a number that has no dataset behind it would be a worse failure than saying so. A deploying institution is expected to replace these with priors fitted to its own transaction population — see how_to_override.",
+    "how_to_override": "Point settings.budget.periodicity_priors_path at a different JSON file with the same schema, or edit this one. No code change is needed. agents.periodicity_inference falls back to _BUILTIN_PRIORS if the file is missing or malformed, so a bad override degrades to the documented defaults rather than crashing a customer session.",
+    "invariant": "A prior may only affect the PHRASING of a clarifying question (its 'most customers pay this X' hint) and the ranking of candidate questions. It may never cause a question to be skipped, and it may never be written into monthly_expenses as though it were observed. Enforced by test_periodicity_inference.TestPriorsAreAdvisoryOnly.",
+    "field_definitions": {
+      "ambiguous": "Whether a single observed occurrence of this category is genuinely ambiguous enough to be worth asking about (given materiality). Categories not listed here at all are treated as non-ambiguous.",
+      "modal_period": "The most common period for this category, used ONLY as a phrasing hint. null means 'no defensible modal period' — the clarifying question is then asked without a suggested default rather than with a made-up one.",
+      "prior_strength": "weak | calibrated. 'weak' means illustrative; 'calibrated' means fitted to a real population. Nothing in this file is 'calibrated' — the field exists so an institution replacing these values can mark which ones it has actually fitted, and so the audit log can distinguish the two.",
+      "source": "illustrative_default | <dataset identifier>",
+      "source_detail": "Free text: what the value is based on, or an explicit statement that it is not based on anything.",
+      "last_reviewed": "ISO date this entry was last looked at. A prior nobody has reviewed in two years is a stale number with a provenance stamp, which is worse than an obviously undated one.",
+      "notes": "Why this particular period was chosen as the illustrative default, and what would make it wrong."
+    }
+  },
+  "priors": {
+    "insurance": {
+      "ambiguous": true,
+      "modal_period": "quarterly",
+      "prior_strength": "weak",
+      "source": "illustrative_default",
+      "source_detail": "Not derived from any dataset. Chosen because motor and home policies in Ireland are commonly offered both as an annual lump and as a monthly/quarterly instalment plan, so no single period is safe to assume.",
+      "last_reviewed": "2026-08-03",
+      "notes": "This is the motivating case for the whole of Section 3. If a real distribution ever becomes available it should replace this first, because insurance is both high-value and genuinely split across periods."
+    },
+    "subscription": {
+      "ambiguous": true,
+      "modal_period": "monthly",
+      "prior_strength": "weak",
+      "source": "illustrative_default",
+      "source_detail": "Not derived from any dataset. Reflects the prevailing default billing cycle of consumer streaming/software services.",
+      "last_reviewed": "2026-08-03",
+      "notes": "Weakest-consequence prior in the file: subscriptions are usually immaterial by the 5%-of-income test, so they rarely reach the clarifying-question path at all."
+    },
+    "school_fees": {
+      "ambiguous": true,
+      "modal_period": "annual",
+      "prior_strength": "weak",
+      "source": "illustrative_default",
+      "source_detail": "Not derived from any dataset. Reflects the academic-year billing convention.",
+      "last_reviewed": "2026-08-03",
+      "notes": "Termly billing is common enough that 'annual' should not be trusted; the point of asking is precisely that a termly payer and an annual payer look identical after one observation."
+    },
+    "sip": {
+      "ambiguous": true,
+      "modal_period": "monthly",
+      "prior_strength": "weak",
+      "source": "illustrative_default",
+      "source_detail": "Not derived from any dataset. Systematic investment plans are conventionally set up as monthly standing orders.",
+      "last_reviewed": "2026-08-03",
+      "notes": "Used by InvestmentAgent's contribution detection as well as BudgetAgent — see agents/investment_agent.py _detect_contributions()."
+    },
+    "pension": {
+      "ambiguous": true,
+      "modal_period": "monthly",
+      "prior_strength": "weak",
+      "source": "illustrative_default",
+      "source_detail": "Not derived from any dataset. Reflects payroll-deduction cadence.",
+      "last_reviewed": "2026-08-03",
+      "notes": "An AVC lump sum near the tax deadline is annual and would be misread by this prior — which is why the prior can only phrase the question, not answer it."
+    },
+    "membership": {
+      "ambiguous": true,
+      "modal_period": "annual",
+      "prior_strength": "weak",
+      "source": "illustrative_default",
+      "source_detail": "Not derived from any dataset. Professional bodies and clubs commonly bill yearly.",
+      "last_reviewed": "2026-08-03",
+      "notes": "Gym memberships are monthly and would be misread by this prior."
+    },
+    "maintenance": {
+      "ambiguous": true,
+      "modal_period": "monthly",
+      "prior_strength": "weak",
+      "source": "illustrative_default",
+      "source_detail": "Not derived from any dataset. Management-company service charges are commonly billed monthly or annually depending on the development.",
+      "last_reviewed": "2026-08-03",
+      "notes": "Genuinely bimodal. A weak prior here is close to useless, which is itself the honest position."
+    },
+    "property_tax": {
+      "ambiguous": true,
+      "modal_period": "annual",
+      "prior_strength": "weak",
+      "source": "illustrative_default",
+      "source_detail": "Not derived from any dataset. Irish Local Property Tax is assessed annually, though it can be paid by instalment.",
+      "last_reviewed": "2026-08-03",
+      "notes": "The instalment option is exactly why this still needs asking rather than assuming."
+    },
+    "estimated_tax": {
+      "ambiguous": true,
+      "modal_period": null,
+      "prior_strength": "weak",
+      "source": "illustrative_default",
+      "source_detail": "Deliberately null. Preliminary/self-assessment tax payment patterns vary too much between PAYE, self-employed and proprietary-director customers for any single modal period to be defensible.",
+      "last_reviewed": "2026-08-03",
+      "notes": "A null modal_period is a first-class value, not a gap: build_clarifying_question() then asks without a suggested default, which is the correct behaviour when no default is defensible."
+    }
+  }
+}

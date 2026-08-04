@@ -30,6 +30,15 @@ import time
 from typing import Any
 
 from agents.base_agent import AgentResult, BaseAgent
+from agents.budget_questionnaire import (
+    MAX_QUESTIONS_PER_SITTING,
+    QuestionnaireQuestion,
+    detect_stop_intent,
+    is_plausible,
+    is_sufficient,
+    next_question,
+    parse_money_answer,
+)
 from config.prompts import CONVERSATIONAL_SYSTEM, INTENT_CLASSIFIER_SYSTEM
 from config.settings import settings
 from utils.llm_client import LLMClient
@@ -122,6 +131,12 @@ class ConversationalAgent(BaseAgent):
         self._turn_count: int = 0
         self.last_classification_error: str | None = None
         self.last_classification_error_status: int | None = None
+        self._questionnaire_active: bool = False
+        self._pending_question: QuestionnaireQuestion | None = None
+        self._questions_asked_this_sitting: int = 0
+        self._skipped_slots: set[str] = set()
+        self._customer_wants_to_stop: bool = False
+        self._questionnaire_events: list[dict[str, Any]] = []
 
     @property
     def system_prompt(self) -> str:
@@ -249,6 +264,366 @@ class ConversationalAgent(BaseAgent):
             pass
         return {}
 
+    # QUESTIONNAIRE MODE — turn-by-turn loop
+    #
+    # WHY THIS LIVES IN ConversationalAgent
+    #     agents/budget_questionnaire.py already had the schema, the ordering,
+    #     the stopping criteria and the confidence ceiling; what it never had
+    #     was anything that actually ASKED. questionnaire_answers had to
+    #     arrive at BudgetAgent already-structured, which meant the module was
+    #     a well-specified form nobody could fill in.
+    #
+    #     The asking belongs here for the same reason slot tracking already
+    #     does: this agent is the only user-facing surface in the system, it
+    #     already owns persistent per-session slot state, and it already has
+    #     the one LLM client that's allowed to interpret free text. Putting
+    #     the loop in BudgetAgent would either give a specialist agent a
+    #     second conversational surface (the exact monolith Gap 1 is about) or
+    #     require it to return "ask this next" on every turn and trust the
+    #     caller to do it — which is what the previous design did, and why the
+    #     loop was never actually closed.
+    #
+    #     The division of labour is unchanged and deliberate: this agent
+    #     decides WHAT TO ASK and PARSES what comes back; BudgetAgent decides
+    #     what the answers MEAN. No budget arithmetic happens in here.
+    #
+    # WHERE THE LLM IS AND ISN'T USED
+    #     Deterministic (budget_questionnaire's regex layer): which question
+    #     is next, whether a reply contains a stop signal, whether it contains
+    #     a skip, and the number itself in the common cases. Free, reproducible,
+    #     unit-testable, and identical every run.
+    #     LLM: only the residue — a reply the rules couldn't read at all
+    #     ("about twelve hundred"), and an ambiguous non-answer that might or
+    #     might not be someone asking to stop. Even then the model only
+    #     PROPOSES: an extracted figure is range-checked before it's accepted,
+    #     because a misread order of magnitude here goes straight into a
+    #     budget, and mock/offline mode must degrade to "ask again" rather
+    #     than to a wrong number.
+
+    def start_questionnaire(
+        self, seed_slots: dict[str, Any] | None = None
+    ) -> QuestionnaireQuestion | None:
+        """
+        Enter questionnaire mode and return the first question to ask, or
+        None if nothing needs asking.
+
+        Seeds from slots already collected this session — income is tracked
+        for risk profiling and is reused rather than asked a second time,
+        which is the single most irritating thing a form can do to someone
+        who has already answered it.
+        """
+        self._questionnaire_active = True
+        self._questions_asked_this_sitting = 0
+        self._skipped_slots = set()
+        self._customer_wants_to_stop = False
+        if seed_slots:
+            self.update_slots(seed_slots)
+
+        question = next_question(
+            self.questionnaire_answers,
+            questions_asked_this_sitting=0,
+            skipped_slots=self._skipped_slots,
+        )
+        self._pending_question = question
+        if question is None:
+            self._questionnaire_active = False
+            self._record_questionnaire_event("start", detail="nothing to ask")
+        else:
+            self._questions_asked_this_sitting += 1
+            self._record_questionnaire_event("ask", slot=question.slot_name)
+        return question
+
+    @property
+    def questionnaire_answers(self) -> dict[str, Any]:
+        """
+        The questionnaire's view of session slots: only the slots the
+        questionnaire schema actually cares about, so a risk-profiling slot
+        like `age` never leaks into BudgetAgent's answer set.
+        """
+        from agents.budget_questionnaire import QUESTIONNAIRE_SCHEMA
+        return {
+            q.slot_name: self._slots[q.slot_name]
+            for q in QUESTIONNAIRE_SCHEMA
+            if self._slots.get(q.slot_name) is not None
+        }
+
+    @property
+    def questionnaire_state(self) -> dict[str, Any]:
+        """Everything the Orchestrator/BudgetAgent needs to continue or finish."""
+        answers = self.questionnaire_answers
+        return {
+            "active": self._questionnaire_active,
+            "pending_question": (
+                self._pending_question.to_dict() if self._pending_question else None
+            ),
+            "answers": answers,
+            "skipped_slots": sorted(self._skipped_slots),
+            "questions_asked_this_sitting": self._questions_asked_this_sitting,
+            "customer_wants_to_stop": self._customer_wants_to_stop,
+            "sufficient": is_sufficient(
+                answers,
+                customer_wants_to_stop=self._customer_wants_to_stop,
+                questions_asked_this_sitting=self._questions_asked_this_sitting,
+                skipped_slots=self._skipped_slots,
+            ),
+            "events": list(self._questionnaire_events),
+        }
+
+    def _record_questionnaire_event(self, kind: str, **fields: Any) -> None:
+        """
+        Append-only trace of the questionnaire. Exists because the interesting
+        failure modes here are conversational, not computational — a question
+        asked twice, a stop signal missed, a figure accepted from the LLM that
+        the rules had already refused — and none of them are visible in the
+        final answers dict alone. This is what makes a session replayable.
+        """
+        self._questionnaire_events.append(
+            {"turn": self._turn_count, "event": kind, **fields}
+        )
+
+    def _detect_stop_intent(self, user_message: str) -> tuple[bool, str]:
+        """
+        Hybrid stop detection. Returns (wants_to_stop, basis).
+
+        Rules first — they're high-precision and cover the common phrasings.
+        Only a genuinely ambiguous message (no recognised stop phrase, no
+        number, no skip phrase) costs an LLM call, and if that call fails or
+        is running against a mock client the answer is False: the fallback on
+        an unreadable message is to keep the conversation going, because the
+        recovery from that (they say "stop" again, more plainly) is cheap and
+        obvious, whereas silently ending a questionnaire someone wanted is not
+        recoverable at all — they just get a worse budget and no explanation.
+        """
+        deterministic = detect_stop_intent(user_message)
+        if deterministic is not None:
+            return deterministic, "deterministic"
+
+        prompt = (
+            f"A customer is being asked a short series of budgeting questions. "
+            f"They just replied:\n\n\"{user_message}\"\n\n"
+            f"Are they asking to STOP answering questions (now or for the "
+            f"moment), or are they still engaging with the conversation?\n"
+            f"Respond with ONLY valid JSON, no other text:\n"
+            f'{{"wants_to_stop": true|false}}'
+        )
+        try:
+            raw, _ = self._call_llm(prompt, temperature=0.0)
+            match = re.search(r'\{[^}]*\}', raw, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group())
+                if isinstance(parsed.get("wants_to_stop"), bool):
+                    return parsed["wants_to_stop"], "llm"
+        except Exception as exc:
+            logger.warning(f"[ConversationalAgent] Stop-intent LLM check failed: {exc}")
+        return False, "llm_unavailable_default_continue"
+
+    def _parse_questionnaire_answer(
+        self, user_message: str, question: QuestionnaireQuestion
+    ) -> tuple[float | None, str]:
+        """
+        Hybrid answer parsing for one question. Returns (value, basis), where
+        value None means "not obtained" — either declined or unreadable.
+
+        The LLM tier is strictly a proposal: whatever number it returns is
+        range-checked against budget_questionnaire.SLOT_PLAUSIBLE_RANGE before
+        it's accepted. That check isn't validating the customer, it's
+        validating the model — a monthly rent of 120,000 means something was
+        misread, and the cost of accepting it (a confidently wrong budget) is
+        far higher than the cost of rejecting it (one repeated question).
+        """
+        value, basis = parse_money_answer(user_message)
+        if basis in {"explicit_zero", "single_figure", "range_midpoint"}:
+            if value is not None and not is_plausible(question.slot_name, value):
+                return None, "rejected_implausible_deterministic"
+            return value, basis
+        if basis == "skip":
+            return None, "skip"
+
+        prompt = (
+            f"Extract a single euro amount from a customer's reply.\n\n"
+            f"Question asked: \"{question.question_text}\"\n"
+            f"Customer replied: \"{user_message}\"\n\n"
+            f"If the reply states or clearly implies an amount, return it as a "
+            f"plain number. If it does not, return null — do not guess, and do "
+            f"not infer an amount from anything other than what they said.\n"
+            f"Respond with ONLY valid JSON, no other text:\n"
+            f'{{"amount": <number or null>}}'
+        )
+        try:
+            raw, _ = self._call_llm(prompt, temperature=0.0)
+            match = re.search(r'\{[^}]*\}', raw, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group())
+                amount = parsed.get("amount")
+                if amount is None:
+                    return None, "llm_found_nothing"
+                amount = float(amount)
+                if not is_plausible(question.slot_name, amount):
+                    logger.warning(
+                        f"[ConversationalAgent] LLM proposed implausible "
+                        f"{question.slot_name}={amount} — rejected, re-asking"
+                    )
+                    return None, "rejected_implausible_llm"
+                return round(amount, 2), "llm"
+        except Exception as exc:
+            logger.warning(f"[ConversationalAgent] Answer-extraction LLM call failed: {exc}")
+        return None, "unparsed"
+
+    def _questionnaire_turn(self, user_message: str) -> dict[str, Any]:
+        """
+        One questionnaire turn: interpret the reply to the pending question,
+        then either ask the next one or hand the finished answers on.
+
+        Precedence is deliberate and not arbitrary:
+          1. STOP outranks everything, including a usable answer in the same
+             message ("it's about 1200 but I'd rather not go through more") —
+             the answer is still recorded, and then we stop.
+          2. SKIP applies to this question only and never re-asks it.
+          3. Otherwise, parse; an unreadable reply re-asks the SAME question
+             once rather than silently advancing past it, because advancing
+             would leave a gap the customer thinks they filled.
+        """
+        question = self._pending_question
+        if question is None:
+            # Defensive: mode is active but nothing was pending. Re-derive
+            # rather than dropping the customer into a dead conversation.
+            question = next_question(
+                self.questionnaire_answers,
+                customer_wants_to_stop=self._customer_wants_to_stop,
+                questions_asked_this_sitting=self._questions_asked_this_sitting,
+                skipped_slots=self._skipped_slots,
+            )
+            self._pending_question = question
+            if question is None:
+                self._questionnaire_active = False
+                return self._questionnaire_payload(finished=True, reason="nothing_pending")
+
+        value, parse_basis = self._parse_questionnaire_answer(user_message, question)
+        if value is not None:
+            self.update_slots({question.slot_name: value})
+            self._record_questionnaire_event(
+                "answer", slot=question.slot_name, value=value, basis=parse_basis
+            )
+
+        wants_stop, stop_basis = self._detect_stop_intent(user_message)
+        if wants_stop:
+            self._customer_wants_to_stop = True
+            self._questionnaire_active = False
+            self._pending_question = None
+            self._record_questionnaire_event("stop", basis=stop_basis)
+            logger.info(f"[ConversationalAgent] Questionnaire stopped by customer ({stop_basis})")
+            return self._questionnaire_payload(finished=True, reason="customer_stopped")
+
+        if value is None:
+            if parse_basis == "skip":
+                self._skipped_slots.add(question.slot_name)
+                self._record_questionnaire_event("skip", slot=question.slot_name)
+            else:
+                # Unreadable. Re-ask this question once; if it's still
+                # unreadable next turn we treat it as a skip rather than
+                # looping, because a customer repeating something the system
+                # can't parse is a system problem, and making them do it a
+                # third time is not going to fix it.
+                already_retried = any(
+                    e.get("event") == "reask" and e.get("slot") == question.slot_name
+                    for e in self._questionnaire_events
+                )
+                if not already_retried:
+                    self._record_questionnaire_event(
+                        "reask", slot=question.slot_name, basis=parse_basis
+                    )
+                    return self._questionnaire_payload(
+                        finished=False, reason="unparsed_reask",
+                        question_text=(
+                            f"Sorry, I didn't catch a figure there. "
+                            f"{question.question_text}"
+                        ),
+                    )
+                self._skipped_slots.add(question.slot_name)
+                self._record_questionnaire_event(
+                    "skip", slot=question.slot_name, basis="unparsed_twice"
+                )
+
+        following = next_question(
+            self.questionnaire_answers,
+            customer_wants_to_stop=self._customer_wants_to_stop,
+            questions_asked_this_sitting=self._questions_asked_this_sitting,
+            skipped_slots=self._skipped_slots,
+        )
+        self._pending_question = following
+        if following is None:
+            self._questionnaire_active = False
+            reason = (
+                "per_sitting_cap"
+                if self._questions_asked_this_sitting >= MAX_QUESTIONS_PER_SITTING
+                else "sufficient"
+            )
+            self._record_questionnaire_event("complete", reason=reason)
+            return self._questionnaire_payload(finished=True, reason=reason)
+
+        self._questions_asked_this_sitting += 1
+        self._record_questionnaire_event("ask", slot=following.slot_name)
+        return self._questionnaire_payload(finished=False, reason="continuing")
+
+    def _questionnaire_payload(
+        self,
+        finished: bool,
+        reason: str,
+        question_text: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        The turn payload in questionnaire mode. Shaped to satisfy
+        ConversationalAgent's existing payload contract (payloads.py) so this
+        mode isn't a second, differently-shaped kind of turn the Orchestrator
+        has to special-case.
+        """
+        state = self.questionnaire_state
+        if finished:
+            if reason == "customer_stopped":
+                response = (
+                    "No problem — I'll stop there and work with what you've "
+                    "given me. I'll be clear about what's estimated and what's "
+                    "missing, and we can pick this up whenever you like."
+                )
+            elif reason == "per_sitting_cap":
+                response = (
+                    "That's enough to work with for now — I won't keep you with "
+                    "more questions. We can fill in the rest another time if "
+                    "you'd like a sharper picture."
+                )
+            else:
+                response = (
+                    "Thanks — that's everything I need for a first budget. "
+                    "Bear in mind it's built from your own estimates rather "
+                    "than your transaction history, so treat it as a starting "
+                    "point."
+                )
+        else:
+            response = question_text or (
+                self._pending_question.question_text if self._pending_question else ""
+            )
+
+        return {
+            "intent": "budget_analysis",
+            "confidence": 1.0,       # deterministic mode, not a classification
+            "escalation_needed": bool(finished),
+            "response": response,
+            "collected_slots": dict(self._slots),
+            "turn_count": self._turn_count,
+            "escalation_block": (
+                {
+                    "escalate": True,
+                    "intent": "budget_analysis",
+                    "collected_slots": dict(self._slots),
+                    "questionnaire_answers": state["answers"],
+                    "customer_wants_to_stop": state["customer_wants_to_stop"],
+                }
+                if finished else None
+            ),
+            "mode": "questionnaire",
+            "questionnaire": {**state, "finished": finished, "reason": reason},
+        }
+
     # Escalation signal
 
     def _parse_response(self, raw: str) -> dict:
@@ -349,6 +724,29 @@ class ConversationalAgent(BaseAgent):
         if self._history_is_external:
             self._history = list(external_history)
 
+        if self._questionnaire_active:
+            payload = self._questionnaire_turn(user_message)
+            response_text = payload["response"]
+            if not self._history_is_external:
+                self._history.append({"role": "user", "content": user_message})
+                self._history.append({"role": "assistant", "content": response_text})
+            logger.info(
+                f"[ConversationalAgent] turn={self._turn_count} questionnaire "
+                f"reason={payload['questionnaire']['reason']} "
+                f"asked={payload['questionnaire']['questions_asked_this_sitting']}"
+            )
+            return self._make_result(
+                payload=payload,
+                raw=response_text,
+                duration_ms=(time.perf_counter() - start_time) * 1000,
+                routing_context={
+                    "intent": "budget_analysis",
+                    "confidence": 1.0,
+                    "escalation_needed": payload["escalation_needed"],
+                    "questionnaire_finished": payload["questionnaire"]["finished"],
+                },
+            )
+
         # Step 1 - Classify Intent
         intent, confidence = self._classify_intent(user_message)
         logger.info(
@@ -424,3 +822,13 @@ class ConversationalAgent(BaseAgent):
     @property
     def turn_count(self) -> int:
         return self._turn_count
+
+
+    @property
+    def questionnaire_active(self) -> bool:
+        """
+        True while a questionnaire is mid-flight. The Orchestrator reads this
+        to skip intent classification entirely for the turn — see
+        Orchestrator.process_turn's questionnaire short-circuit.
+        """
+        return self._questionnaire_active

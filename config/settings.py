@@ -180,6 +180,7 @@ class BudgetConfig:
     # production run() path never silently gives budget advice off a
     # window that demonstrably misreads annual-lump costs.
     transactions_path: str = "data/processed/transactions.json"
+    periodicity_priors_path: Path = ROOT_DIR / "data" / "periodicity_priors.json"
 
 @dataclass
 class ExplainabilityConfig:

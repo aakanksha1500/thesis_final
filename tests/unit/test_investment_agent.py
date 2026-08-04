@@ -335,3 +335,162 @@ class TestRQ2Evaluation:
 
         assert 0.0 <= mean_precision <= 1.0
         assert 0.0 <= mean_ndcg <= 1.0
+
+
+# Reuse — existing-contribution detection
+#
+# The design doc named InvestmentAgent as the second consumer of
+# agents/periodicity_inference.py (for SIP/contribution detection) and it was
+# never actually wired — only BudgetAgent used it. This is that wiring, and
+# these are its tests.
+#
+# WHY IT MATTERS BEYOND TIDINESS
+#     Without it the agent's advice is structurally additive: it can only ever
+#     say "invest more", because it has no representation of what someone
+#     already does. Recommending a €300/month fund to somebody already putting
+#     €400 into a SIP isn't a suitability failure any constraint rule can
+#     catch — each product passes the CBI allow-list on its own. It's a
+#     failure to look.
+
+def _monthly_sip(amount: float = 400.0, months: int = 12) -> list[dict]:
+    return [
+        {"date": f"2025-{m:02d}-25", "category": "sip", "amount": amount}
+        for m in range(1, months + 1)
+    ]
+
+
+class TestExistingContributionDetection:
+
+    def test_a_consistent_monthly_sip_is_confirmed_and_converted(self):
+        agent = make_agent()
+        result = agent._detect_contributions(_monthly_sip(), monthly_income=4000.0)
+        assert result["confirmed"]["sip"]["period"] == "monthly"
+        assert result["confirmed"]["sip"]["monthly_equivalent"] == pytest.approx(400.0)
+        assert result["total_monthly_committed"] == pytest.approx(400.0)
+        assert result["has_unquantified_commitments"] is False
+
+    def test_a_quarterly_contribution_is_converted_not_taken_at_face_value(self):
+        """
+        €900 every quarter is €300/month, not €900/month. Getting this wrong
+        would treble someone's apparent commitment.
+        """
+        agent = make_agent()
+        quarterly = [
+            {"date": "2025-01-15", "category": "pension", "amount": 900.0},
+            {"date": "2025-04-15", "category": "pension", "amount": 900.0},
+            {"date": "2025-07-15", "category": "pension", "amount": 900.0},
+        ]
+        result = agent._detect_contributions(quarterly, monthly_income=4000.0)
+        assert result["confirmed"]["pension"]["period"] == "quarterly"
+        assert result["confirmed"]["pension"]["monthly_equivalent"] == pytest.approx(300.0)
+
+    def test_a_single_material_contribution_is_asked_about_not_annualised(self):
+        """
+        The discipline that makes shipping a weak prior safe. pension's prior
+        says "monthly"; applying it here would invent a €900/month commitment
+        out of one observation, and a suitability assessment built on an
+        invented figure is worse than one that admits it doesn't know.
+        """
+        agent = make_agent()
+        one_off = [{"date": "2025-04-15", "category": "pension", "amount": 900.0}]
+        result = agent._detect_contributions(one_off, monthly_income=4000.0)
+        assert "pension" not in result["confirmed"]
+        assert "pension" in result["ambiguous"]
+        assert "pension" in result["clarifying_questions"]
+        assert result["total_monthly_committed"] == 0.0
+        assert result["has_unquantified_commitments"] is True
+
+    def test_the_committed_total_never_includes_an_unquantified_item(self):
+        """
+        A confirmed SIP plus an ambiguous pension totals the SIP only. Folding
+        a guess into a headline number is how an estimate becomes a claim.
+        """
+        agent = make_agent()
+        mixed = _monthly_sip() + [
+            {"date": "2025-04-15", "category": "pension", "amount": 900.0}
+        ]
+        result = agent._detect_contributions(mixed, monthly_income=4000.0)
+        assert result["total_monthly_committed"] == pytest.approx(400.0)
+        assert result["has_unquantified_commitments"] is True
+
+    def test_non_contribution_categories_are_ignored(self):
+        """Groceries are not an investment commitment."""
+        agent = make_agent()
+        result = agent._detect_contributions(
+            [{"date": "2025-01-05", "category": "food", "amount": 300.0}],
+            monthly_income=4000.0,
+        )
+        assert result["confirmed"] == {}
+        assert result["ambiguous"] == {}
+
+    def test_no_transactions_is_a_clean_empty_result_not_a_crash(self):
+        agent = make_agent()
+        result = agent._detect_contributions([], monthly_income=4000.0)
+        assert result["total_monthly_committed"] == 0.0
+        assert result["has_unquantified_commitments"] is False
+
+    def test_period_is_still_inferable_without_income(self):
+        """
+        Gap consistency needs no income at all. Missing income costs only the
+        materiality judgement (whether an AMBIGUOUS case is worth asking
+        about), which is the correct thing to lose — not the ability to see a
+        plainly monthly standing order.
+        """
+        agent = make_agent()
+        result = agent._detect_contributions(_monthly_sip(), monthly_income=None)
+        assert result["confirmed"]["sip"]["period"] == "monthly"
+
+    def test_confirmed_commitments_reach_the_synthesis_prompt(self):
+        agent = make_agent()
+        contributions = agent._detect_contributions(_monthly_sip(), monthly_income=4000.0)
+        prompt = agent._build_synthesis_prompt(
+            "moderate", [dict(agent.catalogue[0], score=0.9)], {},
+            contributions=contributions,
+        )
+        assert "EXISTING COMMITMENTS" in prompt
+        assert "400.00/month" in prompt
+
+    def test_ambiguous_commitments_reach_the_prompt_as_questions_not_figures(self):
+        agent = make_agent()
+        contributions = agent._detect_contributions(
+            [{"date": "2025-04-15", "category": "pension", "amount": 900.0}],
+            monthly_income=4000.0,
+        )
+        prompt = agent._build_synthesis_prompt(
+            "moderate", [dict(agent.catalogue[0], score=0.9)], {},
+            contributions=contributions,
+        )
+        assert "OPEN QUESTIONS" in prompt
+        assert "do not assume a figure" in prompt
+        assert "EXISTING COMMITMENTS" not in prompt
+
+    def test_run_surfaces_contributions_in_the_payload(self):
+        agent = make_agent()
+        result = agent.run({
+            "risk_class": "moderate",
+            "user_features": {"investment_horizon": 10, "income": 48000},
+            "transactions": _monthly_sip(),
+        })
+        assert result.payload["existing_contributions"]["confirmed"]["sip"]
+        assert result.payload["clarifying_questions"] == {}
+
+    def test_detection_does_not_change_which_products_are_shortlisted(self):
+        """
+        Suitability filtering stays a pure CBI rule decision. Contribution
+        detection runs AFTER ranking precisely so it cannot quietly become a
+        second, undocumented filter on what a customer is allowed to see.
+        """
+        agent = make_agent()
+        without = agent.run({
+            "risk_class": "moderate",
+            "user_features": {"investment_horizon": 10},
+        })
+        with_sip = agent.run({
+            "risk_class": "moderate",
+            "user_features": {"investment_horizon": 10},
+            "transactions": _monthly_sip(),
+        })
+        assert (
+            [p["product_id"] for p in without.payload["shortlist"]]
+            == [p["product_id"] for p in with_sip.payload["shortlist"]]
+        )

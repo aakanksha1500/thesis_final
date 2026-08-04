@@ -140,6 +140,9 @@ class Orchestrator:
             "proxy_fields": [],
             "proxy_metadata": {},
             "customer_name": None,
+            "questionnaire_answers": {},
+            "customer_wants_to_stop": False,
+            "questionnaire_completed": False,
         }
 
         logger.info(f"[Orchestrator] Session {self.session_id} initialised")
@@ -688,8 +691,24 @@ class Orchestrator:
                    known=self._session_state.get("customer_known"))
 
         # -- Layer 1: Classify intent --
-        with trace.span("[L1]", "goal decomposition"):
-            routing, intent, confidence = self._classify_intent(user_message)
+        # QUESTIONNAIRE SHORT-CIRCUIT (Section 2)
+        #     If ConversationalAgent is mid-questionnaire, this message is an
+        #     answer to a question the system itself just asked, and there is
+        #     nothing to classify. Running the classifier anyway would spend
+        #     an LLM call to label "1200" as a general_query and then route
+        #     away from the very form we're in the middle of — the loop would
+        #     never close. Skipping it is both cheaper and the only routing
+        #     that makes a multi-turn form work.
+        conv_agent = self._agents["ConversationalAgent"]
+        in_questionnaire = getattr(conv_agent, "questionnaire_active", False)
+        if in_questionnaire:
+            routing, intent, confidence = (
+                RoutingDecision.CONVERSATIONAL_ONLY, "budget_analysis", 1.0,
+            )
+            trace.emit("L1", "questionnaire mode — classification skipped")
+        else:
+            with trace.span("[L1]", "goal decomposition"):
+                routing, intent, confidence = self._classify_intent(user_message)
 
         _threshold = settings.orchestrator.routing_confidence_threshold
         trace.emit("ROUTING", f"{intent} → {routing.value}",
@@ -733,6 +752,18 @@ class Orchestrator:
                 self._session_state["awaiting_full_advisory_inputs"] = unmet
         with trace.span("[L2]", f"plan: {' → '.join(agent_sequence) or 'elicitation'}"):
             agent_results, recovered = self._run_agent_sequence(agent_sequence, context)
+
+        # -- Layer 2b: Section 2 questionnaire loop --
+        questionnaire_response = self._advance_questionnaire(
+            agent_results, context, turn_id
+        )
+        if questionnaire_response is not None:
+            elicitation = questionnaire_response
+            agents_extra = [r.agent_name for r in agent_results]
+            logger.info(
+                f"[Orchestrator] turn={turn_id} questionnaire drives the "
+                f"response (agents so far: {agents_extra})"
+            )
 
         # -- Layer 3a: Conflict resolution --
         with trace.span("[L3]", "execution monitoring"):
@@ -830,6 +861,128 @@ class Orchestrator:
             total_duration_ms=total_ms,
             success=True,
         )
+
+# Section 2 — questionnaire loop closure
+    # ----------------------------------------------------------------------
+    def _advance_questionnaire(
+        self,
+        agent_results: list[AgentResult],
+        context: dict,
+        turn_id: str,
+    ) -> str | None:
+        """
+        Open, advance, or close the insufficient-data questionnaire.
+
+        Returns a deterministic response string when THIS turn's reply is a
+        questionnaire question (or its wrap-up), or None to let the normal
+        synthesis path produce the reply.
+
+        WHY THE ORCHESTRATOR IS INVOLVED AT ALL, GIVEN ConversationalAgent
+        OWNS THE LOOP
+            ConversationalAgent decides what to ask and reads the answers.
+            But only the Orchestrator can see BudgetAgent say
+            "insufficient_history" (that's the trigger to start asking), only
+            it can put the finished answers back into the context BudgetAgent
+            reads, and only it can run BudgetAgent a second time in the same
+            turn once they arrive. Those are routing responsibilities, not
+            conversational ones. Splitting it this way keeps the asking in the
+            one agent allowed to talk to the customer, and the sequencing in
+            the one component allowed to decide who runs.
+
+        NO LLM CALL ANYWHERE IN HERE
+            Same reasoning as _elicitation_response(): the questions are a
+            fixed, reviewed set, and asking a model to rephrase them adds a
+            hallucination surface (inventing a question, implying advice) to
+            a message whose only job is to be exactly the question that was
+            approved.
+        """
+        conv_agent = self._agents["ConversationalAgent"]
+        state = self._session_state
+
+        # --- Case 1: this turn WAS a questionnaire turn -------------------
+        conv_result = next(
+            (r for r in agent_results if r.agent_name == "ConversationalAgent"), None
+        )
+        if conv_result is not None and conv_result.payload.get("mode") == "questionnaire":
+            block = conv_result.payload["questionnaire"]
+            state["questionnaire_answers"] = dict(block["answers"])
+            state["customer_wants_to_stop"] = bool(block["customer_wants_to_stop"])
+            self.audit_log.record_agent_call(
+                turn_id=turn_id, agent_name="ConversationalAgent",
+                success=True, duration_ms=conv_result.duration_ms,
+                tokens_used=conv_result.tokens_used,
+                step_id=f"questionnaire:{block['reason']}",
+            )
+            trace.emit("Q&A", f"questionnaire {block['reason']}",
+                       answered=len(block["answers"]),
+                       asked=block["questions_asked_this_sitting"],
+                       finished=block["finished"])
+
+            if not block["finished"]:
+                return conv_result.payload["response"]
+
+            state["questionnaire_completed"] = True
+            if not block["sufficient"]:
+                # Stopped early, below the minimum viable budget. Say so
+                # plainly rather than producing an analysis of three
+                # numbers and calling it a budget.
+                return conv_result.payload["response"]
+
+            # Enough to build a first budget — run BudgetAgent now, in this
+            # same turn, so the customer sees the payoff for answering rather
+            # than having to ask again.
+            budget_context = {
+                **context,
+                "questionnaire_answers": state["questionnaire_answers"],
+                "customer_wants_to_stop": state["customer_wants_to_stop"],
+                "monthly_income": (
+                    context.get("monthly_income")
+                    or state["questionnaire_answers"].get("income")
+                ),
+            }
+            budget_result, _ = self._execute_agent("BudgetAgent", budget_context)
+            agent_results.append(budget_result)
+            return None      # let synthesis narrate the budget it just built
+
+        # --- Case 2: BudgetAgent just reported insufficient data ----------
+        budget_result = next(
+            (r for r in agent_results if r.agent_name == "BudgetAgent"), None
+        )
+        if (
+            budget_result is not None
+            and budget_result.payload.get("status") == "insufficient_history"
+            and not state["questionnaire_completed"]
+            and not getattr(conv_agent, "questionnaire_active", False)
+        ):
+            first_question = conv_agent.start_questionnaire(
+                seed_slots={
+                    k: v for k, v in {
+                        "income": context.get("monthly_income")
+                                  or (context.get("user_features") or {}).get("income"),
+                        **state["questionnaire_answers"],
+                    }.items() if v is not None
+                }
+            )
+            if first_question is None:
+                return None
+            trace.emit("Q&A", "questionnaire started",
+                       trigger="insufficient_history", first=first_question.slot_name)
+            logger.info(
+                f"[Orchestrator] Insufficient transaction history — starting "
+                f"Section 2 questionnaire at {first_question.slot_name!r}"
+            )
+            preamble = budget_result.payload.get("message") or (
+                "There isn't enough transaction history yet to build a "
+                "reliable budget."
+            )
+            return (
+                f"{preamble}\n\n"
+                f"I can still put together a first estimate if you answer a "
+                f"few short questions — you can stop at any point.\n\n"
+                f"{first_question.question_text}"
+            )
+
+        return None
 
     def _agent_is_satisfiable(self, agent_name: str, context: dict) -> tuple[bool, str]:
         """Return (can_run, human-readable reason it cannot)."""

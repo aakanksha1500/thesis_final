@@ -142,20 +142,28 @@ class MarketDataClient:
         """
         path = path or settings.market_data.snapshot_path
         snapshot: dict[str, Any] = {}
-        for ticker in tickers:
-            quote = self._fetch_live(ticker)
-            if quote:
-                snapshot[ticker] = {
-                    "trailing_return_pct": quote.trailing_return_pct,
-                    "as_of": quote.as_of,
-                    "period_days": quote.period_days,
-                }
+        if not settings.market_data.enabled or self._yf_mode != "yfinance":
+            logger.warning(
+                "[MarketDataClient] write_snapshot() called with "
+                "settings.market_data.enabled=False (or yfinance "
+                "unavailable) — writing an empty snapshot instead of "
+                "silently fetching live data. Set MARKET_DATA_ENABLED=true "
+                "to actually refresh prices."
+            )
+        else:
+            for ticker in tickers:
+                quote = self._fetch_live(ticker)
+                if quote:
+                    snapshot[ticker] = {
+                        "trailing_return_pct": quote.trailing_return_pct,
+                        "as_of": quote.as_of,
+                        "period_days": quote.period_days,
+                    }
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
             json.dump(snapshot, f, indent=2)
         logger.info(f"[MarketDataClient] Wrote snapshot for {len(snapshot)}/{len(tickers)} tickers to {path}")
         return path
-
 
 # market_data_client = MarketDataClient()
 

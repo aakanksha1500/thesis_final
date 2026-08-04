@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-08-03T16:18:48.556764+00:00",
-    "git_sha": "a909a00-dirty",
+    "generated_at_utc": "2026-08-04T00:31:00.229441+00:00",
+    "git_sha": "6f95fee-dirty",
     "prompt_version": "v1.0",
     "llm_mode": "mock",
     "orchestrator_model": "llama-3.3-70b-versatile",
@@ -28,23 +28,23 @@
     "product_catalogue_mode": "synthetic",
     "explainability_ablation": {
       "use_shap": true,
-      "use_rag_citation": false,
+      "use_rag_citation": true,
       "use_counterfactual": true
     }
   },
   "phase": 3,
   "agent": "RiskProfilingAgent",
   "dataset": "hand_labelled_fixture_15_profiles",
-  "model_mode": "heuristic_proxy",
+  "model_mode": "trained_model",
   "metrics": {
     "risk_alignment_rate": {
       "metric": "risk_alignment_rate",
-      "value": 1.0,
+      "value": 0.9333,
       "details": {
         "n": 15,
-        "aligned": 15,
+        "aligned": 14,
         "per_tier_alignment": {
-          "conservative": 1.0,
+          "conservative": 0.667,
           "moderately_conservative": 1.0,
           "moderate": 1.0,
           "moderately_aggressive": 1.0,
@@ -54,40 +54,40 @@
     },
     "f1_macro": {
       "metric": "f1_risk_classification",
-      "value": 1.0,
+      "value": 0.4989,
       "details": {
         "per_class": {
           "conservative": {
             "precision": 1.0,
-            "recall": 1.0,
-            "f1": 1.0
+            "recall": 0.333,
+            "f1": 0.5
           },
           "moderately_conservative": {
-            "precision": 1.0,
+            "precision": 0.667,
             "recall": 1.0,
-            "f1": 1.0
+            "f1": 0.8
           },
           "moderate": {
-            "precision": 1.0,
+            "precision": 0.6,
             "recall": 1.0,
-            "f1": 1.0
+            "f1": 0.75
           },
           "moderately_aggressive": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1": 1.0
+            "precision": 0.333,
+            "recall": 0.667,
+            "f1": 0.444
           },
           "aggressive": {
-            "precision": 1.0,
-            "recall": 1.0,
-            "f1": 1.0
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
           }
         }
       }
     },
     "auc_roc": {
       "metric": "auc_roc",
-      "value": 0.9923,
+      "value": 0.8745,
       "details": {
         "method": "one_vs_rest_macro",
         "n": 15,
@@ -99,11 +99,11 @@
           "aggressive"
         ],
         "per_class_auc": {
-          "conservative": 1.0,
-          "moderately_conservative": 0.9615,
-          "moderate": 1.0,
-          "moderately_aggressive": 1.0,
-          "aggressive": 1.0
+          "conservative": 0.8889,
+          "moderately_conservative": 0.9231,
+          "moderate": 0.8889,
+          "moderately_aggressive": 0.6944,
+          "aggressive": 0.9773
         },
         "class_counts": {
           "conservative": 3,
@@ -116,11 +116,11 @@
     },
     "hybrid_vs_rule_only_delta": {
       "metric": "hybrid_vs_rule_only_delta",
-      "value": 0.2667,
+      "value": 0.2,
       "details": {
-        "hybrid_rar": 1.0,
+        "hybrid_rar": 0.9333,
         "rule_only_rar": 0.7333,
-        "improvement": "+0.2667",
+        "improvement": "+0.2000",
         "interpretation": "Hybrid outperforms rule-only baseline"
       }
     }
@@ -138,10 +138,10 @@
         "financial_knowledge_score": 2
       },
       "expected": "conservative",
-      "hybrid_pred": "conservative",
-      "hybrid_score": 0.1884,
+      "hybrid_pred": "moderate",
+      "hybrid_score": 0.461,
       "rule_pred": "moderately_conservative",
-      "hybrid_correct": true
+      "hybrid_correct": false
     },
     {
       "features": {
@@ -156,7 +156,7 @@
       },
       "expected": "conservative",
       "hybrid_pred": "conservative",
-      "hybrid_score": 0.06,
+      "hybrid_score": 0.168,
       "rule_pred": "conservative",
       "hybrid_correct": true
     },
@@ -172,10 +172,10 @@
         "financial_knowledge_score": 2
       },
       "expected": "conservative",
-      "hybrid_pred": "conservative",
-      "hybrid_score": 0.1012,
+      "hybrid_pred": "moderately_conservative",
+      "hybrid_score": 0.267,
       "rule_pred": "conservative",
-      "hybrid_correct": true
+      "hybrid_correct": false
     },
     {
       "features": {
@@ -190,7 +190,7 @@
       },
       "expected": "moderately_conservative",
       "hybrid_pred": "moderately_conservative",
-      "hybrid_score": 0.33,
+      "hybrid_score": 0.34,
       "rule_pred": "moderate",
       "hybrid_correct": true
     },
@@ -207,7 +207,7 @@
       },
       "expected": "moderately_conservative",
       "hybrid_pred": "moderately_conservative",
-      "hybrid_score": 0.3998,
+      "hybrid_score": 0.378,
       "rule_pred": "moderate",
       "hybrid_correct": true
     },
@@ -224,7 +224,7 @@
       },
       "expected": "moderate",
       "hybrid_pred": "moderate",
-      "hybrid_score": 0.5162,
+      "hybrid_score": 0.423,
       "rule_pred": "moderate",
       "hybrid_correct": true
     },
@@ -241,7 +241,7 @@
       },
       "expected": "moderate",
       "hybrid_pred": "moderate",
-      "hybrid_score": 0.45,
+      "hybrid_score": 0.427,
       "rule_pred": "moderate",
       "hybrid_correct": true
     },
@@ -258,7 +258,7 @@
       },
       "expected": "moderate",
       "hybrid_pred": "moderate",
-      "hybrid_score": 0.57,
+      "hybrid_score": 0.502,
       "rule_pred": "moderate",
       "hybrid_correct": true
     },
@@ -275,7 +275,7 @@
       },
       "expected": "moderately_aggressive",
       "hybrid_pred": "moderately_aggressive",
-      "hybrid_score": 0.7199,
+      "hybrid_score": 0.634,
       "rule_pred": "moderate",
       "hybrid_correct": true
     },
@@ -291,10 +291,10 @@
         "financial_knowledge_score": 4
       },
       "expected": "moderately_aggressive",
-      "hybrid_pred": "moderately_aggressive",
-      "hybrid_score": 0.6519,
+      "hybrid_pred": "moderate",
+      "hybrid_score": 0.56,
       "rule_pred": "moderate",
-      "hybrid_correct": true
+      "hybrid_correct": false
     },
     {
       "features": {
@@ -309,7 +309,7 @@
       },
       "expected": "moderately_aggressive",
       "hybrid_pred": "moderately_aggressive",
-      "hybrid_score": 0.7644,
+      "hybrid_score": 0.625,
       "rule_pred": "moderate",
       "hybrid_correct": true
     },
@@ -325,10 +325,10 @@
         "financial_knowledge_score": 5
       },
       "expected": "aggressive",
-      "hybrid_pred": "aggressive",
-      "hybrid_score": 0.82,
+      "hybrid_pred": "moderately_aggressive",
+      "hybrid_score": 0.646,
       "rule_pred": "moderate",
-      "hybrid_correct": true
+      "hybrid_correct": false
     },
     {
       "features": {
@@ -342,10 +342,10 @@
         "financial_knowledge_score": 5
       },
       "expected": "aggressive",
-      "hybrid_pred": "aggressive",
-      "hybrid_score": 0.82,
+      "hybrid_pred": "moderately_aggressive",
+      "hybrid_score": 0.631,
       "rule_pred": "moderate",
-      "hybrid_correct": true
+      "hybrid_correct": false
     },
     {
       "features": {
@@ -359,10 +359,10 @@
         "financial_knowledge_score": 4
       },
       "expected": "aggressive",
-      "hybrid_pred": "aggressive",
-      "hybrid_score": 0.8,
+      "hybrid_pred": "moderately_aggressive",
+      "hybrid_score": 0.677,
       "rule_pred": "moderate",
-      "hybrid_correct": true
+      "hybrid_correct": false
     },
     {
       "features": {
@@ -376,10 +376,10 @@
         "financial_knowledge_score": 5
       },
       "expected": "aggressive",
-      "hybrid_pred": "aggressive",
-      "hybrid_score": 0.82,
+      "hybrid_pred": "moderately_aggressive",
+      "hybrid_score": 0.679,
       "rule_pred": "moderate",
-      "hybrid_correct": true
+      "hybrid_correct": false
     }
   ]
 }
