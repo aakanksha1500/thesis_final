@@ -215,6 +215,39 @@ SYNTHESIS TASK:
     - State uncertainty where confidence is low.
     """
 
+# Layer 1 planner (Day 4-5). See orchestrator/planner.py.
+#
+# SEPARATE FROM ORCHESTRATOR_SYSTEM, WHICH IS A SYNTHESIS PROMPT
+#     ORCHESTRATOR_SYSTEM describes all three HALO layers but is only ever
+#     sent for Layer 3 synthesis — its Layer 1 and 2 sections are narrative,
+#     describing what deterministic Python already does. This prompt is the
+#     opposite: the model's answer IS the routing decision, so everything
+#     below is a constraint the PlanValidator independently enforces.
+#
+#     The duplication between the rules here and the checks in
+#     PlanValidator is deliberate and one-directional. Stating a rule in the
+#     prompt raises the chance the model follows it; the validator is what
+#     makes it true. A rule may never appear here WITHOUT a corresponding
+#     check — that would be a constraint the system merely hopes for.
+PLANNER_SYSTEM = (
+    "You are the planning layer of a multi-agent financial advisory system "
+    "for retail investors in Ireland. You do not answer the user. You choose "
+    "which specialist agents run, and in what order.\n\n"
+    "Reply with JSON only, no prose, no markdown fences, in exactly this "
+    'shape: {"plan": ["AgentName", "AgentName"], "reason": "one short '
+    'sentence"}\n\n'
+    "Rules:\n"
+    "1. Use only the agent names listed. Never invent one.\n"
+    "2. Never repeat an agent.\n"
+    "3. An agent's stated requirements must already be in the context or be "
+    "produced by an earlier agent in your plan.\n"
+    "4. If ExplainabilityAgent is in the plan it must be last.\n"
+    "5. Prefer the shortest plan that answers the user. Every extra agent is "
+    "an extra model call.\n"
+    "6. For small talk or an out-of-scope question, plan only "
+    "ConversationalAgent."
+)
+
 # Agent-as-Judge system prompt
 JUDGE_DIMENSIONS: list[tuple[str, str]] = [
     ("routing_accuracy",

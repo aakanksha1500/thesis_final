@@ -38,10 +38,10 @@ DEMO_FEATURES = {
     "financial_knowledge_score": 3,
 }
 
-DEMO_EXPENSES = {
-    "housing": 1400, "food": 520, "transport": 260,
-    "utilities": 180, "entertainment": 220, "other": 300,
-}
+# DEMO_EXPENSES = {
+#     "housing": 1400, "food": 520, "transport": 260,
+#     "utilities": 180, "entertainment": 220, "other": 300,
+# }
 
 SCRIPT = [
     "Hello, I'd like some help with my finances.",
@@ -53,6 +53,81 @@ SCRIPT = [
 
 BAR = "=" * 78
 
+PERSONAS: dict[str, dict] = {
+    "normal":  {"customer_id": "DEMO_GC_042",   "no_features": False},
+    "average": {"customer_id": "DEMO_GC_107",   "no_features": False},
+    "stale":   {"customer_id": "DEMO_GMSC_318", "no_features": False},
+    "new":     {"customer_id": None,            "no_features": True},
+}
+
+def _month(date_str: str) -> int:
+    return int(date_str[5:7])
+
+
+def _load_persona_transactions(name: str) -> list[dict]:
+    """
+    Derive a persona's transaction history from the TXN_BENCHMARK scenario
+    by filtering which months are kept. Deliberately NOT sourced from
+    scripts/generate_transactions.py directly — that script's output also
+    feeds committed dissertation evidence (results/*.json); regenerating it
+    to add new scenarios risks perturbing numbers already written up.
+    Filtering the existing generated file is read-only and additive.
+    """
+    from data.transaction_store import TransactionStore
+
+    if name == "new":
+        return []
+
+    base = TransactionStore().lookup("TXN_BENCHMARK")
+    if not base:
+        print(
+            "WARNING: TXN_BENCHMARK not found in data/processed/transactions.json "
+            "— run `python scripts/generate_transactions.py` first. Falling back "
+            "to an empty transaction history for this persona."
+        )
+        return []
+
+    if name == "normal":
+            return base
+    if name == "average":
+        # 5 consecutive months -> "medium" coverage tier, fully active
+        # within that window.
+        months = {1, 2, 3, 4, 5}
+    elif name == "stale":
+        # Scattered across the full year, not a contiguous slice: coverage
+        # still spans ~12 months (first txn in Jan, last in Dec), so
+        # coverage_tier reads "high" -> BudgetAgent proceeds to aggregate
+        # normally despite only 3 of those months having any activity.
+        # density_score/confidence_score end up low but are NOT consulted
+        # by BudgetAgent's gate or by the disclosure text. See module
+        # docstring — this is a verified finding, not the intuitive
+        # "asks a follow-up question" behaviour.
+        months = {1, 6, 12}
+    else:
+        raise ValueError(f"Unknown persona: {name!r}")
+
+    filtered = [t for t in base if _month(t["date"]) in months]
+    print(f"Persona {name!r}: {len(filtered)} transactions across months {sorted(months)} "
+        f"(filtered from TXN_BENCHMARK's {len(base)})")
+    return filtered
+
+def _build_push_context(customer_id: str, store) -> dict:
+    """
+    Build a bank-push customer_context payload from an existing
+    CustomerStore record, withholding loss_tolerance so
+    Orchestrator._load_customer()'s proxy-derivation path runs instead of
+    just re-reading a value nothing in a real bank's system would have.
+    """
+    record = store.lookup(customer_id)
+    if record is None:
+        raise SystemExit(
+            f"--push: no CustomerStore record for customer_id={customer_id!r} "
+            f"to build a payload from."
+        )
+    context = dict(record["features"])
+    context.pop("loss_tolerance", None)
+    context["name"] = f"Demo {customer_id}"
+    return context
 
 def show(turn_no: int, message: str, result) -> None:
     print(f"\n{BAR}")
@@ -75,7 +150,16 @@ def show(turn_no: int, message: str, result) -> None:
         print(f"    [{mark}] {ar.agent_name:<22} status={status:<12} "
               f"{ar.duration_ms:6.0f}ms  {ar.tokens_used:5d} tok")
         if ar.error:
-            print(f"          └─ {ar.error}")
+            print(f"          \u2514\u2500 {ar.error}")
+
+        sufficiency = ar.payload.get("data_sufficiency")
+        if sufficiency:
+            print(
+                f"          \u2514\u2500 data_sufficiency: tier={sufficiency['coverage_tier']:<12} "
+                f"coverage={sufficiency['coverage_score']:.2f} "
+                f"density={sufficiency['density_score']:.2f} "
+                f"confidence={sufficiency['confidence_score']:.2f}"
+            )
 
     print(f"\n  ASSISTANT: {result.final_response}\n")
 
@@ -87,6 +171,12 @@ def main() -> int:
     parser.add_argument("-i", "--interactive", action="store_true",
                         help="Interactive session (Ctrl-D or 'quit' to exit)")
     parser.add_argument("-c", "--customer", help="Existing customer id, e.g. DEMO_GC_042")
+    parser.add_argument("-p", "--persona", choices=list(PERSONAS),
+                        help="Named customer archetype — sets --customer and the "
+                             "transaction history together. See module docstring.")
+    parser.add_argument("--push", action="store_true",
+                        help="Simulate a bank push (customer_context) instead of a "
+                             "CustomerStore lookup. Requires --persona (not 'new').")
     parser.add_argument("-s", "--session", default="demo-session",
                         help="Session id (names the audit log file)")
     parser.add_argument("--debug", action="store_true", help="DEBUG-level logging")
@@ -98,18 +188,65 @@ def main() -> int:
                              "classify and everything falls back to conversational_only.")
     args = parser.parse_args()
 
+    if args.push and not args.persona:
+        parser.error("--push requires --persona (it needs a feature set to push)")
+    if args.push and args.persona == "new":
+        parser.error("--push doesn't apply to --persona new — there is no existing "
+                      "record to push; omit --customer/--persona instead for the "
+                      "unknown-customer path")
+    if args.persona and args.customer and args.customer != PERSONAS[args.persona]["customer_id"]:
+        print(f"Note: --persona {args.persona!r} overrides --customer "
+              f"({PERSONAS[args.persona]['customer_id']!r} is used instead of "
+              f"{args.customer!r})")    
+
     if args.debug:
         os.environ["DEBUG"] = "true"
 
     from orchestrator.orchestrator import Orchestrator
     from utils.llm_client import LLMClient
+    from data.customer_store import CustomerStore
 
     client = LLMClient()
     print(f"\nLLM mode: {client.mode}"
           + ("   (no API key found — responses will be [MOCK RESPONSE]. "
              "Set a key in .env for real output.)" if client.mode == "mock" else ""))
 
-    orch = Orchestrator(client, session_id=args.session, customer_id=args.customer)
+    # orch = Orchestrator(client, session_id=args.session, customer_id=args.customer)
+    store = CustomerStore()
+
+    customer_id = args.customer
+    customer_context = None
+    no_features = args.no_features
+
+    if args.persona:
+        spec = PERSONAS[args.persona]
+        customer_id = spec["customer_id"]
+        no_features = no_features or spec["no_features"]
+        transactions = _load_persona_transactions(args.persona)
+
+        if args.push and customer_id:
+            customer_context = _build_push_context(customer_id, store)
+            customer_id = f"{customer_id}-PUSH"  # distinct id: a push, not a lookup;
+                                                  # also keeps update_customer_features()
+                                                  # from writing back onto the curated
+                                                  # demo profile mid-conversation
+            print(f"Push-mode: sending customer_context for persona={args.persona!r} "
+                  f"(loss_tolerance withheld \u2014 proxy will be derived)")
+        elif customer_id:
+            print(f"Persona: {args.persona} -> customer_id={customer_id}")
+        else:
+            print(f"Persona: {args.persona} -> unknown customer, elicitation from scratch")
+    else:
+        # No persona named: default to the same full transaction history the
+        # original script effectively demonstrated, so a bare
+        # `python run_demo.py` still shows a complete budget answer.
+        transactions = _load_persona_transactions("normal")
+
+    orch = Orchestrator(
+        client, session_id=args.session, customer_store=store,
+        customer_id=customer_id, customer_context=customer_context,
+    )
+ 
 
     if args.force_routing:
         # Pin the routing decision so the full specialist pipeline can be
@@ -120,15 +257,16 @@ def main() -> int:
         orch._classify_intent = lambda msg: (forced, f"forced:{forced.value}", 1.0)
         print(f"Routing forced to: {forced.value}")
 
-    if not args.no_features and not orch._session_state.get("user_features"):
+    if not no_features and not orch._session_state.get("user_features"):
         orch._session_state["user_features"] = dict(DEMO_FEATURES)
         print("Pre-filled demo user_features (use --no-features to skip).")
 
     def send(n: int, msg: str) -> None:
         # BudgetAgent needs expenses; the Orchestrator has no channel for them
         # yet, so they are injected into session state for the demo.
-        orch._session_state.setdefault("monthly_expenses", DEMO_EXPENSES)
-        orch._session_state.setdefault("monthly_income", DEMO_FEATURES["income"] / 12)
+        # orch._session_state.setdefault("monthly_expenses", DEMO_EXPENSES)
+        # orch._session_state.setdefault("monthly_income", DEMO_FEATURES["income"] / 12)
+        orch._session_state.setdefault("transactions", transactions)
         show(n, msg, orch.process_turn(msg))
 
     if args.message:

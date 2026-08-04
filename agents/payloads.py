@@ -49,7 +49,7 @@ PAYLOAD_CONTRACTS: dict[str, dict[str, Any]] = {
 _PARTIAL_STATUSES = {"incomplete", "blocked", "error", "skipped"}
 
 def strict_mode() -> bool:
-    return os.getenv("STRICT_PAYLOADS", "false").lower() == "true"
+    return os.getenv("STRICT_PAYLOADS", "true").lower() != "false"
 
 def validate_payload(
     agent_name: str,
@@ -103,6 +103,16 @@ def enforce(
         raise PayloadContractError(message)
     logger.error(message + "  (STRICT_PAYLOADS=false — logged, not raised)")
 
+STATIC_SEQUENCES: dict[str, list[str]] = {
+    "conversational_only":  ["ConversationalAgent"],
+    "risk_profiling":       ["RiskProfilingAgent", "ExplainabilityAgent"],
+    "investment":           ["RiskProfilingAgent", "InvestmentAgent",
+                             "ExplainabilityAgent"],
+    "budget":               ["BudgetAgent", "ExplainabilityAgent"],
+    "full_advisory":        ["RiskProfilingAgent", "InvestmentAgent",
+                             "BudgetAgent", "ExplainabilityAgent"],
+    "explanation_request":  ["ExplainabilityAgent"],
+}
 
 
 @dataclass(frozen=True)

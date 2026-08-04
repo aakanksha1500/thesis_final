@@ -233,6 +233,55 @@ class OrchestratorConfig:
     enable_failure_recovery: bool = True
 
 @dataclass
+class PlannerConfig:
+    """
+    Layer 1 planning. The planner PROPOSES; PlanValidator DECIDES.
+
+    enabled:
+      Master switch. True by default — the planner is the primary Layer 1
+      path and the static table in agents/payloads.STATIC_SEQUENCES is its
+      fallback. Set PLANNER_ENABLED=false to reproduce pre-Day-4 behaviour
+      exactly, which is what the static arm of the planner-vs-static
+      comparison uses.
+
+    max_plan_steps:
+      Hard ceiling on plan length. There are five agents; a plan longer than
+      six steps is either a repetition the duplicate check missed or a model
+      that has stopped following the schema. Rejecting on length is cheaper
+      than discovering it as six LLM calls.
+
+    temperature:
+      0.0, deliberately. A plan is an execution decision in a regulated
+      advisory system; the same message on the same context should route the
+      same way twice. Sampling variety here is not creativity, it is a
+      reproducibility defect that would make the agreement-rate metric
+      meaningless.
+
+    require_explainability_last:
+      X1 — ExplainabilityAgent explains what earlier agents produced, so a
+      plan that runs it first has it explaining an empty context. Enforced
+      by position rather than by prompt, because a prompt instruction is a
+      request and this is a constraint.
+
+    allow_empty_plan:
+      False. An empty plan is the model declining to route; the static
+      fallback is a better answer than a turn with no agents in it.
+
+    fallback_intent:
+      Used when the classified intent has no entry in STATIC_SEQUENCES, so
+      that a rejection always has somewhere to land.
+    """
+    enabled: bool = field(
+        default_factory=lambda: os.getenv("PLANNER_ENABLED", "true").lower() != "false"
+    )
+    max_plan_steps: int = 6
+    temperature: float = 0.0
+    max_tokens: int = 300
+    require_explainability_last: bool = True
+    allow_empty_plan: bool = False
+    fallback_intent: str = "conversational_only"
+
+@dataclass
 class RAGConfig:
     """
     FAISS vector store + sentence-transformer embedding configuration.
@@ -400,6 +449,7 @@ class Settings:
     budget: BudgetConfig = field(default_factory=BudgetConfig)
     explainability: ExplainabilityConfig = field(default_factory=ExplainabilityConfig)
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
+    planner: PlannerConfig = field(default_factory=PlannerConfig)
     rag: RAGConfig = field(default_factory=RAGConfig)
     hallucination: HallucinationConfig = field(default_factory=HallucinationConfig)
     market_data: MarketDataConfig = field(default_factory=MarketDataConfig)

@@ -57,6 +57,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from agents.payloads import CAPABILITIES, STATIC_SEQUENCES, AgentCapability
+from config.prompts import PLANNER_SYSTEM
 from config.settings import settings
 from utils.logger import get_logger
 
@@ -282,24 +283,6 @@ class PlanValidator:
 
 # the planner 
 
-PLANNER_SYSTEM = (
-    "You are the planning layer of a multi-agent financial advisory system "
-    "for retail investors in Ireland. You do not answer the user. You choose "
-    "which specialist agents run, and in what order.\n\n"
-    "Reply with JSON only, no prose, no markdown fences, in exactly this "
-    'shape: {"plan": ["AgentName", "AgentName"], "reason": "one short '
-    'sentence"}\n\n'
-    "Rules:\n"
-    "1. Use only the agent names listed. Never invent one.\n"
-    "2. Never repeat an agent.\n"
-    "3. An agent's stated requirements must already be in the context or be "
-    "produced by an earlier agent in your plan.\n"
-    "4. If ExplainabilityAgent is in the plan it must be last.\n"
-    "5. Prefer the shortest plan that answers the user. Every extra agent is "
-    "an extra model call.\n"
-    "6. For small talk or an out-of-scope question, plan only "
-    "ConversationalAgent."
-)
 
 
 def _format_capabilities(capabilities: dict[str, AgentCapability]) -> str:

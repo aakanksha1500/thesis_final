@@ -501,3 +501,154 @@ class TestDeriveClientProviderRouting:
         # differs only if JUDGE_MODEL != specialist_model in this env,
         # so just confirm it didn't crash and is a valid client.
         assert orch.judge_llm.mode in (settings.llm.specialist_provider, "mock")
+
+
+class TestPlannerWiring:
+    """
+    The planner is wired into process_turn as the primary Layer 1 path.
+    These tests are about the WIRING, not the planner itself (that is
+    tests/unit/test_planner.py) — specifically, that turning it on cannot
+    change what a turn does when the model gives nothing usable, because
+    every committed RQ result was produced on the static path.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _planner_on(self, monkeypatch):
+        """PLANNER_ENABLED is an environment variable; an ambient
+        PLANNER_ENABLED=false (the static arm's setting during evaluation)
+        would make every assertion below pass for the wrong reason."""
+        from config.settings import settings
+        monkeypatch.setattr(settings.planner, "enabled", True)
+
+    @staticmethod
+    def _orch_with_plan(plan_json_text: str, **kwargs):
+        from unittest.mock import MagicMock
+
+        from orchestrator.orchestrator import Orchestrator
+        from utils.llm_client import LLMClient
+
+        client = LLMClient(force_mock=True)
+        orch = Orchestrator(client, **kwargs)
+
+        from config.prompts import PLANNER_SYSTEM
+
+        def fake_chat(system, messages, temperature=None):
+            resp = MagicMock()
+            resp.content = (
+                plan_json_text if system == PLANNER_SYSTEM
+                else "[MOCK RESPONSE] synthesis"
+            )
+            resp.tokens_used = 7
+            return resp
+
+        orch._planner.llm.chat = fake_chat
+        return orch
+
+    def test_result_carries_the_plan(self, audit_tmp_dir):
+        orch = self._orch_with_plan('{"plan": ["ConversationalAgent"]}',
+                                    session_id="plan-wire-1")
+        result = orch.process_turn("hello there")
+        assert result.plan is not None
+        assert result.plan_source in ("planner", "static_fallback")
+
+    def test_accepted_plan_drives_the_agent_sequence(self, audit_tmp_dir):
+        orch = self._orch_with_plan('{"plan": ["ConversationalAgent"]}',
+                                    session_id="plan-wire-2")
+        result = orch.process_turn("hi")
+        assert result.plan.accepted
+        assert result.agents_invoked == ["ConversationalAgent"]
+
+    def test_unusable_plan_reproduces_the_static_path_exactly(self, audit_tmp_dir):
+        """The regression guard for every committed result: when the planner
+        gives nothing usable, the turn must run precisely what the static
+        table would have run."""
+        from orchestrator.orchestrator import Orchestrator
+
+        orch = self._orch_with_plan("no json here", session_id="plan-wire-3")
+        result = orch.process_turn("hi")
+        expected = Orchestrator._get_agent_sequence(result.routing_decision)
+        assert result.plan.source == "static_fallback"
+        assert list(result.plan.steps) == expected
+
+    def test_plan_is_written_to_the_audit_log(self, audit_tmp_dir):
+        orch = self._orch_with_plan('{"plan": ["ConversationalAgent"]}',
+                                    session_id="plan-wire-4")
+        orch.process_turn("hi")
+        events = orch.audit_log.read_all()
+        plans = [e for e in events if e["event_type"] == "PLAN"]
+        assert len(plans) == 1
+        assert plans[0]["payload"]["source"] in ("planner", "static_fallback")
+        assert "proposed" in plans[0]["payload"]
+
+    def test_plan_event_type_is_declared_valid(self, audit_tmp_dir):
+        """
+        AuditLog._write logs an ERROR for an unrecognised event_type and then
+        writes the record anyway. That is the right runtime behaviour — losing
+        an audit record is worse than writing an odd one — but it means a new
+        record_*() whose type was never added to VALID_EVENT_TYPES produces a
+        log file that LOOKS correct while every downstream consumer filtering
+        on the known set silently drops it.
+
+        A test asserting only "the PLAN event is in the file" passes in that
+        state. This one does not.
+        """
+        from orchestrator.audit_log import AuditLog
+
+        assert "PLAN" in AuditLog.VALID_EVENT_TYPES
+
+    def test_a_whole_turn_writes_only_declared_event_types(self, audit_tmp_dir):
+        """The general version of the above, so the next component to add a
+        record_*() method is covered without anyone remembering to."""
+        from orchestrator.audit_log import AuditLog
+
+        orch = self._orch_with_plan('{"plan": ["ConversationalAgent"]}',
+                                    session_id="plan-wire-8")
+        orch.process_turn("hi")
+        written = {e["event_type"] for e in orch.audit_log.read_all()}
+        undeclared = written - AuditLog.VALID_EVENT_TYPES
+        assert not undeclared, (
+            f"written to the audit log but not in VALID_EVENT_TYPES: "
+            f"{sorted(undeclared)} — downstream consumers filtering on the "
+            f"known set will drop these silently"
+        )
+
+    def test_rejected_proposal_survives_into_the_audit_log(self, audit_tmp_dir):
+        """InvestmentAgent with no risk class — rejected. The audit log has to
+        show what was asked for, not just what ran."""
+        orch = self._orch_with_plan('{"plan": ["InvestmentAgent"]}',
+                                    session_id="plan-wire-5")
+        orch.process_turn("what should I invest in?")
+        payload = [e for e in orch.audit_log.read_all()
+                   if e["event_type"] == "PLAN"][0]["payload"]
+        assert payload["proposed"] == ["InvestmentAgent"]
+        assert payload["accepted"] is False
+        assert payload["rejections"]
+
+    def test_planner_disabled_marks_the_source_as_static(self, audit_tmp_dir,
+                                                          monkeypatch):
+        from config.settings import settings
+
+        monkeypatch.setattr(settings.planner, "enabled", False)
+        orch = self._orch_with_plan('{"plan": ["ConversationalAgent"]}',
+                                    session_id="plan-wire-6")
+        result = orch.process_turn("hi")
+        assert result.plan_source == "static"
+
+    def test_planner_stats_exposed_on_the_orchestrator(self, audit_tmp_dir):
+        orch = self._orch_with_plan('{"plan": ["ConversationalAgent"]}',
+                                    session_id="plan-wire-7")
+        orch.process_turn("hi")
+        stats = orch.planner_stats
+        assert stats["attempts"] == 1
+        assert set(stats) >= {"accepted", "fallbacks", "validity_rate",
+                              "rejection_counts"}
+
+    def test_static_sequences_match_the_orchestrator_table(self):
+        """One declaration, two consumers. If these ever diverge, the
+        planner-vs-static comparison stops measuring what it claims to."""
+        from agents.payloads import STATIC_SEQUENCES
+        from orchestrator.orchestrator import Orchestrator, RoutingDecision
+
+        for routing in RoutingDecision:
+            assert (Orchestrator._get_agent_sequence(routing)
+                    == list(STATIC_SEQUENCES[routing.value]))

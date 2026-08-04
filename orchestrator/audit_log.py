@@ -75,6 +75,7 @@ class AuditLog:
         "SESSION_INIT",
         "TURN_START",
         "ROUTING_DECISION",
+        "PLAN",
         "AGENT_CALL",
         "AGENT_FAILURE",
         "AGENT_RETRY",
@@ -194,6 +195,32 @@ class AuditLog:
                 "confidence": confidence,
                 "rationale": rationale,
             },
+        ))
+    def record_plan(
+            self,
+            turn_id: str,
+            plan: dict,
+    ) -> None:
+        """
+        Log the Layer 1 plan — G6, Day 4-5.
+
+        SEPARATE FROM record_routing ON PURPOSE
+            ROUTING_DECISION answers "what kind of request was this?".
+            PLAN answers "who was therefore going to run, who decided that,
+            and what was refused?". Folding the second into the first would
+            make the planner's rejected proposals unrecoverable from the audit
+            trail, and the rejected proposal is the evidence for the
+            planner-vs-static comparison.
+
+            It also matters for TRiSM: in a regulated setting, "an LLM chose
+            this execution path and here is the deterministic check it
+            passed" is the auditable claim. It needs its own record.
+        """
+        self._write(_make_event(
+            session_id=self.session_id,
+            turn_id=turn_id,
+            event_type="PLAN",
+            payload=plan,
         ))
 
     def record_agent_call(

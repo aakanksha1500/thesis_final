@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-08-04T00:29:31.820641+00:00",
-    "git_sha": "6f95fee-dirty",
+    "generated_at_utc": "2026-08-04T02:40:23.478326+00:00",
+    "git_sha": "ab5cc41-dirty",
     "prompt_version": "v1.0",
     "llm_mode": "mock",
     "orchestrator_model": "llama-3.3-70b-versatile",
@@ -114,7 +114,7 @@
       "conflicts": [],
       "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.419416930526495,
+      "duration_ms": 0.5204170010983944,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -141,7 +141,7 @@
       "conflicts": [],
       "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.2647091168910265,
+      "duration_ms": 0.3909999504685402,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -168,7 +168,7 @@
       "conflicts": [],
       "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.25591696612536907,
+      "duration_ms": 0.4083330277353525,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -195,7 +195,7 @@
       "conflicts": [],
       "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.3527500666677952,
+      "duration_ms": 0.35866699181497097,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -222,7 +222,7 @@
       "conflicts": [],
       "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.2454998902976513,
+      "duration_ms": 0.3589580301195383,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -249,7 +249,7 @@
       "conflicts": [],
       "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.2354579046368599,
+      "duration_ms": 0.32712495885789394,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -276,7 +276,7 @@
       "conflicts": [],
       "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.24083280004560947,
+      "duration_ms": 0.32724998891353607,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -303,7 +303,7 @@
       "conflicts": [],
       "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.2547081094235182,
+      "duration_ms": 0.36270800046622753,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -330,7 +330,7 @@
       "conflicts": [],
       "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.2412919420748949,
+      "duration_ms": 0.4785421770066023,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -357,7 +357,7 @@
       "conflicts": [],
       "constraint_violations": [],
       "recovered_agents": [],
-      "duration_ms": 0.232374994084239,
+      "duration_ms": 0.43800007551908493,
       "judge_score": {
         "routing_accuracy": 3.0,
         "agent_coordination": 3.0,
@@ -372,5 +372,5 @@
       }
     }
   ],
-  "audit_log_path": "/private/var/folders/vc/qwj0gcpn741fw_lh0plr1_b40000gn/T/pytest-of-aakankshadeshpande/pytest-51/test_rq4_pipeline_evaluation_a0/session_rq4-eval-001.jsonl"
+  "audit_log_path": "/private/var/folders/vc/qwj0gcpn741fw_lh0plr1_b40000gn/T/pytest-of-aakankshadeshpande/pytest-57/test_rq4_pipeline_evaluation_a0/session_rq4-eval-001.jsonl"
 }

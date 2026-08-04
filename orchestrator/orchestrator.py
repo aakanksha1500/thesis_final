@@ -42,6 +42,7 @@ from agents.base_agent import AgentResult
 from agents.budget_agent import BudgetAgent
 from agents.conversational_agent import ConversationalAgent
 from agents.investment_agent import InvestmentAgent
+from agents.payloads import STATIC_SEQUENCES
 from agents.risk_profiling_agent import RiskProfilingAgent
 from config.constraints import financial_constraints
 from config.prompts import ORCHESTRATOR_SYSTEM
@@ -52,6 +53,7 @@ from explainability.explainability_agent import ExplainabilityAgent
 from orchestrator.audit_log import AuditLog
 from orchestrator.conflict_resolver import ConflictResolver
 from orchestrator.failure_handler import FailureHandler
+from orchestrator.planner import Plan, Planner
 from utils import trace
 from utils.llm_client import LLMClient
 from utils.logger import get_logger
@@ -85,6 +87,12 @@ class OrchestratorResult:
     total_duration_ms: float = 0.0
     success: bool = True
     error: str | None = None
+    plan: Plan | None = None
+
+    @property
+    def plan_source(self) -> str:
+        """'planner', 'static_fallback', or 'static' when G6 is switched off."""
+        return self.plan.source if self.plan else "static"
 
 class Orchestrator:
     """
@@ -115,6 +123,7 @@ class Orchestrator:
         self.audit_log = AuditLog(session_id=self.session_id)
         self._conflict_resolver = ConflictResolver()
         self._failure_handler = FailureHandler()
+        self._planner = Planner(llm_client)
 
         # Agent registry — one instance per agent type, shared across turns
         self._agents: dict[str, Any] = {
@@ -731,7 +740,9 @@ class Orchestrator:
         context = self._build_context(user_message)
         context["_turn_id"] = turn_id
 
-        agent_sequence = self._get_agent_sequence(routing)
+        turn_plan = self._plan_turn(user_message, context, routing, intent, turn_id)
+        agent_sequence = list(turn_plan.steps)
+
         elicitation: str | None = None
         if routing is RoutingDecision.FULL_ADVISORY:
             planned = agent_sequence
@@ -860,9 +871,74 @@ class Orchestrator:
             recovered_agents=recovered,
             total_duration_ms=total_ms,
             success=True,
+            plan=turn_plan,
         )
 
-# Section 2 — questionnaire loop closure
+     # Layer 1b - G6 planning (Day 4-5)
+    def _plan_turn(
+        self,
+        user_message: str,
+        context: dict,
+        routing: RoutingDecision,
+        intent: str,
+        turn_id: str,
+    ) -> Plan:
+        """
+        Decide this turn's agent sequence, and record how the decision was made.
+
+        THE QUESTIONNAIRE AND ELICITATION PATHS DO NOT GO THROUGH THE PLANNER
+            Mid-questionnaire, the sequence is not a choice: the customer is
+            answering a question the system asked, and the only correct
+            response is ConversationalAgent continuing the form. Asking a
+            model to plan that turn spends a call to arrive at the one answer
+            that was never in doubt, and gives it the opportunity to route
+            away from the form and strand it (the same reasoning that already
+            skips intent classification here).
+
+        THE STATIC TABLE IS KEYED BY ROUTING DECISION, NOT RAW INTENT
+            `intent` is a Banking77 bucket; `routing` is the six-way decision
+            the bucket maps to, and two intents can share one route
+            (product_suggestion and investment_advice both mean INVESTMENT).
+            Keying the fallback on routing.value guarantees the fallback is
+            byte-identical to what _get_agent_sequence would have returned,
+            which is the premise of the planner-vs-static comparison: the two
+            arms must differ only in who chose.
+        """
+        conv_agent = self._agents["ConversationalAgent"]
+        if getattr(conv_agent, "questionnaire_active", False):
+            return Plan(steps=("ConversationalAgent",), source="static_fallback",
+                        intent=routing.value)
+
+        if not settings.planner.enabled:
+            return Plan(steps=tuple(self._get_agent_sequence(routing)),
+                        source="static", intent=routing.value)
+
+        with trace.span("[L1b]", "planning"):
+            plan = self._planner.plan(user_message, context, routing.value)
+
+        trace.emit(
+            "PLAN",
+            f"{plan.source}: {' → '.join(plan.steps) or '(empty)'}",
+            accepted=plan.accepted,
+            rejections=len(plan.rejections),
+            tokens=plan.llm_tokens,
+        )
+        self.audit_log.record_plan(turn_id=turn_id, plan=plan.as_dict())
+
+        if not plan.accepted and plan.proposed:
+            logger.info(
+                f"[Orchestrator] turn={turn_id} planner proposed "
+                f"{list(plan.proposed)} — rejected "
+                f"({', '.join(plan.rejection_codes)}) — using static table"
+            )
+        return plan
+
+    @property
+    def planner_stats(self) -> dict:
+        """Session-level planner counters — read by the evaluation harness."""
+        return self._planner.stats.as_dict()
+
+    # Section 2 — questionnaire loop closure
     # ----------------------------------------------------------------------
     def _advance_questionnaire(
         self,
@@ -1088,37 +1164,51 @@ class Orchestrator:
             "financial advisor before acting on it."
         )
 
-    def _get_agent_sequence(self, routing: RoutingDecision) -> list[str]:
-        """
-        Map routing decision to ordered agent execution sequence.
-        ExplainabilityAgent always runs last (X1 — in-pipeline).
-        """
-        sequences = {
-            RoutingDecision.CONVERSATIONAL_ONLY: [
-                "ConversationalAgent",
-            ],
-            RoutingDecision.RISK_PROFILING: [
-                "RiskProfilingAgent",
-                "ExplainabilityAgent",
-            ],
-            RoutingDecision.INVESTMENT: [
-                "RiskProfilingAgent",
-                "InvestmentAgent",
-                "ExplainabilityAgent",
-            ],
-            RoutingDecision.BUDGET: [
-                "BudgetAgent",
-                "ExplainabilityAgent",
-            ],
-            RoutingDecision.FULL_ADVISORY: [
-                "RiskProfilingAgent",
-                "InvestmentAgent",
-                "BudgetAgent",
-                "ExplainabilityAgent",
-            ],
-            RoutingDecision.EXPLANATION_REQUEST: [
-                "ExplainabilityAgent",
-            ],
-        }
-        return sequences.get(routing, ["ConversationalAgent"])
+    # def _get_agent_sequence(self, routing: RoutingDecision) -> list[str]:
+    #     """
+    #     Map routing decision to ordered agent execution sequence.
+    #     ExplainabilityAgent always runs last (X1 — in-pipeline).
+    #     """
+    #     sequences = {
+    #         RoutingDecision.CONVERSATIONAL_ONLY: [
+    #             "ConversationalAgent",
+    #         ],
+    #         RoutingDecision.RISK_PROFILING: [
+    #             "RiskProfilingAgent",
+    #             "ExplainabilityAgent",
+    #         ],
+    #         RoutingDecision.INVESTMENT: [
+    #             "RiskProfilingAgent",
+    #             "InvestmentAgent",
+    #             "ExplainabilityAgent",
+    #         ],
+    #         RoutingDecision.BUDGET: [
+    #             "BudgetAgent",
+    #             "ExplainabilityAgent",
+    #         ],
+    #         RoutingDecision.FULL_ADVISORY: [
+    #             "RiskProfilingAgent",
+    #             "InvestmentAgent",
+    #             "BudgetAgent",
+    #             "ExplainabilityAgent",
+    #         ],
+    #         RoutingDecision.EXPLANATION_REQUEST: [
+    #             "ExplainabilityAgent",
+    #         ],
+    #     }
+    #     return sequences.get(routing, ["ConversationalAgent"])
 
+    @staticmethod
+    def _get_agent_sequence(routing: RoutingDecision) -> list[str]:
+        """
+        Map routing decision to ordered agent execution sequence — the static
+        table. ExplainabilityAgent always runs last (X1 — in-pipeline).
+
+        THE TABLE ITSELF MOVED TO agents/payloads.STATIC_SEQUENCES (Day 4-5)
+            It now has two consumers: this method, and Planner's fallback.
+            Two copies would drift, and the moment they did, the
+            planner-vs-static comparison would be measuring a difference
+            between two tables rather than between LLM planning and
+            hand-written routing. One declaration, read from both places.
+        """
+        return list(STATIC_SEQUENCES.get(routing.value, ["ConversationalAgent"]))

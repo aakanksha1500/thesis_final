@@ -1,0 +1,491 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-04T02:41:12.549446+00:00",
+    "git_sha": "ab5cc41-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "groq",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 12,
+      "errors": 0,
+      "mode": "record",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": true,
+      "use_counterfactual": true
+    }
+  },
+  "summary": {
+    "scenarios": 12,
+    "plan_validity_rate": 0.9167,
+    "accepted": 11,
+    "fallbacks": 1,
+    "agreement_rate_over_accepted": 0.3636,
+    "disagreements": [
+      {
+        "id": "S05_investment_new_user",
+        "planner": [
+          "ConversationalAgent"
+        ],
+        "static": [
+          "RiskProfilingAgent",
+          "InvestmentAgent",
+          "ExplainabilityAgent"
+        ]
+      },
+      {
+        "id": "S06_investment_returning_user",
+        "planner": [
+          "InvestmentAgent",
+          "ExplainabilityAgent"
+        ],
+        "static": [
+          "RiskProfilingAgent",
+          "InvestmentAgent",
+          "ExplainabilityAgent"
+        ]
+      },
+      {
+        "id": "S07_budget",
+        "planner": [
+          "BudgetAgent"
+        ],
+        "static": [
+          "BudgetAgent",
+          "ExplainabilityAgent"
+        ]
+      },
+      {
+        "id": "S09_full_advisory",
+        "planner": [
+          "RiskProfilingAgent",
+          "InvestmentAgent",
+          "ExplainabilityAgent"
+        ],
+        "static": [
+          "RiskProfilingAgent",
+          "InvestmentAgent",
+          "BudgetAgent",
+          "ExplainabilityAgent"
+        ]
+      },
+      {
+        "id": "S10_explanation_request",
+        "planner": [
+          "RiskProfilingAgent",
+          "ExplainabilityAgent"
+        ],
+        "static": [
+          "ExplainabilityAgent"
+        ]
+      },
+      {
+        "id": "S11_narrow_question",
+        "planner": [
+          "RiskProfilingAgent",
+          "InvestmentAgent"
+        ],
+        "static": [
+          "RiskProfilingAgent",
+          "InvestmentAgent",
+          "ExplainabilityAgent"
+        ]
+      },
+      {
+        "id": "S12_multi_topic",
+        "planner": [
+          "RiskProfilingAgent",
+          "InvestmentAgent",
+          "BudgetAgent",
+          "ExplainabilityAgent"
+        ],
+        "static": [
+          "RiskProfilingAgent",
+          "InvestmentAgent",
+          "ExplainabilityAgent"
+        ]
+      }
+    ],
+    "rejection_counts": {
+      "unsatisfied_requires": 1
+    },
+    "mean_steps_planner": 2.0,
+    "mean_steps_static": 2.333,
+    "planner_tokens_total": 6081,
+    "static_scenarios_with_contextual_gaps": 2
+  },
+  "scenarios": [
+    {
+      "id": "S01_small_talk",
+      "message": "Hi, what can you help me with?",
+      "intent": "conversational_only",
+      "probes": "trivial route \u2014 planner should not invent specialists",
+      "available_context_keys": [],
+      "planner_proposed": [
+        "ConversationalAgent"
+      ],
+      "planner_accepted": true,
+      "planner_steps": [
+        "ConversationalAgent"
+      ],
+      "planner_rejections": [],
+      "planner_tokens": 493,
+      "static_steps": [
+        "ConversationalAgent"
+      ],
+      "static_contextual_gaps": [],
+      "agrees_with_static": true
+    },
+    {
+      "id": "S02_out_of_scope",
+      "message": "What's the weather in Galway tomorrow?",
+      "intent": "conversational_only",
+      "probes": "refusal route",
+      "available_context_keys": [],
+      "planner_proposed": [
+        "ConversationalAgent"
+      ],
+      "planner_accepted": true,
+      "planner_steps": [
+        "ConversationalAgent"
+      ],
+      "planner_rejections": [],
+      "planner_tokens": 494,
+      "static_steps": [
+        "ConversationalAgent"
+      ],
+      "static_contextual_gaps": [],
+      "agrees_with_static": true
+    },
+    {
+      "id": "S03_risk_only",
+      "message": "How risky an investor am I?",
+      "intent": "risk_profiling",
+      "probes": "single-specialist route",
+      "available_context_keys": [
+        "monthly_expenses",
+        "monthly_income",
+        "user_features"
+      ],
+      "planner_proposed": [
+        "RiskProfilingAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_accepted": true,
+      "planner_steps": [
+        "RiskProfilingAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_rejections": [],
+      "planner_tokens": 507,
+      "static_steps": [
+        "RiskProfilingAgent",
+        "ExplainabilityAgent"
+      ],
+      "static_contextual_gaps": [],
+      "agrees_with_static": true
+    },
+    {
+      "id": "S04_investment_known_user",
+      "message": "I have 20,000 euro saved. What should I invest it in?",
+      "intent": "investment",
+      "probes": "the canonical chain \u2014 risk must precede investment",
+      "available_context_keys": [
+        "monthly_expenses",
+        "monthly_income",
+        "user_features"
+      ],
+      "planner_proposed": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_accepted": true,
+      "planner_steps": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_rejections": [],
+      "planner_tokens": 522,
+      "static_steps": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "static_contextual_gaps": [],
+      "agrees_with_static": true
+    },
+    {
+      "id": "S05_investment_new_user",
+      "message": "What should I invest in?",
+      "intent": "investment",
+      "probes": "nothing known \u2014 does the planner still chain correctly?",
+      "available_context_keys": [],
+      "planner_proposed": [
+        "ConversationalAgent"
+      ],
+      "planner_accepted": true,
+      "planner_steps": [
+        "ConversationalAgent"
+      ],
+      "planner_rejections": [],
+      "planner_tokens": 491,
+      "static_steps": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "static_contextual_gaps": [
+        {
+          "code": "unsatisfied_requires",
+          "detail": "step 1 RiskProfilingAgent requires ['user_features'], not present in context and not produced by any earlier step"
+        },
+        {
+          "code": "unsatisfied_requires",
+          "detail": "step 2 InvestmentAgent requires ['user_features'], not present in context and not produced by any earlier step"
+        }
+      ],
+      "agrees_with_static": false
+    },
+    {
+      "id": "S06_investment_returning_user",
+      "message": "Any new product suggestions for me?",
+      "intent": "investment",
+      "probes": "risk_class already cached \u2014 the table re-runs risk, the planner need not",
+      "available_context_keys": [
+        "monthly_expenses",
+        "monthly_income",
+        "risk_class",
+        "risk_profile",
+        "user_features"
+      ],
+      "planner_proposed": [
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_accepted": true,
+      "planner_steps": [
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_rejections": [],
+      "planner_tokens": 508,
+      "static_steps": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "static_contextual_gaps": [],
+      "agrees_with_static": false
+    },
+    {
+      "id": "S07_budget",
+      "message": "Where is my money going each month?",
+      "intent": "budget",
+      "probes": "budget route",
+      "available_context_keys": [
+        "monthly_expenses",
+        "monthly_income",
+        "user_features"
+      ],
+      "planner_proposed": [
+        "BudgetAgent"
+      ],
+      "planner_accepted": true,
+      "planner_steps": [
+        "BudgetAgent"
+      ],
+      "planner_rejections": [],
+      "planner_tokens": 498,
+      "static_steps": [
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "static_contextual_gaps": [],
+      "agrees_with_static": false
+    },
+    {
+      "id": "S08_budget_no_data",
+      "message": "Can you review my spending?",
+      "intent": "budget",
+      "probes": "table proposes BudgetAgent with no expense data \u2014 this is where the static arm should score a contextual gap",
+      "available_context_keys": [],
+      "planner_proposed": [
+        "ConversationalAgent",
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_accepted": false,
+      "planner_steps": [
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_rejections": [
+        {
+          "code": "unsatisfied_requires",
+          "detail": "step 2 BudgetAgent requires ['monthly_expenses', 'monthly_income'], not present in context and not produced by any earlier step"
+        }
+      ],
+      "planner_tokens": 499,
+      "static_steps": [
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "static_contextual_gaps": [
+        {
+          "code": "unsatisfied_requires",
+          "detail": "step 1 BudgetAgent requires ['monthly_expenses', 'monthly_income'], not present in context and not produced by any earlier step"
+        }
+      ],
+      "agrees_with_static": false
+    },
+    {
+      "id": "S09_full_advisory",
+      "message": "I know nothing about finance. Tell me what to do with my money.",
+      "intent": "full_advisory",
+      "probes": "longest route \u2014 is the planner willing to run four agents?",
+      "available_context_keys": [
+        "monthly_expenses",
+        "monthly_income",
+        "user_features"
+      ],
+      "planner_proposed": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_accepted": true,
+      "planner_steps": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_rejections": [],
+      "planner_tokens": 523,
+      "static_steps": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "static_contextual_gaps": [],
+      "agrees_with_static": false
+    },
+    {
+      "id": "S10_explanation_request",
+      "message": "Why did you say I was a balanced investor?",
+      "intent": "explanation_request",
+      "probes": "explanation-only route",
+      "available_context_keys": [
+        "monthly_expenses",
+        "monthly_income",
+        "risk_class",
+        "risk_profile",
+        "user_features"
+      ],
+      "planner_proposed": [
+        "RiskProfilingAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_accepted": true,
+      "planner_steps": [
+        "RiskProfilingAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_rejections": [],
+      "planner_tokens": 514,
+      "static_steps": [
+        "ExplainabilityAgent"
+      ],
+      "static_contextual_gaps": [],
+      "agrees_with_static": false
+    },
+    {
+      "id": "S11_narrow_question",
+      "message": "Just list me three low-risk funds, no explanation needed.",
+      "intent": "investment",
+      "probes": "the table always appends Explainability; a shorter plan here would be a genuine planner win",
+      "available_context_keys": [
+        "monthly_expenses",
+        "monthly_income",
+        "risk_class",
+        "risk_profile",
+        "user_features"
+      ],
+      "planner_proposed": [
+        "RiskProfilingAgent",
+        "InvestmentAgent"
+      ],
+      "planner_accepted": true,
+      "planner_steps": [
+        "RiskProfilingAgent",
+        "InvestmentAgent"
+      ],
+      "planner_rejections": [],
+      "planner_tokens": 511,
+      "static_steps": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "static_contextual_gaps": [],
+      "agrees_with_static": false
+    },
+    {
+      "id": "S12_multi_topic",
+      "message": "Can you look at both my spending and whether I should invest?",
+      "intent": "investment",
+      "probes": "spans two routes; the table picks one, the planner can include BudgetAgent",
+      "available_context_keys": [
+        "monthly_expenses",
+        "monthly_income",
+        "user_features"
+      ],
+      "planner_proposed": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_accepted": true,
+      "planner_steps": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "planner_rejections": [],
+      "planner_tokens": 521,
+      "static_steps": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "static_contextual_gaps": [],
+      "agrees_with_static": false
+    }
+  ],
+  "planner_stats": {
+    "attempts": 12,
+    "accepted": 11,
+    "fallbacks": 1,
+    "validity_rate": 0.9167,
+    "rejection_counts": {
+      "unsatisfied_requires": 1
+    }
+  },
+  "llm_mode": "groq",
+  "mock_mode_warning": null
+}
