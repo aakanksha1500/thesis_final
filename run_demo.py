@@ -10,6 +10,9 @@ USAGE
     python run_demo.py                          # scripted demo conversation
     python run_demo.py --interactive            # type your own messages
     python run_demo.py --customer DEMO_GC_042   # start from a known customer
+    python run_demo.py --persona normal          # named customer archetype
+    python run_demo.py --persona stale -i        # ...answered interactively
+    python run_demo.py --persona normal --push   # bank-push instead of lookup
     python run_demo.py --debug                  # DEBUG-level logs
     python run_demo.py -m "Should I invest?"    # one message and exit
 """
@@ -143,7 +146,9 @@ def show(turn_no: int, message: str, result) -> None:
         print(f"  BLOCKED    : {[v['rule_id'] for v in hard]}")
     if result.recovered_agents:
         print(f"  recovered  : {result.recovered_agents}")
-
+    if result.skipped:
+        for s in result.skipped:
+            print(f"  skipped    : {s['agent']} — {s['reason']}")
     for ar in result.agent_results:
         status = ar.payload.get("status", "-")
         mark = "ok " if ar.success else "ERR"
@@ -273,6 +278,13 @@ def main() -> int:
         send(1, args.message)
     elif args.interactive:
         print("Interactive mode — type a message, or 'quit' to exit.")
+        if no_features or (args.persona == "new"):
+            print(
+                "New/incomplete customer: the system won't volunteer what it "
+                "needs until you ask it something requiring a specialist — "
+                "try \"Can you assess my risk profile?\" or \"I want to "
+                "invest for retirement\" to see it ask for what's missing."
+            )
         n = 0
         while True:
             try:

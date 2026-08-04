@@ -171,7 +171,7 @@ def available_context_keys(context: dict) -> set[str]:
         if features.get("income"):
             keys.add("monthly_income")
 
-    if context.get("transactions") or context.get("monthly_expenses"):
+    if "transactions" in context or context.get("monthly_expenses"):
         keys.add("monthly_expenses")
 
     return keys

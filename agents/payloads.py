@@ -149,10 +149,11 @@ CAPABILITIES: dict[str, AgentCapability] = {
     ),
     "BudgetAgent": AgentCapability(
         name="BudgetAgent",
-        requires=frozenset({"monthly_income", "monthly_expenses"}),
+        requires=frozenset({"monthly_expenses"}),
         produces=frozenset({"disposable_income", "savings_rate_pct",
                              "benchmark_comparison"}),
-        description="Analyses spending against Irish household benchmarks.",
+        description="Analyses spending against Irish household benchmarks. "
+                     "Will ask for income itself if not already known.",
         cost_hint="cheap",
     ),
     "ExplainabilityAgent": AgentCapability(

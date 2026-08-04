@@ -548,9 +548,9 @@ class RiskProfilingAgent(BaseAgent):
                 "status": "incomplete",
                 "missing_features": missing,
                 "message": (
-                    f"Cannot classify risk profile: missing features {missing}. "
-                    f"Please collect these via ConversationalAgent before calling "
-                    f"RiskProfilingAgent."
+                    "I don't have enough information yet to assess your risk "
+                    "profile — I still need a few details about your "
+                    "situation before I can give you an accurate answer."
                 ),
             }
             duration_ms = (time.perf_counter() - start_time) * 1000

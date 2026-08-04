@@ -30,15 +30,37 @@ import time
 from typing import Any
 
 from agents.base_agent import AgentResult, BaseAgent
-from agents.budget_questionnaire import (
-    MAX_QUESTIONS_PER_SITTING,
-    QuestionnaireQuestion,
-    detect_stop_intent,
-    is_plausible,
-    is_sufficient,
-    next_question,
-    parse_money_answer,
-)
+from agents.budget_questionnaire import MAX_QUESTIONS_PER_SITTING
+from agents.budget_questionnaire import QUESTIONNAIRE_SCHEMA as _BUDGET_SCHEMA
+from agents.budget_questionnaire import QuestionnaireQuestion
+from agents.budget_questionnaire import detect_stop_intent
+from agents.budget_questionnaire import is_skip_answer
+from agents.budget_questionnaire import is_plausible as _budget_is_plausible
+from agents.budget_questionnaire import is_sufficient as _budget_is_sufficient
+from agents.budget_questionnaire import next_question as _budget_next_question
+from agents.budget_questionnaire import parse_money_answer
+import agents.risk_questionnaire as risk_questionnaire
+
+# Registry so start_questionnaire()/_questionnaire_turn() are schema-agnostic:
+# add a new kind here (schema, next_question, is_sufficient, is_plausible)
+# rather than branching all over the class. Both modules share
+# ConversationalAgent's QuestionnaireQuestion dataclass (see
+# budget_questionnaire.py's answer_type field) so the engine below never
+# needs to know which kind it's running beyond this lookup.
+_QUESTIONNAIRE_KINDS: dict[str, dict[str, Any]] = {
+    "budget": {
+        "schema": _BUDGET_SCHEMA,
+        "next_question": _budget_next_question,
+        "is_sufficient": _budget_is_sufficient,
+        "is_plausible": _budget_is_plausible,
+    },
+    "risk": {
+        "schema": risk_questionnaire.QUESTIONNAIRE_SCHEMA,
+        "next_question": risk_questionnaire.next_question,
+        "is_sufficient": risk_questionnaire.is_sufficient,
+        "is_plausible": risk_questionnaire.is_plausible,
+    },
+}
 from config.prompts import CONVERSATIONAL_SYSTEM, INTENT_CLASSIFIER_SYSTEM
 from config.settings import settings
 from utils.llm_client import LLMClient
@@ -132,6 +154,7 @@ class ConversationalAgent(BaseAgent):
         self.last_classification_error: str | None = None
         self.last_classification_error_status: int | None = None
         self._questionnaire_active: bool = False
+        self._questionnaire_kind: str = "budget"  # or "risk" — see _QUESTIONNAIRE_KINDS
         self._pending_question: QuestionnaireQuestion | None = None
         self._questions_asked_this_sitting: int = 0
         self._skipped_slots: set[str] = set()
@@ -300,26 +323,38 @@ class ConversationalAgent(BaseAgent):
     #     budget, and mock/offline mode must degrade to "ask again" rather
     #     than to a wrong number.
 
+    def _kind_funcs(self, kind: str | None = None) -> dict[str, Any]:
+        """
+        Look up the active (or given) questionnaire kind's schema/functions
+        from _QUESTIONNAIRE_KINDS. Defaults to "budget" for both the kind
+        argument and an unset self._questionnaire_kind, so every existing
+        caller that never knew "kind" existed keeps working unchanged.
+        """
+        return _QUESTIONNAIRE_KINDS[kind or self._questionnaire_kind or "budget"]
+
     def start_questionnaire(
-        self, seed_slots: dict[str, Any] | None = None
+        self, seed_slots: dict[str, Any] | None = None, kind: str = "budget",
     ) -> QuestionnaireQuestion | None:
         """
-        Enter questionnaire mode and return the first question to ask, or
-        None if nothing needs asking.
+        Enter questionnaire mode for `kind` ("budget" or "risk") and return
+        the first question to ask, or None if nothing needs asking.
 
-        Seeds from slots already collected this session — income is tracked
-        for risk profiling and is reused rather than asked a second time,
+        Seeds from slots already collected this session — e.g. age/income
+        may already be known from earlier small talk or the other
+        questionnaire, and are reused rather than asked a second time,
         which is the single most irritating thing a form can do to someone
         who has already answered it.
         """
         self._questionnaire_active = True
+        self._questionnaire_kind = kind
         self._questions_asked_this_sitting = 0
         self._skipped_slots = set()
         self._customer_wants_to_stop = False
         if seed_slots:
             self.update_slots(seed_slots)
 
-        question = next_question(
+        funcs = self._kind_funcs(kind)
+        question = funcs["next_question"](
             self.questionnaire_answers,
             questions_asked_this_sitting=0,
             skipped_slots=self._skipped_slots,
@@ -334,24 +369,33 @@ class ConversationalAgent(BaseAgent):
         return question
 
     @property
+    def questionnaire_kind(self) -> str:
+        """Which schema is currently active — read by the Orchestrator to
+        decide which agent to re-run once questionnaire_state['sufficient']."""
+        return self._questionnaire_kind
+
+    @property
     def questionnaire_answers(self) -> dict[str, Any]:
         """
-        The questionnaire's view of session slots: only the slots the
-        questionnaire schema actually cares about, so a risk-profiling slot
-        like `age` never leaks into BudgetAgent's answer set.
+        The active questionnaire's view of session slots: only the slots
+        ITS schema cares about, so e.g. a risk-profiling slot like `age`
+        never leaks into BudgetAgent's answer set, and vice versa.
         """
-        from agents.budget_questionnaire import QUESTIONNAIRE_SCHEMA
+        schema = self._kind_funcs()["schema"]
         return {
             q.slot_name: self._slots[q.slot_name]
-            for q in QUESTIONNAIRE_SCHEMA
+            for q in schema
             if self._slots.get(q.slot_name) is not None
         }
 
     @property
     def questionnaire_state(self) -> dict[str, Any]:
-        """Everything the Orchestrator/BudgetAgent needs to continue or finish."""
+        """Everything the Orchestrator/BudgetAgent/RiskProfilingAgent needs
+        to continue or finish, for whichever kind is currently active."""
         answers = self.questionnaire_answers
+        funcs = self._kind_funcs()
         return {
+            "kind": self._questionnaire_kind,
             "active": self._questionnaire_active,
             "pending_question": (
                 self._pending_question.to_dict() if self._pending_question else None
@@ -360,7 +404,7 @@ class ConversationalAgent(BaseAgent):
             "skipped_slots": sorted(self._skipped_slots),
             "questions_asked_this_sitting": self._questions_asked_this_sitting,
             "customer_wants_to_stop": self._customer_wants_to_stop,
-            "sufficient": is_sufficient(
+            "sufficient": funcs["is_sufficient"](
                 answers,
                 customer_wants_to_stop=self._customer_wants_to_stop,
                 questions_asked_this_sitting=self._questions_asked_this_sitting,
@@ -398,8 +442,9 @@ class ConversationalAgent(BaseAgent):
         if deterministic is not None:
             return deterministic, "deterministic"
 
+        topic = "risk-profiling" if self._questionnaire_kind == "risk" else "budgeting"
         prompt = (
-            f"A customer is being asked a short series of budgeting questions. "
+            f"A customer is being asked a short series of {topic} questions. "
             f"They just replied:\n\n\"{user_message}\"\n\n"
             f"Are they asking to STOP answering questions (now or for the "
             f"moment), or are they still engaging with the conversation?\n"
@@ -419,52 +464,126 @@ class ConversationalAgent(BaseAgent):
 
     def _parse_questionnaire_answer(
         self, user_message: str, question: QuestionnaireQuestion
+    ) -> tuple[Any, str]:
+        """
+        Dispatches to a type-specific parser based on question.answer_type
+        (defaults to "money" — every existing budget question). Returns
+        (value, basis), where value None means "not obtained" — either
+        declined or unreadable. All four parsers share the same shape:
+        deterministic first, an LLM proposal only for what the rules
+        couldn't read, and every LLM-proposed value range-checked against
+        the active kind's plausibility table before acceptance — that
+        check isn't validating the customer, it's validating the model.
+        """
+        answer_type = getattr(question, "answer_type", "money")
+        if answer_type == "text":
+            return self._parse_text_answer(user_message)
+        if answer_type == "integer":
+            return self._parse_numeric_answer(user_message, question, integer=True)
+        if answer_type == "scale_1_5":
+            return self._parse_scale_answer(user_message, question)
+        return self._parse_numeric_answer(user_message, question, integer=False)
+
+    def _is_plausible(self, slot_name: str, value: float) -> bool:
+        return self._kind_funcs()["is_plausible"](slot_name, value)
+
+    def _parse_text_answer(self, user_message: str) -> tuple[str | None, str]:
+        """Deterministic only — categorical free text (e.g. employment
+        status) has no numeric plausibility check to escalate to an LLM
+        for; if the rules can't read it there's nothing more reliable to try."""
+        if is_skip_answer(user_message):
+            return None, "skip"
+        text = (user_message or "").strip()
+        if not text:
+            return None, "unparsed"
+        return text.lower(), "single_figure"
+
+    def _parse_numeric_answer(
+        self, user_message: str, question: QuestionnaireQuestion, integer: bool,
     ) -> tuple[float | None, str]:
         """
-        Hybrid answer parsing for one question. Returns (value, basis), where
-        value None means "not obtained" — either declined or unreadable.
-
-        The LLM tier is strictly a proposal: whatever number it returns is
-        range-checked against budget_questionnaire.SLOT_PLAUSIBLE_RANGE before
-        it's accepted. That check isn't validating the customer, it's
-        validating the model — a monthly rent of 120,000 means something was
-        misread, and the cost of accepting it (a confidently wrong budget) is
-        far higher than the cost of rejecting it (one repeated question).
+        Shared by "money" and "integer" — both are ultimately "find the
+        number", differing only in rounding and which prompt wording asks
+        for money vs. a plain count. Reuses budget_questionnaire's money
+        regex (currency-symbol-optional, so "34" parses the same as
+        "€34") and stop/skip detectors, which are generic text-pattern
+        matchers, not budget-specific.
         """
         value, basis = parse_money_answer(user_message)
         if basis in {"explicit_zero", "single_figure", "range_midpoint"}:
-            if value is not None and not is_plausible(question.slot_name, value):
-                return None, "rejected_implausible_deterministic"
+            if value is not None:
+                if not self._is_plausible(question.slot_name, value):
+                    return None, "rejected_implausible_deterministic"
+                value = round(value) if integer else round(value, 2)
             return value, basis
         if basis == "skip":
             return None, "skip"
 
+        noun = "a whole number" if integer else "an amount in euros"
         prompt = (
-            f"Extract a single euro amount from a customer's reply.\n\n"
+            f"Extract {noun} from a customer's reply.\n\n"
             f"Question asked: \"{question.question_text}\"\n"
             f"Customer replied: \"{user_message}\"\n\n"
-            f"If the reply states or clearly implies an amount, return it as a "
+            f"If the reply states or clearly implies a value, return it as a "
             f"plain number. If it does not, return null — do not guess, and do "
-            f"not infer an amount from anything other than what they said.\n"
+            f"not infer a value from anything other than what they said.\n"
             f"Respond with ONLY valid JSON, no other text:\n"
-            f'{{"amount": <number or null>}}'
+            f'{{"value": <number or null>}}'
         )
         try:
             raw, _ = self._call_llm(prompt, temperature=0.0)
             match = re.search(r'\{[^}]*\}', raw, re.DOTALL)
             if match:
                 parsed = json.loads(match.group())
-                amount = parsed.get("amount")
+                amount = parsed.get("value")
                 if amount is None:
                     return None, "llm_found_nothing"
                 amount = float(amount)
-                if not is_plausible(question.slot_name, amount):
+                if not self._is_plausible(question.slot_name, amount):
                     logger.warning(
                         f"[ConversationalAgent] LLM proposed implausible "
                         f"{question.slot_name}={amount} — rejected, re-asking"
                     )
                     return None, "rejected_implausible_llm"
-                return round(amount, 2), "llm"
+                return (round(amount) if integer else round(amount, 2)), "llm"
+        except Exception as exc:
+            logger.warning(f"[ConversationalAgent] Answer-extraction LLM call failed: {exc}")
+        return None, "unparsed"
+
+    def _parse_scale_answer(
+        self, user_message: str, question: QuestionnaireQuestion,
+    ) -> tuple[int | None, str]:
+        """
+        1-5 self-rating questions (loss_tolerance, financial_knowledge_score).
+        Clamped to 1-5 rather than rejected when out of range — "10 out of
+        10" is a legible answer on this kind of scale, not a misread order
+        of magnitude the way a €120,000 rent would be, so there is nothing
+        to protect against by refusing it.
+        """
+        value, basis = parse_money_answer(user_message)
+        if basis == "skip":
+            return None, "skip"
+        if basis in {"explicit_zero", "single_figure", "range_midpoint"} and value is not None:
+            return max(1, min(5, round(value))), basis
+
+        prompt = (
+            f"Extract a single rating from 1 to 5 from a customer's reply.\n\n"
+            f"Question asked: \"{question.question_text}\"\n"
+            f"Customer replied: \"{user_message}\"\n\n"
+            f"If the reply states or clearly implies a rating on this scale, "
+            f"return it as an integer 1-5. If it does not, return null.\n"
+            f"Respond with ONLY valid JSON, no other text:\n"
+            f'{{"rating": <integer 1-5 or null>}}'
+        )
+        try:
+            raw, _ = self._call_llm(prompt, temperature=0.0)
+            match = re.search(r'\{[^}]*\}', raw, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group())
+                rating = parsed.get("rating")
+                if rating is None:
+                    return None, "llm_found_nothing"
+                return max(1, min(5, round(float(rating)))), "llm"
         except Exception as exc:
             logger.warning(f"[ConversationalAgent] Answer-extraction LLM call failed: {exc}")
         return None, "unparsed"
@@ -483,11 +602,12 @@ class ConversationalAgent(BaseAgent):
              once rather than silently advancing past it, because advancing
              would leave a gap the customer thinks they filled.
         """
+        funcs = self._kind_funcs()
         question = self._pending_question
         if question is None:
             # Defensive: mode is active but nothing was pending. Re-derive
             # rather than dropping the customer into a dead conversation.
-            question = next_question(
+            question = funcs["next_question"](
                 self.questionnaire_answers,
                 customer_wants_to_stop=self._customer_wants_to_stop,
                 questions_asked_this_sitting=self._questions_asked_this_sitting,
@@ -536,15 +656,16 @@ class ConversationalAgent(BaseAgent):
                         finished=False, reason="unparsed_reask",
                         question_text=(
                             f"Sorry, I didn't catch a figure there. "
-                            f"{question.question_text}"
-                        ),
-                    )
+                            if getattr(question, "answer_type", "money") != "text"
+                            else "Sorry, I didn't quite catch that. "
+                        ) + question.question_text,
+                        )
                 self._skipped_slots.add(question.slot_name)
                 self._record_questionnaire_event(
                     "skip", slot=question.slot_name, basis="unparsed_twice"
                 )
 
-        following = next_question(
+        following = funcs["next_question"](
             self.questionnaire_answers,
             customer_wants_to_stop=self._customer_wants_to_stop,
             questions_asked_this_sitting=self._questions_asked_this_sitting,
@@ -553,11 +674,15 @@ class ConversationalAgent(BaseAgent):
         self._pending_question = following
         if following is None:
             self._questionnaire_active = False
-            reason = (
-                "per_sitting_cap"
-                if self._questions_asked_this_sitting >= MAX_QUESTIONS_PER_SITTING
-                else "sufficient"
-            )
+            # MAX_QUESTIONS_PER_SITTING is a budget-specific ceiling (there
+            # to stop the optional tail of 5 low-priority questions); risk's
+            # schema is 8 mandatory questions with no artificial cap, so
+            # reaching that count there means "sufficient", not "capped".
+            if (self._questionnaire_kind == "budget"
+                    and self._questions_asked_this_sitting >= MAX_QUESTIONS_PER_SITTING):
+                reason = "per_sitting_cap"
+            else:
+                reason = "sufficient"
             self._record_questionnaire_event("complete", reason=reason)
             return self._questionnaire_payload(finished=True, reason=reason)
 
@@ -578,6 +703,15 @@ class ConversationalAgent(BaseAgent):
         has to special-case.
         """
         state = self.questionnaire_state
+        kind = self._questionnaire_kind
+        # Two audiences use this label: (1) the Orchestrator, which needs it
+        # verbatim to keep routing to the right agent while a form is
+        # mid-flight (see process_turn()'s questionnaire short-circuit); (2)
+        # INTENT_BUCKETS' own vocabulary, so a real classifier could in
+        # principle produce the same string. "risk_profiling" is already a
+        # bucket name; budget's mode reuses "budget_analysis" as it always has.
+        intent_label = "risk_profiling" if kind == "risk" else "budget_analysis"
+
         if finished:
             if reason == "customer_stopped":
                 response = (
@@ -590,6 +724,11 @@ class ConversationalAgent(BaseAgent):
                     "That's enough to work with for now — I won't keep you with "
                     "more questions. We can fill in the rest another time if "
                     "you'd like a sharper picture."
+                )
+            elif kind == "risk":
+                response = (
+                    "Thanks — that's everything I need to assess your risk "
+                    "profile. Give me a moment to work it out."
                 )
             else:
                 response = (
@@ -604,7 +743,7 @@ class ConversationalAgent(BaseAgent):
             )
 
         return {
-            "intent": "budget_analysis",
+            "intent": intent_label,
             "confidence": 1.0,       # deterministic mode, not a classification
             "escalation_needed": bool(finished),
             "response": response,
@@ -613,7 +752,7 @@ class ConversationalAgent(BaseAgent):
             "escalation_block": (
                 {
                     "escalate": True,
-                    "intent": "budget_analysis",
+                    "intent": intent_label,
                     "collected_slots": dict(self._slots),
                     "questionnaire_answers": state["answers"],
                     "customer_wants_to_stop": state["customer_wants_to_stop"],

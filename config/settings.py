@@ -85,6 +85,13 @@ class ConversationalConfig:
             "discretionary_spend",
             "debt_repayments",
             "large_recurring_items",
+            "employment_status",
+            "annual_income",
+            "dependents",
+            "existing_debt",
+            "investment_horizon",
+            "loss_tolerance",
+            "financial_knowledge_score",
             ])
 
     #maximum conversation turns before forcing re-elicitation of stale slots

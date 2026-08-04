@@ -88,6 +88,7 @@ class QuestionnaireQuestion:
     mandatory: bool
     weight: float          # rough share of typical household spend this represents
     expense_category: str | None  # maps to a BudgetAgent monthly_expenses key, if any
+    answer_type: str = "money"   # "money" | "integer" | "scale_1_5" | "text"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -96,6 +97,7 @@ class QuestionnaireQuestion:
             "mandatory": self.mandatory,
             "weight": self.weight,
             "expense_category": self.expense_category,
+            "answer_type": self.answer_type,
         }
 
 

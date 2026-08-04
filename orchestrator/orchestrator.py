@@ -42,8 +42,9 @@ from agents.base_agent import AgentResult
 from agents.budget_agent import BudgetAgent
 from agents.conversational_agent import ConversationalAgent
 from agents.investment_agent import InvestmentAgent
-from agents.payloads import STATIC_SEQUENCES
+from agents.payloads import CAPABILITIES, STATIC_SEQUENCES
 from agents.risk_profiling_agent import RiskProfilingAgent
+import agents.risk_questionnaire as risk_questionnaire
 from config.constraints import financial_constraints
 from config.prompts import ORCHESTRATOR_SYSTEM
 from config.settings import settings
@@ -53,7 +54,7 @@ from explainability.explainability_agent import ExplainabilityAgent
 from orchestrator.audit_log import AuditLog
 from orchestrator.conflict_resolver import ConflictResolver
 from orchestrator.failure_handler import FailureHandler
-from orchestrator.planner import Plan, Planner
+from orchestrator.planner import Plan, Planner, available_context_keys
 from utils import trace
 from utils.llm_client import LLMClient
 from utils.logger import get_logger
@@ -84,6 +85,7 @@ class OrchestratorResult:
     conflicts: list[dict] = field(default_factory=list)
     constraint_violations: list[dict] = field(default_factory=list)
     recovered_agents: list[str] = field(default_factory=list)
+    skipped: list[dict] = field(default_factory=list)
     total_duration_ms: float = 0.0
     success: bool = True
     error: str | None = None
@@ -152,6 +154,10 @@ class Orchestrator:
             "questionnaire_answers": {},
             "customer_wants_to_stop": False,
             "questionnaire_completed": False,
+            "risk_elicitation_answers": {},
+            "risk_customer_wants_to_stop": False,
+            "risk_elicitation_completed": False,
+            "risk_elicitation_pending_sequence": [],
         }
 
         logger.info(f"[Orchestrator] Session {self.session_id} initialised")
@@ -456,83 +462,152 @@ class Orchestrator:
             **self._session_state,
         }
 
-    def _run_agent_sequence(
+    _AGENT_PAYLOAD_CONTEXT_KEY: dict[str, str] = {
+        "RiskProfilingAgent": "risk_agent_payload",
+        "InvestmentAgent": "investment_agent_payload",
+        "BudgetAgent": "budget_agent_payload",
+    }
+
+    def _publish(self, agent_name: str, result: AgentResult) -> dict[str, Any]:
+        """
+        Day 6 (G6 dynamic routing) — declarative producer -> context mapping.
+
+        Replaces the hand-written `if agent_name == "InvestmentAgent":
+        context["risk_class"] = ...` blocks that used to live in this file.
+        Those blocks were the exact class of bug R2 came from: the injection
+        and the capability declaration were two separate, hand-maintained
+        statements of the same fact, and they had already drifted once.
+        Here there is one statement — agents/payloads.CAPABILITIES[agent
+        _name].produces — and this function is the only place that reads it
+        to decide what a successful run adds to context.
+
+        WHY produces ALONE ISN'T QUITE ENOUGH, AND WHAT _AGENT_PAYLOAD_
+        CONTEXT_KEY IS FOR
+            CAPABILITIES.produces is deliberately abstract ("risk_class",
+            not "the whole RiskProfilingAgent payload") because that
+            abstraction is what the planner reasons over. But
+            ExplainabilityAgent's job is literally to narrate what earlier
+            agents did in full — SHAP attributions, the ranked shortlist,
+            benchmark gaps — which cannot be flattened into a handful of
+            top-level keys without losing the structure it explains. So a
+            successful run also publishes its full payload under a fixed,
+            documented key, alongside the flattened ones. Nothing here is
+            new capability; it's the same two things _run_agent_sequence
+            always injected, now driven by a declaration instead of an
+            agent-name string match.
+        """
+        if not result.success:
+            return {}
+        published: dict[str, Any] = {}
+        cap = CAPABILITIES.get(agent_name)
+        if cap is not None:
+            for key in cap.produces:
+                value = result.payload.get(key)
+                if value is not None:
+                    published[key] = value
+        payload_key = self._AGENT_PAYLOAD_CONTEXT_KEY.get(agent_name)
+        if payload_key is not None:
+            published[payload_key] = result.payload
+        return published
+
+    def _cache_agent_output(
+        self, agent_name: str, result: AgentResult, context: dict,
+    ) -> None:
+        """
+        Cross-TURN caching + hallucination audit logging. Split out from
+        _execute_plan()'s loop only for readability — unchanged in
+        substance from what _run_agent_sequence always did here. This is
+        deliberately separate from _publish(): _publish() is what THIS
+        turn's later steps see; this is what NEXT turn's ExplainabilityAgent
+        falls back to when this turn doesn't re-run RiskProfilingAgent/
+        InvestmentAgent at all (e.g. a bare "why?" follow-up).
+        """
+        if not result.success:
+            return
+        if agent_name == "RiskProfilingAgent":
+            self._session_state["risk_profile"] = result.payload
+        if agent_name == "InvestmentAgent":
+            self._session_state["prior_investment_output"] = result.payload
+            hreport = result.payload.get("hallucination_report")
+            if hreport and settings.hallucination.log_flagged_to_audit:
+                for claim_record in hreport.get("claims", []):
+                    if claim_record.get("flagged"):
+                        self.audit_log.record_hallucination_flag(
+                            turn_id=context.get("_turn_id", "unknown"),
+                            agent_name=agent_name,
+                            claim=claim_record["claim"],
+                            score=claim_record["score"],
+                            threshold=settings.hallucination.hhem_threshold,
+                            mode=hreport.get("mode", "fallback"),
+                        )
+
+    def _execute_plan(
         self,
         agent_names: list[str],
         context: dict,
-    ) -> tuple[list[AgentResult], list[str]]:
+        dynamic: bool = True,
+    ) -> tuple[list[AgentResult], list[str], list[dict]]:
         """
         Execute a sequence of agents, passing each result into the next
         agent's context. Returns (results, recovered_agent_names).
         """
         results: list[AgentResult] = []
         recovered: list[str] = []
+        skipped: list[dict] = []
+
+        context.setdefault(
+            "risk_agent_payload", self._session_state.get("risk_profile") or {}
+        )
+        context.setdefault(
+            "investment_agent_payload",
+            self._session_state.get("prior_investment_output") or {},
+        )
 
         for agent_name in agent_names:
-            injected_keys: list[str] = []
-            # Inject prior results into context for downstream agents
-            if agent_name == "InvestmentAgent":
-                risk_result = next(
-                    (r for r in results if r.agent_name == "RiskProfilingAgent"), None
-                )
-                if risk_result and risk_result.success:
-                    context["risk_agent_payload"] = risk_result.payload
-                    context["risk_class"] = risk_result.payload.get("risk_class")
-                    injected_keys += ["risk_agent_payload", "risk_class"]
-                    self._session_state["risk_profile"] = risk_result.payload
+            if dynamic:
+                cap = CAPABILITIES.get(agent_name)
+                if cap is not None:
+                    available = available_context_keys(context)
+                    missing = sorted(cap.requires - available)
+                    if missing:
+                        skipped.append({"agent": agent_name, "reason": f"missing {missing}"})
+                        trace.emit("⏭ SKIP", agent_name, missing=missing)
+                        logger.info(
+                            f"[Orchestrator] {agent_name} skipped at execution "
+                            f"— missing {missing}"
+                        )
+                        continue
 
-            if agent_name == "ExplainabilityAgent":
-                risk_result = next(
-                    (r for r in results if r.agent_name == "RiskProfilingAgent"), None
-                )
-                inv_result = next(
-                    (r for r in results if r.agent_name == "InvestmentAgent"), None
-                )
-                context["risk_agent_payload"] = (
-                    risk_result.payload if risk_result else
-                    self._session_state.get("risk_profile") or {}
-                )
-                context["investment_agent_payload"] = (
-                    inv_result.payload if inv_result else
-                    self._session_state.get("prior_investment_output") or {}
-                )
-                bud_result = next(
-                    (r for r in results if r.agent_name == "BudgetAgent"), None
-                )
-                context["budget_agent_payload"] = (
-                    bud_result.payload if bud_result and bud_result.success else {}
-                )
-                injected_keys += ["risk_agent_payload", "investment_agent_payload"]
-
-            if injected_keys:
-                prev_agent = results[-1].agent_name if results else "(session cache)"
-                trace.emit("⇄ HANDOFF", f"{prev_agent} → {agent_name}",
-                           keys=sorted(set(injected_keys)))
             result, was_recovered = self._execute_agent(agent_name, context)
             results.append(result)
             if was_recovered:
                 recovered.append(agent_name)
 
-            # Cache successful outputs for future turns
-            if result.success:
-                if agent_name == "RiskProfilingAgent":
-                    self._session_state["risk_profile"] = result.payload
-                if agent_name == "InvestmentAgent":
-                    self._session_state["prior_investment_output"] = result.payload
+            published = self._publish(agent_name, result)
+            if published:
+                context.update(published)
+                prev_agent = results[-2].agent_name if len(results) > 1 else "(session cache)"
+                trace.emit("⇄ HANDOFF", f"{prev_agent} → {agent_name}",
+                           keys=sorted(published))
 
-                    hreport = result.payload.get("hallucination_report")
-                    if hreport and settings.hallucination.log_flagged_to_audit:
-                        for claim_record in hreport.get("claims", []):
-                            if claim_record.get("flagged"):
-                                self.audit_log.record_hallucination_flag(
-                                    turn_id=context.get("_turn_id", "unknown"),
-                                    agent_name=agent_name,
-                                    claim=claim_record["claim"],
-                                    score=claim_record["score"],
-                                    threshold=settings.hallucination.hhem_threshold,
-                                    mode=hreport.get("mode", "fallback"),
-                                )
+            self._cache_agent_output(agent_name, result, context)
 
+        return results, recovered, skipped
+
+    def _run_agent_sequence(
+        self,
+        agent_names: list[str],
+        context: dict,
+    ) -> tuple[list[AgentResult], list[str]]:
+        """
+        Back-compat shim over _execute_plan() (Day 6) — same two-tuple
+        signature this had before Day 6, AND dynamic=False, so any
+        existing caller reproduces the exact pre-Day-6 behaviour: every
+        named agent runs, none are skipped.
+        """
+        results, recovered, _skipped = self._execute_plan(
+            agent_names, context, dynamic=False,
+        )
         return results, recovered
 
     # Layer 3 - Execution monitoring
@@ -711,10 +786,13 @@ class Orchestrator:
         conv_agent = self._agents["ConversationalAgent"]
         in_questionnaire = getattr(conv_agent, "questionnaire_active", False)
         if in_questionnaire:
+            _kind = getattr(conv_agent, "questionnaire_kind", "budget")
             routing, intent, confidence = (
-                RoutingDecision.CONVERSATIONAL_ONLY, "budget_analysis", 1.0,
+                RoutingDecision.CONVERSATIONAL_ONLY,
+                "risk_profiling" if _kind == "risk" else "budget_analysis",
+                1.0,
             )
-            trace.emit("L1", "questionnaire mode — classification skipped")
+            trace.emit("L1", f"{_kind} questionnaire mode — classification skipped")
         else:
             with trace.span("[L1]", "goal decomposition"):
                 routing, intent, confidence = self._classify_intent(user_message)
@@ -762,11 +840,15 @@ class Orchestrator:
                 elicitation = self._elicitation_response(unmet)
                 self._session_state["awaiting_full_advisory_inputs"] = unmet
         with trace.span("[L2]", f"plan: {' → '.join(agent_sequence) or 'elicitation'}"):
-            agent_results, recovered = self._run_agent_sequence(agent_sequence, context)
+            agent_results, recovered, skipped = self._execute_plan(
+                agent_sequence, context, dynamic=turn_plan.accepted,
+            )
+        if skipped:
+            trace.emit("SKIPPED", "", agents=[s["agent"] for s in skipped])
 
         # -- Layer 2b: Section 2 questionnaire loop --
         questionnaire_response = self._advance_questionnaire(
-            agent_results, context, turn_id
+            agent_results, context, turn_id, agent_sequence=agent_sequence, skipped=skipped,
         )
         if questionnaire_response is not None:
             elicitation = questionnaire_response
@@ -851,13 +933,14 @@ class Orchestrator:
             f"[Orchestrator] turn={turn_id} complete "
             f"agents={agents_invoked} "
             f"conflicts={len(conflicts)} violations={len(violations)} "
-            f"recovered={recovered} duration={total_ms:.0f}ms"
+            f"recovered={recovered} skipped={[s['agent'] for s in skipped]} "
+            f"duration={total_ms:.0f}ms"
         )
 
         trace.emit("TURN END", "",
                    duration_ms=round(total_ms), agents=len(agents_invoked),
                    conflicts=len(conflicts), violations=len(violations),
-                   recovered=len(recovered),)
+                   recovered=len(recovered), skipped=len(skipped))
 
         return OrchestratorResult(
             session_id=self.session_id,
@@ -869,6 +952,7 @@ class Orchestrator:
             conflicts=conflicts,
             constraint_violations=violations,
             recovered_agents=recovered,
+            skipped=skipped,
             total_duration_ms=total_ms,
             success=True,
             plan=turn_plan,
@@ -945,6 +1029,8 @@ class Orchestrator:
         agent_results: list[AgentResult],
         context: dict,
         turn_id: str,
+        agent_sequence: list[str] | None = None,
+        skipped: list[dict] | None = None,
     ) -> str | None:
         """
         Open, advance, or close the insufficient-data questionnaire.
@@ -957,13 +1043,13 @@ class Orchestrator:
         OWNS THE LOOP
             ConversationalAgent decides what to ask and reads the answers.
             But only the Orchestrator can see BudgetAgent say
-            "insufficient_history" (that's the trigger to start asking), only
-            it can put the finished answers back into the context BudgetAgent
-            reads, and only it can run BudgetAgent a second time in the same
-            turn once they arrive. Those are routing responsibilities, not
-            conversational ones. Splitting it this way keeps the asking in the
-            one agent allowed to talk to the customer, and the sequencing in
-            the one component allowed to decide who runs.
+            "insufficient_history" or RiskProfilingAgent say "incomplete"
+            (those are the triggers to start asking), only it can put the
+            finished answers back into the context the specialist reads,
+            and only it can re-run that specialist (and, for risk,
+            whatever was queued behind it — InvestmentAgent, Explainability)
+            in the same turn once they arrive. Those are routing
+            responsibilities, not conversational ones.
 
         NO LLM CALL ANYWHERE IN HERE
             Same reasoning as _elicitation_response(): the questions are a
@@ -971,6 +1057,17 @@ class Orchestrator:
             hallucination surface (inventing a question, implying advice) to
             a message whose only job is to be exactly the question that was
             approved.
+
+        RQ COMPARABILITY NOTE (risk elicitation is new; re-run before citing)
+            This does NOT touch _get_agent_sequence / _prune_unsatisfiable /
+            STATIC_SEQUENCES for RISK_PROFILING or INVESTMENT — the turn
+            where RiskProfilingAgent first reports "incomplete" still
+            invokes exactly the agents it always did (_prune_unsatisfiable
+            stays scoped to FULL_ADVISORY only, per its own docstring).
+            Only the response TEXT for that turn changes, and new turns get
+            added after it. Those new turns have no committed RQ1/RQ2/RQ4
+            baseline yet — re-run the eval harnesses deliberately before
+            treating multi-turn risk elicitation as covered by them.
         """
         conv_agent = self._agents["ConversationalAgent"]
         state = self._session_state
@@ -981,6 +1078,11 @@ class Orchestrator:
         )
         if conv_result is not None and conv_result.payload.get("mode") == "questionnaire":
             block = conv_result.payload["questionnaire"]
+            if block["kind"] == "risk":
+                return self._advance_risk_questionnaire(
+                    block, context, turn_id, conv_result, agent_results,
+                )
+                # kind == "budget" - unchanged
             state["questionnaire_answers"] = dict(block["answers"])
             state["customer_wants_to_stop"] = bool(block["customer_wants_to_stop"])
             self.audit_log.record_agent_call(
@@ -1021,6 +1123,56 @@ class Orchestrator:
             return None      # let synthesis narrate the budget it just built
 
         # --- Case 2: BudgetAgent just reported insufficient data ----------
+        risk_result = next(
+            (r for r in agent_results if r.agent_name == "RiskProfilingAgent"), None
+        )
+        risk_skip = next(
+            (s for s in (skipped or []) if s["agent"] == "RiskProfilingAgent"), None
+        )
+        if (
+            (risk_result is not None and risk_result.payload.get("status") == "incomplete")
+            or risk_skip is not None
+        ) and (
+            not state["risk_elicitation_completed"]
+            and not getattr(conv_agent, "questionnaire_active", False)
+        ):
+            known = context.get("user_features") or {}
+            seed = {}
+            for q in risk_questionnaire.QUESTIONNAIRE_SCHEMA:
+                feature_key = "income" if q.slot_name == "annual_income" else q.slot_name
+                if known.get(feature_key) is not None:
+                    seed[q.slot_name] = known[feature_key]
+
+            first_question = conv_agent.start_questionnaire(seed_slots=seed, kind="risk")
+            if first_question is None:
+                return None
+            # So Case 1 can resume exactly what this turn was trying to do
+            # (RISK_PROFILING alone, or INVESTMENT's Risk->Investment->
+            # Explain) once every field is in, not just RiskProfilingAgent
+            # on its own.
+            state["risk_elicitation_pending_sequence"] = list(agent_sequence or [
+                "RiskProfilingAgent", "ExplainabilityAgent",
+            ])
+            trigger = "incomplete" if risk_result is not None else "skipped_no_features"
+            trace.emit("Q&A", "risk elicitation started",
+                       trigger=trigger, first=first_question.slot_name)
+            logger.info(
+                f"[Orchestrator] RiskProfilingAgent {trigger} — starting "
+                f"risk elicitation at {first_question.slot_name!r}"
+            )
+            preamble = (
+                risk_result.payload.get("message") if risk_result is not None else None
+            ) or (
+                "I don't have any information about your finances on file yet, "
+                "so I can't assess your risk profile."
+            )
+            return (
+                f"{preamble}\n\n"
+                f"I can go through a few quick questions to work it out — "
+                f"you can stop at any point.\n\n"
+                f"{first_question.question_text}"
+            )
+
         budget_result = next(
             (r for r in agent_results if r.agent_name == "BudgetAgent"), None
         )
@@ -1037,7 +1189,8 @@ class Orchestrator:
                                   or (context.get("user_features") or {}).get("income"),
                         **state["questionnaire_answers"],
                     }.items() if v is not None
-                }
+                },
+                kind="budget",
             )
             if first_question is None:
                 return None
@@ -1059,6 +1212,67 @@ class Orchestrator:
             )
 
         return None
+
+    def _advance_risk_questionnaire(
+        self,
+        block: dict,
+        context: dict,
+        turn_id: str,
+        conv_result: AgentResult,
+        agent_results: list[AgentResult],
+    ) -> str | None:
+        """
+        Case 1 for kind == "risk": interpret this turn's answer, either ask
+        the next question or — once every required field is in — persist
+        the answers and resume whatever agent sequence risk elicitation
+        interrupted (RiskProfilingAgent alone, or Risk -> Investment ->
+        Explainability), in this same turn, the same way budget's Case 1
+        re-runs BudgetAgent. Split out from _advance_questionnaire() rather
+        than inlined only because that resume step needs several lines
+        `agent_results.extend(...)` mutates the SAME list process_turn()
+        already uses for synthesis and agents_invoked — no side channel.
+        """
+        state = self._session_state
+        state["risk_elicitation_answers"] = dict(block["answers"])
+        state["risk_customer_wants_to_stop"] = bool(block["customer_wants_to_stop"])
+        self.audit_log.record_agent_call(
+            turn_id=turn_id, agent_name="ConversationalAgent",
+            success=True, duration_ms=conv_result.duration_ms,
+            tokens_used=conv_result.tokens_used,
+            step_id=f"risk_elicitation:{block['reason']}",
+        )
+        trace.emit("Q&A", f"risk elicitation {block['reason']}",
+                   answered=len(block["answers"]),
+                   asked=block["questions_asked_this_sitting"],
+                   finished=block["finished"])
+
+        if not block["finished"]:
+            return conv_result.payload["response"]
+
+        state["risk_elicitation_completed"] = True
+        if not block["sufficient"]:
+            # Customer stopped before every required field was given.
+            # RiskProfilingAgent will report "incomplete" again if invoked
+            # — correctly; it still can't classify without them, and it
+            # will not guess.
+            return conv_result.payload["response"]
+
+        new_features = risk_questionnaire.build_user_features_from_slots(
+            state["risk_elicitation_answers"]
+        )
+        # Persists to CustomerStore AND mutates context["user_features"] in
+        # place (same dict object _build_context() spread by reference —
+        # see update_customer_features()), so _run_agent_sequence below
+        # sees the completed profile with no extra plumbing.
+        self.update_customer_features(new_features)
+
+        resume_sequence = state.get("risk_elicitation_pending_sequence") or [
+            "RiskProfilingAgent", "ExplainabilityAgent",
+        ]
+        resumed_results, _ = self._run_agent_sequence(resume_sequence, context)
+        agent_results.extend(resumed_results)
+        return None  # let synthesis narrate what the resumed agents produced
+
 
     def _agent_is_satisfiable(self, agent_name: str, context: dict) -> tuple[bool, str]:
         """Return (can_run, human-readable reason it cannot)."""
