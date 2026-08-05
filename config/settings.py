@@ -101,6 +101,17 @@ class ConversationalConfig:
     intent_confidence_threshold: float = 0.65
 
     dataset_path: Path = ROOT_DIR / "data" / "raw" / "banking77"
+    memory_enabled: bool = field(
+        default_factory=lambda: os.getenv("MEMORY_ENABLED", "true").lower() != "false"
+    )
+    memory_db_path: Path = ROOT_DIR / "logs" / "customer_memory.db"
+
+    summarise_enabled: bool = field(
+        default_factory=lambda: os.getenv("SUMMARISE_ENABLED", "true").lower() != "false"
+    )
+    summarise_above_tokens: int = 3000
+    summarise_keep_last_n: int = 4
+
 
 @dataclass
 class RiskConfig:
@@ -289,6 +300,103 @@ class PlannerConfig:
     fallback_intent: str = "conversational_only"
 
 @dataclass
+class CollaborationConfig:
+    """
+    Layer 2 mid-plan collaboration (Day 7 / G6 §6.6).
+
+    An agent that cannot proceed names what it needs
+    (payload={"status": "needs_input", "needs": [...]}) instead of just
+    refusing; Orchestrator._satisfy_needs() finds a capability that
+    produces it, runs that, and retries the original agent — bounded by
+    the three settings below, all necessary together.
+
+    enabled:
+      Master switch. True by default. Set COLLABORATION_ENABLED=false to
+      have a needs_input result behave exactly like any other non-success
+      status — no retry attempted — for a clean before/after comparison.
+
+    max_depth:
+      How many producer-then-retry hops one original request may trigger.
+      2 is enough for the one real chain in this system (Explainability
+      needs risk_class -> RiskProfiling produces it directly, one hop) with
+      headroom for a second hop without allowing an unbounded chain. This
+      is a ceiling on CHAIN LENGTH, not on how many needs one request may
+      name — every need in one request is attempted at the same depth.
+
+    max_producer_attempts_per_need:
+      How many DIFFERENT candidate producers to try for a single need
+      before giving up on it. 1 in this system on purpose: CAPABILITIES
+      has exactly one producer per key today (see
+      validate_capability_graph()'s uniqueness note), so trying more would
+      never find a second option — this exists so adding an alternate
+      producer later doesn't silently change resolution semantics.
+    """
+    enabled: bool = field(
+        default_factory=lambda: os.getenv("COLLABORATION_ENABLED", "true").lower() != "false"
+    )
+    max_depth: int = 2
+    max_producer_attempts_per_need: int = 1
+
+@dataclass
+class ApprovalConfig:
+    """
+    Day 8 — human approval gate. State machine on the turn:
+    PROCESSING -> AWAITING_APPROVAL -> APPROVED/REJECTED -> DELIVERED.
+
+    Trigger conditions are config, not hard-coded, per the build plan's own
+    instruction — each below can be switched off independently for an
+    ablation, without touching Orchestrator._check_approval_gate()'s code.
+
+    enabled:
+      Master switch. True by default. Set APPROVAL_GATE_ENABLED=false to
+      compare turn outcomes with and without the gate.
+
+    gate_on_hard_block / gate_on_low_confidence_aggressive /
+    gate_on_hallucination_flagged:
+      Each maps directly to a signal this system already computes:
+      constraint_violations' severity="hard_block" (config/constraints.py),
+      ConflictResolver's LOW_CONFIDENCE_AGGRESSIVE conflict — checked via
+      the conflict record, not by re-reading risk_class directly, since
+      ConflictResolver already downgrades risk_class to "moderate" for
+      routing by the time the gate runs; the conflict record is what
+      preserves that this happened at all — and InvestmentAgent's own
+      hallucination_flagged boolean.
+
+    max_expected_return_pct:
+      A shortlisted product promising more than this is gated regardless
+      of which risk tier it came from — an unusually high expected return
+      is exactly the kind of claim a human should see before it reaches a
+      customer, independent of whether anything else about the turn looks
+      fine.
+
+    db_path:
+      Single shared SQLite file across ALL sessions, deliberately unlike
+      AuditLog's per-session JSONL files — GET /approvals is a reviewer's
+      queue across every customer, not one session's history.
+
+    withheld_message:
+      What the customer sees instead of the real (gated) response. Says
+      nothing about WHY it was gated — that reasoning is for the reviewer
+      (PendingApproval.reasons), not the customer, and is never customer-
+      facing.
+    """
+    enabled: bool = field(
+        default_factory=lambda: os.getenv("APPROVAL_GATE_ENABLED", "true").lower() != "false"
+    )
+    gate_on_hard_block: bool = True
+    gate_on_low_confidence_aggressive: bool = True
+    gate_on_hallucination_flagged: bool = True
+    max_expected_return_pct: float = 8.0
+    db_path: Path = ROOT_DIR / "logs" / "approvals.db"
+    withheld_message: str = (
+        "Thanks for asking — this one needs a quick review before I can "
+        "share it with you. I'll have it shortly; feel free to ask me "
+        "something else in the meantime."
+    )
+
+
+
+@dataclass
 class RAGConfig:
     """
     FAISS vector store + sentence-transformer embedding configuration.
@@ -457,6 +565,8 @@ class Settings:
     explainability: ExplainabilityConfig = field(default_factory=ExplainabilityConfig)
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
     planner: PlannerConfig = field(default_factory=PlannerConfig)
+    collaboration: CollaborationConfig = field(default_factory=CollaborationConfig)
+    approval: ApprovalConfig = field(default_factory=ApprovalConfig)
     rag: RAGConfig = field(default_factory=RAGConfig)
     hallucination: HallucinationConfig = field(default_factory=HallucinationConfig)
     market_data: MarketDataConfig = field(default_factory=MarketDataConfig)

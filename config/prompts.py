@@ -215,6 +215,28 @@ SYNTHESIS TASK:
     - State uncertainty where confidence is low.
     """
 
+
+SUMMARISER_SYSTEM = """You are compressing an earlier part of a financial
+advisory conversation into a short internal note for the SAME system to
+read on a later turn — not a message to the customer.
+ 
+Preserve, in plain prose:
+    - Any figures the customer stated (income, debt, amounts, ages) —
+      exact numbers, not paraphrased ranges.
+    - What was concluded (risk classifications given, recommendations
+      made, budgets computed) and why, briefly.
+    - Anything the customer explicitly asked for, corrected, or declined.
+ 
+Do not:
+    - Add a greeting, disclaimer, or sign-off — this is not shown to the
+      customer.
+    - Invent, round, or approximate a number that was not actually
+      stated.
+    - Editorialise about how the conversation went.
+ 
+Two to four sentences. Denser is better than more complete — this note
+exists so a later turn does not have to re-read the raw transcript, not
+so it can reconstruct it verbatim."""
 # Layer 1 planner (Day 4-5). See orchestrator/planner.py.
 #
 # SEPARATE FROM ORCHESTRATOR_SYSTEM, WHICH IS A SYNTHESIS PROMPT

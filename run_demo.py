@@ -133,6 +133,7 @@ def _build_push_context(customer_id: str, store) -> dict:
     return context
 
 def show(turn_no: int, message: str, result) -> None:
+    from config.settings import settings
     print(f"\n{BAR}")
     print(f"TURN {turn_no}  ·  YOU: {message}")
     print(BAR)
@@ -149,6 +150,21 @@ def show(turn_no: int, message: str, result) -> None:
     if result.skipped:
         for s in result.skipped:
             print(f"  skipped    : {s['agent']} — {s['reason']}")
+    if result.collaboration_events:
+        for e in result.collaboration_events:
+            if e.get("retried"):
+                print(f"  collab     : {e['requester']} retried after collaboration")
+            else:
+                mark = "resolved" if e.get("resolved") else "unresolved"
+                print(f"  collab     : {e['requester']} needs {e['needs'][0]!r} "
+                      f"→ {e.get('producer', '(none found)')} [{mark}]")
+
+    if result.final_response == settings.approval.withheld_message:
+        print(f"  HELD       : turn_id={result.turn_id} — awaiting approval. "
+              f"Review with:\n"
+              f"               python run_demo.py --list-approvals\n"
+              f"               python run_demo.py --approve {result.turn_id}")
+
     for ar in result.agent_results:
         status = ar.payload.get("status", "-")
         mark = "ok " if ar.success else "ERR"
@@ -191,7 +207,50 @@ def main() -> int:
                         help="Bypass the LLM intent classifier and force a route. "
                              "Essential in mock mode, where the classifier cannot "
                              "classify and everything falls back to conversational_only.")
+    parser.add_argument("--list-approvals", action="store_true",
+                        help="Day 8: list pending approvals across all sessions, and exit")
+    parser.add_argument("--approve", metavar="TURN_ID",
+                        help="Day 8: approve a held turn, deliver it, and exit")
+    parser.add_argument("--reject", metavar="TURN_ID",
+                        help="Day 8: reject a held turn, and exit")
+    parser.add_argument("--reviewer-note", default="",
+                        help="Note attached to an --approve/--reject decision")
     args = parser.parse_args()
+
+    if args.list_approvals or args.approve or args.reject:
+        from orchestrator.approvals import get_approval_store
+        store = get_approval_store()
+
+        if args.list_approvals:
+            pending = store.list_pending()
+            if not pending:
+                print("No approvals pending.")
+                return 0
+            for p in pending:
+                print(f"\n{BAR}")
+                print(f"turn_id={p.turn_id}  session={p.session_id}  created={p.created_at}")
+                print(f"  reasons: {p.reasons}")
+                print(f"  draft (withheld from customer): {p.draft_response[:200]}")
+            print(f"\n{BAR}\n{len(pending)} pending.")
+            return 0
+
+        if args.approve:
+            approved = store.approve(args.approve, reviewer_note=args.reviewer_note)
+            delivered = store.mark_delivered(args.approve)
+            print(f"Approved {args.approve} (session={delivered.session_id}).")
+            print(f"\n{BAR}\nDELIVERED:\n{BAR}\n{delivered.draft_response}\n")
+            print(
+                "If that session is running interactively, its next turn "
+                "will surface this same text automatically — see "
+                "Orchestrator.collect_all_approved_responses()."
+            )
+            return 0
+
+        if args.reject:
+            rejected = store.reject(args.reject, reviewer_note=args.reviewer_note)
+            print(f"Rejected {args.reject} (session={rejected.session_id}). "
+                  f"The customer will not receive this response.")
+            return 0
 
     if args.push and not args.persona:
         parser.error("--push requires --persona (it needs a feature set to push)")
@@ -287,6 +346,10 @@ def main() -> int:
             )
         n = 0
         while True:
+            delivered = orch.collect_all_approved_responses()
+            for text in delivered:
+                print(f"\n{BAR}\nA held response was just approved and is now "
+                      f"ready:\n{BAR}\n{text}\n")
             try:
                 msg = input("\nyou> ").strip()
             except (EOFError, KeyboardInterrupt):
@@ -300,7 +363,7 @@ def main() -> int:
     else:
         for n, msg in enumerate(SCRIPT, start=1):
             send(n, msg)
-
+ 
     print(f"{BAR}\nAudit trail: {orch.audit_log.log_path}\n{BAR}\n")
     return 0
 

@@ -46,7 +46,7 @@ PAYLOAD_CONTRACTS: dict[str, dict[str, Any]] = {
     },
 }
 
-_PARTIAL_STATUSES = {"incomplete", "blocked", "error", "skipped"}
+_PARTIAL_STATUSES = {"incomplete", "blocked", "error", "skipped", "needs_input"}
 
 def strict_mode() -> bool:
     return os.getenv("STRICT_PAYLOADS", "true").lower() != "false"
@@ -209,5 +209,15 @@ def validate_capability_graph() -> list[str]:
                 f"{cap.name}: requires {sorted(unmet)}, which nothing in "
                 f"CAPABILITIES produces and which is not in "
                 f"ORCHESTRATOR_SUPPLIED_KEYS"
+            )
+    producers: dict[str, list[str]] = {}
+    for cap in CAPABILITIES.values():
+        for key in cap.produces:
+            producers.setdefault(key, []).append(cap.name)
+    for key, names in producers.items():
+        if len(names) > 1:
+            problems.append(
+                f"{key!r} is produced by more than one capability {sorted(names)} "
+                f"— _satisfy_needs() cannot pick one unambiguously"
             )
     return problems

@@ -35,6 +35,7 @@ import os
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -45,8 +46,14 @@ from agents.investment_agent import InvestmentAgent
 from agents.payloads import CAPABILITIES, STATIC_SEQUENCES
 from agents.risk_profiling_agent import RiskProfilingAgent
 import agents.risk_questionnaire as risk_questionnaire
+from orchestrator.approvals import ApprovalStore, PendingApproval, get_approval_store
+from data.customer_memory import (
+    CustomerMemoryStore,
+    extract_preferences_from_slots,
+    get_customer_memory_store,
+)
 from config.constraints import financial_constraints
-from config.prompts import ORCHESTRATOR_SYSTEM
+from config.prompts import ORCHESTRATOR_SYSTEM, SUMMARISER_SYSTEM
 from config.settings import settings
 from data.customer_store import CustomerStore
 from data.psychometric_proxy import derive_loss_tolerance_proxy
@@ -71,6 +78,47 @@ class RoutingDecision(str, Enum):
     EXPLANATION_REQUEST  = "explanation_request"
 
 @dataclass
+class CollaborationStats:
+    """
+    Day 7 (G6 §6.6) session-level counters — read by the evaluation
+    harness for the "collaboration events per turn, and resolution rate"
+    RQ4 column. Mirrors orchestrator.planner.PlannerStats deliberately —
+    same shape, same reasoning: a metric class next to the mechanism it
+    measures, not folded into a general-purpose logger nobody queries.
+
+    One (requester, need) pair is one attempt, regardless of how it
+    resolves. A retry of the original agent, once every need in its
+    request was satisfied, is bookkeeping about the OUTCOME of already-
+    counted attempts, not a new attempt itself, so it's excluded from
+    these counts — see record()'s skip of event["retried"].
+    """
+    attempts: int = 0
+    resolved: int = 0
+    unresolved: int = 0
+
+    def record(self, events: list[dict]) -> None:
+        for event in events:
+            if event.get("retried"):
+                continue
+            self.attempts += 1
+            if event.get("resolved"):
+                self.resolved += 1
+            else:
+                self.unresolved += 1
+
+    @property
+    def resolution_rate(self) -> float:
+        return self.resolved / self.attempts if self.attempts else 0.0
+
+    def as_dict(self) -> dict:
+        return {
+            "attempts": self.attempts,
+            "resolved": self.resolved,
+            "unresolved": self.unresolved,
+            "resolution_rate": round(self.resolution_rate, 4),
+        }
+
+@dataclass
 class OrchestratorResult:
     """
     Full result of one conversational tur through the HALO pipeline.
@@ -85,7 +133,18 @@ class OrchestratorResult:
     conflicts: list[dict] = field(default_factory=list)
     constraint_violations: list[dict] = field(default_factory=list)
     recovered_agents: list[str] = field(default_factory=list)
+    # Day 6 (G6 dynamic routing): agents the plan named but that were never
+    # invoked because their `requires` weren't met at execution time — e.g.
+    # a plan step still shows up here even when _execute_plan() decided not
+    # to run it. Each entry: {"agent": name, "reason": "missing [...]"}.
+    # A skip is a trust artefact, not a failure — see _execute_plan()'s
+    # docstring — so it's reported alongside recovered_agents rather than
+    # folded into `success`/`error`.
     skipped: list[dict] = field(default_factory=list)
+    # Day 7 (G6 §6.6): one entry per (requester, need) collaboration
+    # attempt this turn — see _satisfy_needs()'s docstring for the shape.
+    # Same "trust artefact, not a failure" reasoning as `skipped` above.
+    collaboration_events: list[dict] = field(default_factory=list)
     total_duration_ms: float = 0.0
     success: bool = True
     error: str | None = None
@@ -126,6 +185,9 @@ class Orchestrator:
         self._conflict_resolver = ConflictResolver()
         self._failure_handler = FailureHandler()
         self._planner = Planner(llm_client)
+        self._collaboration_stats = CollaborationStats()
+        self._approval_store: ApprovalStore = get_approval_store()
+        self._memory_store: CustomerMemoryStore = get_customer_memory_store()
 
         # Agent registry — one instance per agent type, shared across turns
         self._agents: dict[str, Any] = {
@@ -154,6 +216,10 @@ class Orchestrator:
             "questionnaire_answers": {},
             "customer_wants_to_stop": False,
             "questionnaire_completed": False,
+            # Risk-elicitation loop (parallel to the budget questionnaire
+            # state above, kept as separate keys so the two loops can't
+            # clobber each other in the same session — see
+            # _advance_questionnaire()'s generalisation notes).
             "risk_elicitation_answers": {},
             "risk_customer_wants_to_stop": False,
             "risk_elicitation_completed": False,
@@ -166,6 +232,9 @@ class Orchestrator:
             self._load_customer(customer_id, customer_context=customer_context)
         elif customer_id:
             self._load_customer(customer_id)
+
+        if customer_id:
+            self._load_customer_memory(customer_id)
 
 
     @staticmethod
@@ -279,6 +348,148 @@ class Orchestrator:
             missing_fields=missing,
         )
 
+    def _load_customer_memory(self, customer_id: str) -> None:
+        """
+        Day 9 (G7) — restore what THIS SYSTEM remembers about a returning
+        customer, on top of whatever _load_customer() just restored from
+        CustomerStore. Two different things, deliberately: _load_customer
+        restores the bank's own record (age, income, ...); this restores
+        what HALO itself learned or computed in earlier sessions — see
+        data/customer_memory.py's module docstring for why these aren't
+        merged into one store.
+
+        risk_profile restored here lands in the EXACT session_state key
+        (_session_state["risk_profile"]) _execute_plan() already reads as
+        a cross-turn fallback for ExplainabilityAgent/InvestmentAgent
+        (see _cache_agent_output's docstring) and available_context_keys()
+        already treats as a source of a satisfied "risk_class" (orchestrator
+        /planner.py). No new plumbing needed for a returning customer's
+        remembered risk profile to actually get used — it was already
+        the mechanism Day 6/7 built for a DIFFERENT reason (staying
+        useful across turns within one session); this just seeds it one
+        step earlier, from BEFORE the session started at all.
+
+        preferences restored here seed ConversationalAgent's slot
+        tracking directly, so a previously-stated investment_goal or name
+        is not re-asked — mirrors exactly how the risk/budget
+        questionnaires already seed slots from context (seed_slots=...).
+        """
+        if not settings.conversational.memory_enabled:
+            return
+        memory = self._memory_store.get(customer_id)
+        if memory is None:
+            return
+
+        if memory.risk_profile:
+            self._session_state["risk_profile"] = memory.risk_profile
+
+        if memory.preferences:
+            self._agents["ConversationalAgent"].update_slots(memory.preferences)
+
+        self._session_state["lifetime_turn_count"] = memory.turn_count
+        self._session_state["last_seen"] = memory.last_seen
+
+        logger.info(
+            f"[Orchestrator] Restored memory for customer_id={customer_id!r} — "
+            f"lifetime_turns={memory.turn_count} last_seen={memory.last_seen} "
+            f"risk_profile={'present' if memory.risk_profile else 'none'} "
+            f"preferences={sorted(memory.preferences)}"
+        )
+
+    def _persist_customer_memory(self) -> None:
+        """
+        Day 9 (G7) — called at the end of every turn (see process_turn()).
+        A no-op for a session with no identified customer_id, matching
+        update_customer_features()'s own guard — memory needs somewhere
+        durable to be keyed to.
+        """
+        if not settings.conversational.memory_enabled:
+            return
+        customer_id = self._session_state.get("customer_id")
+        if not customer_id:
+            return
+
+        conv_agent = self._agents["ConversationalAgent"]
+        preferences = extract_preferences_from_slots(conv_agent.slots)
+
+        self._memory_store.upsert(
+            customer_id,
+            risk_profile=self._session_state.get("risk_profile"),
+            preferences=preferences or None,
+            turn_increment=1,
+        )
+
+    def _estimate_history_tokens(self) -> int:
+        """
+        Cheap, deterministic estimate — ~4 characters per token, the
+        standard rule-of-thumb for English text absent a real tokenizer.
+        Good enough to trigger summarisation near the right point; this
+        is a local-growth bound, not an attempt to match a specific
+        model's tokenizer exactly (see settings.conversational's
+        summarise_above_tokens docstring).
+        """
+        history = self._session_state["conversation_history"]
+        total_chars = sum(len(m.get("content", "")) for m in history)
+        return total_chars // 4
+
+    def _llm_summarise(self, messages: list[dict]) -> str:
+        """
+        One LLM call, orchestrator-tier client (same reasoning as
+        _synthesise_response: this is a system-level operation on the
+        conversation as a whole, not a specialist task). Degrades to a
+        short deterministic placeholder on failure rather than raising —
+        summarisation must never be the reason a turn fails; the
+        un-summarised history is still sitting right there if this call
+        doesn't come back.
+        """
+        transcript = "\n".join(
+            f"{m.get('role', '?')}: {m.get('content', '')}" for m in messages
+        )
+        try:
+            response = self.llm.chat(
+                system=SUMMARISER_SYSTEM,
+                messages=[{"role": "user", "content": transcript}],
+                temperature=0.0,
+            )
+            trace.emit("LLM", f"← {response.tokens_used} tok (summarisation)",
+                       model=response.model, mode=self.llm.mode)
+            return response.content.strip()
+        except Exception as exc:
+            logger.error(f"[Orchestrator] Summarisation failed: {exc}")
+            return (
+                f"[{len(messages)} earlier messages — summarisation "
+                f"unavailable this turn, original content not recovered here]"
+            )
+
+    def _maybe_summarise(self) -> None:
+        """
+        Day 9 (G17). Called at the end of every turn (see process_turn()),
+        after the turn's own exchange has already been appended — so a
+        summarisation triggered by THIS turn still keeps this turn's own
+        exchange verbatim (it's within the last summarise_keep_last_n
+        entries), never summarising something that hasn't been replied
+        to yet.
+        """
+        cfg = settings.conversational
+        if not cfg.summarise_enabled:
+            return
+        history = self._session_state["conversation_history"]
+        keep = cfg.summarise_keep_last_n
+        if len(history) <= keep:
+            return
+        if self._estimate_history_tokens() < cfg.summarise_above_tokens:
+            return
+
+        to_summarise = history[:-keep]
+        summary = self._llm_summarise(to_summarise)
+        self._session_state["conversation_history"] = [
+            {"role": "system", "content": f"[Earlier conversation] {summary}"}
+        ] + history[-keep:]
+        logger.info(
+            f"[Orchestrator] Summarised {len(to_summarise)} earlier history "
+            f"entries -> 1 summary + {keep} kept verbatim"
+        )
+        
     def update_customer_features(self, features: dict[str, Any]) -> None:
         """
         Merge updated/newly-elicited features into the current session and
@@ -462,6 +673,12 @@ class Orchestrator:
             **self._session_state,
         }
 
+    # Which context key carries an agent's FULL payload downstream, for
+    # consumers (today, only ExplainabilityAgent) that need more than the
+    # flattened keys CAPABILITIES.produces declares. Not derivable from the
+    # class name mechanically (RiskProfilingAgent -> "risk_agent_payload",
+    # not "riskprofiling_agent_payload") — this is the exact set of keys
+    # explainability/explainability_agent.py already reads via context.get().
     _AGENT_PAYLOAD_CONTEXT_KEY: dict[str, str] = {
         "RiskProfilingAgent": "risk_agent_payload",
         "InvestmentAgent": "investment_agent_payload",
@@ -541,20 +758,254 @@ class Orchestrator:
                             mode=hreport.get("mode", "fallback"),
                         )
 
+    def _find_producer(self, need: str, exclude: frozenset[str]) -> str | None:
+        """
+        Which capability declares `need` in its produces, excluding names
+        in `exclude` (the collaboration chain's visited set — an agent can
+        never be asked to produce for itself, and a cycle can't loop back
+        through an agent already in the chain). validate_capability_graph()
+        (agents/payloads.py) guarantees at most one match exists; this
+        just finds it.
+        """
+        for name, cap in CAPABILITIES.items():
+            if name in exclude:
+                continue
+            if need in cap.produces:
+                return name
+        return None
+
+    def _satisfy_needs(
+        self,
+        result: AgentResult,
+        context: dict,
+        depth: int = 0,
+        visited: frozenset[str] | None = None,
+    ) -> tuple[AgentResult, list[AgentResult], list[dict]]:
+        """
+        Day 7 (G6 §6.6) — bounded mid-plan collaboration.
+
+        An agent that cannot proceed names what it's missing instead of
+        just refusing (payload={"status": "needs_input", "needs": [...]}
+        — see explainability/explainability_agent.py's one current
+        emitter). This finds a capability that produces each need, runs
+        it, and retries the ORIGINAL agent — once, with everything now in
+        context — rather than leaving a "needs_input" result to propagate
+        out as if it were a final answer.
+
+        WHY THIS IS DIFFERENT FROM DAY 6's SKIP-CHECK
+            Day 6 (_execute_plan's dynamic gate) is PREVENTION: don't call
+            an agent whose precondition is already known to be unmet.
+            Collaboration is REPAIR: an agent got called anyway (dynamic=
+            False on the static path, or a need too specific for the
+            coarse CAPABILITIES.requires declaration to have caught up
+            front) and, rather than just failing, names exactly what's
+            missing so the orchestrator can go get it. The two are not
+            redundant — Day 6 stops wasted calls it can predict; this
+            handles the ones it couldn't.
+
+        THREE BOUNDS, ALL NECESSARY (settings.collaboration)
+            max_depth            — a chain of retries this many producer-
+                                    then-retry hops deep and no further.
+                                    Prevents A needing B needing C ...
+                                    unboundedly, even where no cycle
+                                    exists.
+            visited set           — prevents A -> B -> A: an agent already
+                                    in this chain is never re-entered as
+                                    a producer, so a genuine cycle in
+                                    CAPABILITIES (which shouldn't exist —
+                                    see validate_capability_graph()'s
+                                    uniqueness check — but this is the
+                                    runtime backstop, not the only one)
+                                    cannot spin.
+            producibility check   — a need with no producer at all (not
+                                    "the producer failed", but "nothing
+                                    in CAPABILITIES makes this") is a hard
+                                    stop, returned as the ORIGINAL
+                                    needs_input result unchanged. Retrying
+                                    something structurally unproducible
+                                    would just ask again forever.
+
+        Returns (final_result, produced_results, events).
+            final_result     — a fresh retry of the original agent if every
+                                stated need was resolved, or the original
+                                needs_input result unchanged otherwise —
+                                never a half-updated result, so a caller
+                                checking `.success`/`.payload["status"]`
+                                never has to know collaboration happened.
+            produced_results — the AgentResult for every producer actually
+                                run while resolving this request, in run
+                                order. The caller (_execute_plan) extends
+                                its own `results` list with these BEFORE
+                                appending final_result, so a producer that
+                                ran as part of collaboration shows up in
+                                agents_invoked exactly as if it had been a
+                                normal plan step — hiding it there would
+                                understate what the turn actually did and
+                                cost, the same reasoning Day 6's `skipped`
+                                exists for in the other direction.
+            events            — one dict per (need, attempt), consumed by
+                                CollaborationStats and reported on
+                                OrchestratorResult.collaboration_events.
+        """
+        cfg = settings.collaboration
+        events: list[dict] = []
+        produced: list[AgentResult] = []
+
+        if not cfg.enabled or result.payload.get("status") != "needs_input":
+            return result, produced, events
+
+        requester = result.agent_name
+        needs = list(result.payload.get("needs", []))
+        chain = (visited or frozenset()) | {requester}
+
+        if depth >= cfg.max_depth:
+            events.append({
+                "requester": requester, "needs": needs, "resolved": False,
+                "reason": f"max_depth={cfg.max_depth} reached",
+            })
+            logger.info(
+                f"[Orchestrator] collaboration for {requester} stopped — "
+                f"{events[-1]['reason']}"
+            )
+            trace.emit("🤝 COLLABORATE", f"{requester} — depth limit reached",
+                       needs=needs)
+            return result, produced, events
+
+        all_resolved = True
+        for need in needs:
+            if context.get(need) not in (None, "", [], {}, ()):
+                continue  # already available — nothing to fetch for this one
+
+            producer = self._find_producer(need, exclude=chain)
+            if producer is None:
+                events.append({
+                    "requester": requester, "needs": [need], "resolved": False,
+                    "reason": f"{need!r} is not producible by anything reachable",
+                })
+                logger.info(
+                    f"[Orchestrator] {requester} needs {need!r} — no producer "
+                    f"found (chain so far: {sorted(chain)})"
+                )
+                all_resolved = False
+                continue
+
+            trace.emit("🤝 COLLABORATE", f"{requester} needs {need!r} → {producer}",
+                       depth=depth)
+            logger.info(
+                f"[Orchestrator] {requester} needs {need!r} — running "
+                f"{producer} (collaboration depth={depth})"
+            )
+            producer_result, _recovered = self._execute_agent(producer, context)
+
+            # The producer might itself need something — resolve that one
+            # level deeper before judging whether it produced what THIS
+            # need was waiting on.
+            if producer_result.payload.get("status") == "needs_input":
+                producer_result, nested_produced, nested_events = self._satisfy_needs(
+                    producer_result, context, depth=depth + 1, visited=chain,
+                )
+                produced.extend(nested_produced)
+                events.extend(nested_events)
+            produced.append(producer_result)
+
+            published = self._publish(producer, producer_result)
+            if published:
+                context.update(published)
+            self._cache_agent_output(producer, producer_result, context)
+
+            resolved = context.get(need) not in (None, "", [], {}, ())
+            events.append({
+                "requester": requester, "needs": [need], "resolved": resolved,
+                "producer": producer,
+                "reason": "" if resolved else
+                          f"{producer} ran but did not produce {need!r} this time",
+            })
+            if not resolved:
+                all_resolved = False
+
+        if not all_resolved:
+            return result, produced, events
+
+        retried, _recovered = self._execute_agent(requester, context)
+        events.append({"requester": requester, "needs": needs, "retried": True})
+        trace.emit("🤝 COLLABORATE",
+                   f"{requester} retried — status={retried.payload.get('status', 'complete')}")
+        return retried, produced, events
+
     def _execute_plan(
         self,
         agent_names: list[str],
         context: dict,
         dynamic: bool = True,
-    ) -> tuple[list[AgentResult], list[str], list[dict]]:
+    ) -> tuple[list[AgentResult], list[str], list[dict], list[dict]]:
         """
-        Execute a sequence of agents, passing each result into the next
-        agent's context. Returns (results, recovered_agent_names).
+        Day 6 (G6) — dynamic tool routing: the executor that satisfies
+        capability dependencies at RUN TIME, rather than trusting that a
+        plan valid at planning time is still valid by the time execution
+        reaches a given step.
+
+        WHY RE-CHECK AT ALL, GIVEN THE PLANNER/STATIC TABLE ALREADY DECIDED
+            A plan validated against the capability graph can still fail at
+            runtime: RiskProfilingAgent may itself return status=
+            "incomplete" because a feature the CALLER didn't know was
+            missing turns out to be missing, so risk_class never lands in
+            context and InvestmentAgent's precondition silently stops
+            holding one step later. Before Day 6 that meant InvestmentAgent
+            ran anyway and produced its own "incomplete" refusal — a wasted
+            LLM call whose only output was a second way of saying the same
+            thing. Re-checking `requires` immediately before each step turns
+            that into a SKIP, with a stated reason, and no call made.
+
+        WHY `dynamic` EXISTS, AND DEFAULTS TO True
+            "Dynamic routing" (Day 6) is specifically about EXECUTING WHAT
+            THE PLANNER PROPOSED (Day 4-5) at run time instead of blindly
+            trusting it — see the module-level framing in orchestrator/
+            planner.py: the static table is deliberately kept as "the
+            safety net and the baseline", unchanged, not a second thing
+            Day 6 also reaches into. tests/unit/test_full_advisory.py::
+            TestReadinessGate::test_gate_does_not_touch_other_routes says
+            this in code: INVESTMENT's agents_invoked is baked into
+            committed RQ2/RQ4 results and must not shift when the plan for
+            that turn came from the static table, only when it came from
+            an LLM proposal the validator actually accepted. So
+            process_turn() passes dynamic=(turn_plan.accepted) — True only
+            when plan.source == "planner" — and dynamic=False reproduces
+            the exact pre-Day-6 behaviour: every named step runs, no
+            skip-check, agents report their own "incomplete" as they
+            always did. The declarative _publish() handoff below runs
+            EITHER way — that part was never in tension with any test, it
+            is the same values the old hand-written injection blocks set,
+            just read from one declaration instead of an agent-name
+            string match.
+
+        WHY THIS REUSES orchestrator.planner.available_context_keys()
+            RATHER THAN A SIMPLER `set(context)` CHECK
+            A context dict always HAS a "user_features" key (seeded to {}
+            at session start) — a bare key-presence check would treat an
+            empty profile as satisfied on turn one, which is precisely the
+            plans this gate exists to stop. available_context_keys() is
+            also what PlanValidator used to accept this plan in the first
+            place; reusing it here means the planning-time check and the
+            execution-time check can never quietly disagree about what
+            "available" means — they're the same function, called twice.
+
+        Returns (results, recovered_agent_names, skipped, collaboration_
+        events), where each skipped entry is {"agent": name, "reason":
+        "missing [...]"} — always [] when dynamic=False. This supersedes
+        _run_agent_sequence, which now delegates here with dynamic=False
+        and drops the extra two lists, for full backward compatibility
+        with any caller that doesn't know Day 6/7 exist.
         """
         results: list[AgentResult] = []
         recovered: list[str] = []
         skipped: list[dict] = []
+        collaboration_events: list[dict] = []
 
+        # Cross-turn fallback for ExplainabilityAgent (see
+        # _cache_agent_output's docstring): if THIS turn re-runs
+        # RiskProfilingAgent/InvestmentAgent, _publish() below overwrites
+        # these with the fresh payload before Explainability's own turn in
+        # the loop; if it doesn't, Explainability still sees last turn's.
         context.setdefault(
             "risk_agent_payload", self._session_state.get("risk_profile") or {}
         )
@@ -579,6 +1030,16 @@ class Orchestrator:
                         continue
 
             result, was_recovered = self._execute_agent(agent_name, context)
+
+            if result.success and result.payload.get("status") == "needs_input":
+                result, produced, events = self._satisfy_needs(result, context)
+                # Producers that ran as part of collaboration are real
+                # agent invocations this turn — they belong in agents_
+                # invoked/agent_results exactly like a normal plan step,
+                # not hidden inside _satisfy_needs. See its docstring.
+                results.extend(produced)
+                collaboration_events.extend(events)
+
             results.append(result)
             if was_recovered:
                 recovered.append(agent_name)
@@ -592,7 +1053,10 @@ class Orchestrator:
 
             self._cache_agent_output(agent_name, result, context)
 
-        return results, recovered, skipped
+        if collaboration_events:
+            self._collaboration_stats.record(collaboration_events)
+
+        return results, recovered, skipped, collaboration_events
 
     def _run_agent_sequence(
         self,
@@ -600,15 +1064,25 @@ class Orchestrator:
         context: dict,
     ) -> tuple[list[AgentResult], list[str]]:
         """
-        Back-compat shim over _execute_plan() (Day 6) — same two-tuple
+        Back-compat shim over _execute_plan() (Day 6/7) — same two-tuple
         signature this had before Day 6, AND dynamic=False, so any
         existing caller reproduces the exact pre-Day-6 behaviour: every
-        named agent runs, none are skipped.
+        named agent runs, none are skipped. Collaboration (Day 7) still
+        runs regardless of `dynamic` — repair, unlike the skip-check, was
+        never in tension with the static-path tests, since a needs_input
+        result becomes a retried (or unchanged) AgentResult either way,
+        not a change to WHICH agents get invoked from agent_names itself.
         """
-        results, recovered, _skipped = self._execute_plan(
+        results, recovered, _skipped, _collab = self._execute_plan(
             agent_names, context, dynamic=False,
         )
         return results, recovered
+
+    @property
+    def collaboration_stats(self) -> dict:
+        """Session-level collaboration counters — read by the evaluation
+        harness (RQ4: collaboration events per turn, resolution rate)."""
+        return self._collaboration_stats.as_dict()
 
     # Layer 3 - Execution monitoring
     def _check_constraints(
@@ -671,6 +1145,107 @@ class Orchestrator:
             return blocked_response, violations, True
 
         return response_text, violations, False
+
+    def _check_approval_gate(
+        self,
+        agent_results: list[AgentResult],
+        violations: list[dict],
+        conflicts: list[dict],
+    ) -> list[str]:
+        """
+        Day 8 — human approval gate. Returns the reasons this turn should
+        be held for review, or [] if none apply. Every check below reuses
+        a signal this system already computes elsewhere in the same
+        turn — see settings.approval's docstring for exactly which, and
+        why LOW_CONFIDENCE_AGGRESSIVE is read from `conflicts` rather than
+        re-derived from risk_class (ConflictResolver has already
+        downgraded risk_class to "moderate" for routing by the time this
+        runs — the conflict record is what preserves that it happened).
+
+        Config-gated per check (settings.approval.gate_on_*), per the
+        build plan's own instruction that trigger conditions are config,
+        not hard-coded — an ablation can switch off one trigger without
+        touching this method.
+        """
+        cfg = settings.approval
+        if not cfg.enabled:
+            return []
+        reasons: list[str] = []
+
+        if cfg.gate_on_hard_block and any(
+            v.get("severity") == "hard_block" for v in violations
+        ):
+            reasons.append("hard_block constraint violation")
+
+        if cfg.gate_on_low_confidence_aggressive and any(
+            c.get("type") == "LOW_CONFIDENCE_AGGRESSIVE" for c in conflicts
+        ):
+            reasons.append(
+                "risk class was aggressive/moderately_aggressive with "
+                "confidence below threshold"
+            )
+
+        inv_result = next(
+            (r for r in agent_results if r.agent_name == "InvestmentAgent"), None
+        )
+        if inv_result is not None and inv_result.success:
+            if cfg.gate_on_hallucination_flagged and inv_result.payload.get(
+                "hallucination_flagged"
+            ):
+                reasons.append("hallucination detector flagged a claim in the synthesis")
+
+            shortlist = inv_result.payload.get("shortlist") or []
+            over_ceiling = [
+                p for p in shortlist
+                if isinstance(p.get("expected_return_pct"), (int, float))
+                and p["expected_return_pct"] > cfg.max_expected_return_pct
+            ]
+            if over_ceiling:
+                names = ", ".join(
+                    p.get("name", p.get("product_id", "?")) for p in over_ceiling
+                )
+                reasons.append(
+                    f"recommendation includes expected_return_pct above "
+                    f"{cfg.max_expected_return_pct}% ({names})"
+                )
+
+        return reasons
+
+    def collect_approved_response(self, turn_id: str) -> str | None:
+        """
+        Retrieve a gated turn's real response once a reviewer has approved
+        it, and mark it delivered. Returns None if the turn is unknown,
+        still pending, or was rejected — never raises, since "nothing to
+        collect yet" is the normal outcome of asking too early, not an
+        error (mirroring ProductDataClient.get_fact()'s reasoning for
+        returning None rather than raising on the common case).
+
+        This is the customer-facing half of the state machine's last
+        transition (APPROVED -> DELIVERED); approving and delivering are
+        deliberately separate events — see ApprovalStore.mark_delivered()'s
+        docstring for why "approved" cannot itself mean "the customer has
+        seen it".
+        """
+        pending = self._approval_store.get(turn_id)
+        if pending is None or pending.status != "approved":
+            return None
+        delivered = self._approval_store.mark_delivered(turn_id)
+        return delivered.draft_response
+
+    def collect_all_approved_responses(self) -> list[str]:
+        """
+        Every turn from THIS session that a reviewer approved since it was
+        last checked, delivered now. Meant to be called at the start of a
+        turn in a live session (see run_demo.py's -i mode) — the natural
+        place for "watch it deliver" to actually happen from the
+        customer's side of an ongoing conversation, since the review
+        itself typically happens in a separate process entirely.
+        """
+        approved = self._approval_store.list_approved(session_id=self.session_id)
+        return [
+            text for p in approved
+            if (text := self.collect_approved_response(p.turn_id)) is not None
+        ]
 
     def _synthesise_response(
         self,
@@ -840,7 +1415,11 @@ class Orchestrator:
                 elicitation = self._elicitation_response(unmet)
                 self._session_state["awaiting_full_advisory_inputs"] = unmet
         with trace.span("[L2]", f"plan: {' → '.join(agent_sequence) or 'elicitation'}"):
-            agent_results, recovered, skipped = self._execute_plan(
+            # dynamic=True only when the PLANNER's own proposal was
+            # accepted (turn_plan.accepted, i.e. source == "planner") — the
+            # static table stays the unchanged safety net. See
+            # _execute_plan()'s docstring for why this distinction exists.
+            agent_results, recovered, skipped, collaboration_events = self._execute_plan(
                 agent_sequence, context, dynamic=turn_plan.accepted,
             )
         if skipped:
@@ -901,16 +1480,39 @@ class Orchestrator:
                 blocked=was_blocked,
             )
 
-
-
-        # raw_response = self._synthesise_response(
-        #     user_message, agent_results, routing
-        # )
-
-
-        # final_response, violations, was_blocked = self._check_constraints(
-        #     raw_response, agent_results
-        # )
+            # -- Layer 3d: Human approval gate (Day 8) --
+            # Deliberately skipped when elicitation is not None — a
+            # deterministic "what's your age?" / questionnaire prompt was
+            # never synthesised from agent output, so there is nothing
+            # here for a reviewer to judge, and gating it would just add
+            # a pointless hold to an ordinary clarifying question.
+            gate_reasons: list[str] = []
+            if elicitation is None:
+                gate_reasons = self._check_approval_gate(agent_results, violations, conflicts)
+            if gate_reasons:
+                pending = PendingApproval(
+                    turn_id=turn_id,
+                    session_id=self.session_id,
+                    reasons=gate_reasons,
+                    draft_response=final_response,
+                    agent_results=[
+                        {
+                            "agent_name": r.agent_name,
+                            "success": r.success,
+                            "payload": r.payload,
+                            "error": r.error,
+                        }
+                        for r in agent_results
+                    ],
+                    created_at=datetime.now(timezone.utc).isoformat(),
+                )
+                self._approval_store.create(pending)
+                self.audit_log.record_approval_gate(turn_id=turn_id, reasons=gate_reasons)
+                trace.emit("🔒 APPROVAL GATE", f"turn {turn_id} held", reasons=gate_reasons)
+                logger.info(
+                    f"[Orchestrator] turn={turn_id} held for approval — {gate_reasons}"
+                )
+                final_response = settings.approval.withheld_message
 
         # Update conversation history
         self._session_state["conversation_history"].append(
@@ -934,13 +1536,15 @@ class Orchestrator:
             f"agents={agents_invoked} "
             f"conflicts={len(conflicts)} violations={len(violations)} "
             f"recovered={recovered} skipped={[s['agent'] for s in skipped]} "
+            f"collaborations={len(collaboration_events)} "
             f"duration={total_ms:.0f}ms"
         )
 
         trace.emit("TURN END", "",
                    duration_ms=round(total_ms), agents=len(agents_invoked),
                    conflicts=len(conflicts), violations=len(violations),
-                   recovered=len(recovered), skipped=len(skipped))
+                   recovered=len(recovered), skipped=len(skipped),
+                   collaborations=len(collaboration_events))
 
         return OrchestratorResult(
             session_id=self.session_id,
@@ -953,6 +1557,7 @@ class Orchestrator:
             constraint_violations=violations,
             recovered_agents=recovered,
             skipped=skipped,
+            collaboration_events=collaboration_events,
             total_duration_ms=total_ms,
             success=True,
             plan=turn_plan,
@@ -1033,7 +1638,11 @@ class Orchestrator:
         skipped: list[dict] | None = None,
     ) -> str | None:
         """
-        Open, advance, or close the insufficient-data questionnaire.
+        Open, advance, or close whichever deterministic elicitation loop is
+        relevant this turn — budget's (agents/budget_questionnaire.py) or
+        risk-profiling's (agents/risk_questionnaire.py). Both run through
+        ConversationalAgent's one questionnaire engine
+        (start_questionnaire/_questionnaire_turn), distinguished by "kind".
 
         Returns a deterministic response string when THIS turn's reply is a
         questionnaire question (or its wrap-up), or None to let the normal
@@ -1072,17 +1681,19 @@ class Orchestrator:
         conv_agent = self._agents["ConversationalAgent"]
         state = self._session_state
 
-        # --- Case 1: this turn WAS a questionnaire turn -------------------
+        # --- Case 1: this turn WAS a questionnaire turn (either kind) -----
         conv_result = next(
             (r for r in agent_results if r.agent_name == "ConversationalAgent"), None
         )
         if conv_result is not None and conv_result.payload.get("mode") == "questionnaire":
             block = conv_result.payload["questionnaire"]
+
             if block["kind"] == "risk":
                 return self._advance_risk_questionnaire(
                     block, context, turn_id, conv_result, agent_results,
                 )
-                # kind == "budget" - unchanged
+
+            # kind == "budget" — unchanged.
             state["questionnaire_answers"] = dict(block["answers"])
             state["customer_wants_to_stop"] = bool(block["customer_wants_to_stop"])
             self.audit_log.record_agent_call(
@@ -1122,7 +1733,27 @@ class Orchestrator:
             agent_results.append(budget_result)
             return None      # let synthesis narrate the budget it just built
 
-        # --- Case 2: BudgetAgent just reported insufficient data ----------
+        # --- Case 2a: RiskProfilingAgent reported incomplete, OR (Day 6)
+        # was skipped before it even ran ----------------------------------
+        # Checked before budget's trigger: risk precedes investment/budget
+        # in every routing table this system has, so if both somehow fired
+        # the same turn, resolving risk first is the correct order anyway.
+        #
+        # THE "OR SKIPPED" HALF IS NEW AS OF DAY 6
+        #     Before _execute_plan() re-checked `requires` at run time,
+        #     RiskProfilingAgent always actually ran and reported its own
+        #     status="incomplete" — there was nothing else this branch
+        #     needed to know about. Day 6 means a customer with a
+        #     completely empty user_features (the true brand-new case) now
+        #     gets RiskProfilingAgent SKIPPED rather than invoked, because
+        #     its `requires={"user_features"}` isn't met at all. Without
+        #     this half, that customer would fall through both Case 2a and
+        #     Case 2b with nothing catching them. Treating a requires-skip
+        #     of RiskProfilingAgent the same as an incomplete status means
+        #     both "some fields known, a few missing" (agent ran,
+        #     incomplete) and "nothing known at all" (agent skipped) reach
+        #     the same elicitation loop — just with an empty seed instead
+        #     of a partial one.
         risk_result = next(
             (r for r in agent_results if r.agent_name == "RiskProfilingAgent"), None
         )
@@ -1173,6 +1804,7 @@ class Orchestrator:
                 f"{first_question.question_text}"
             )
 
+        # --- Case 2b: BudgetAgent just reported insufficient data ---------
         budget_result = next(
             (r for r in agent_results if r.agent_name == "BudgetAgent"), None
         )
@@ -1272,7 +1904,6 @@ class Orchestrator:
         resumed_results, _ = self._run_agent_sequence(resume_sequence, context)
         agent_results.extend(resumed_results)
         return None  # let synthesis narrate what the resumed agents produced
-
 
     def _agent_is_satisfiable(self, agent_name: str, context: dict) -> tuple[bool, str]:
         """Return (can_run, human-readable reason it cannot)."""

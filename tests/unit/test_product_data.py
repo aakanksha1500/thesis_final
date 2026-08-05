@@ -17,7 +17,7 @@ RUNNING
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -46,7 +46,7 @@ def entry(value, days_old=0, field="expected_return_pct"):
     return {
         "field": field,
         "value": value,
-        "as_of": (date.today() - timedelta(days=days_old)).isoformat(),
+        "as_of": (datetime.now(timezone.utc).date() - timedelta(days=days_old)).isoformat(),
         "source": "Test source",
         "source_url": "https://example.invalid",
     }

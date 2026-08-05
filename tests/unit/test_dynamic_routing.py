@@ -145,7 +145,7 @@ class TestExecutePlan:
         orch._execute_agent = fake_execute
 
         # InvestmentAgent requires risk_class + user_features; empty context has neither.
-        results, recovered, skipped = orch._execute_plan(["InvestmentAgent"], {})
+        results, recovered, skipped, _collab = orch._execute_plan(["InvestmentAgent"], {})
 
         assert calls == []          # never actually invoked
         assert results == []
@@ -167,7 +167,7 @@ class TestExecutePlan:
         orch._execute_agent = fake_execute
 
         context = {"user_features": {"age": 40}}
-        results, recovered, skipped = orch._execute_plan(["RiskProfilingAgent"], context)
+        results, recovered, skipped, _collab = orch._execute_plan(["RiskProfilingAgent"], context)
 
         assert skipped == []
         assert len(results) == 1
@@ -192,7 +192,7 @@ class TestExecutePlan:
         orch._execute_agent = fake_execute
 
         context = {"user_features": {"age": 40}}
-        results, recovered, skipped = orch._execute_plan(
+        results, recovered, skipped, _collab = orch._execute_plan(
             ["RiskProfilingAgent", "InvestmentAgent"], context,
         )
 
@@ -211,7 +211,7 @@ class TestExecutePlan:
         orch._execute_agent = fake_execute
 
         context = {"user_features": {"age": 40}}   # satisfies requires -> runs, not skipped
-        results, recovered, skipped = orch._execute_plan(["RiskProfilingAgent"], context)
+        results, recovered, skipped, _collab = orch._execute_plan(["RiskProfilingAgent"], context)
 
         assert skipped == []
         assert len(results) == 1 and not results[0].success

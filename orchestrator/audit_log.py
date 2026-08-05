@@ -86,9 +86,11 @@ class AuditLog:
         "TURN_END",
         "CUSTOMER_LOAD",
         "HALLUCINATION_FLAG",
+        "APPROVAL_GATE",
+        "APPROVAL_DECISION",
     }
 
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: str, write_init: bool = True) -> None:
         self.session_id = session_id
         self._log_dir = settings.orchestrator.audit_log_dir
         self._log_dir.mkdir(parents=True, exist_ok=True)
@@ -96,21 +98,22 @@ class AuditLog:
         self._write_count = 0
 
         # Write session initialisation record
-        self._write(_make_event(
-            session_id=session_id,
-            event_type="SESSION_INIT",
-            payload={
-                "schema_version": SCHEMA_VERSION,
-                "compliance": ["EU_AI_Act_Art13", "CBI_MRM", "GDPR_Art5"],
-                "note": (
-                    "User message content is never logged (GDPR Art5 purpose limitation). "
-                    "Only message length and extracted slot values are recorded."
-                ),
-            },
-        ))
-        logger.info(
-            f"[AuditLog] Session {session_id} initialised -> {self._log_path}"
-        )
+        if write_init:
+            self._write(_make_event(
+                session_id=session_id,
+                event_type="SESSION_INIT",
+                payload={
+                    "schema_version": SCHEMA_VERSION,
+                    "compliance": ["EU_AI_Act_Art13", "CBI_MRM", "GDPR_Art5"],
+                    "note": (
+                        "User message content is never logged (GDPR Art5 purpose limitation). "
+                        "Only message length and extracted slot values are recorded."
+                    ),
+                },
+            ))
+            logger.info(
+                f"[AuditLog] Session {session_id} initialised -> {self._log_path}"
+            )
 
     def _write(self, record: dict) -> None:
         """Append one record to the JSONL file. Never raises."""
@@ -360,6 +363,47 @@ class AuditLog:
                 "conflicts_resolved": conflicts_resolved,
                 "total_records_this_session": self._write_count,
             },
+        ))
+
+    def record_approval_gate(
+        self,
+        turn_id: str,
+        reasons: list[str],
+    ) -> None:
+        """
+        Day 8 — a turn was held for human review before delivery. The
+        REASONS are logged here, in the audit trail; they are never sent
+        to the customer (see ApprovalConfig.withheld_message) — the
+        customer-facing side of a gate is deliberately uninformative about
+        why, the reviewer-facing side is deliberately specific.
+        """
+        self._write(_make_event(
+            session_id=self.session_id,
+            turn_id=turn_id,
+            event_type="APPROVAL_GATE",
+            payload={"reasons": reasons},
+        ))
+
+    def record_approval_decision(
+        self,
+        turn_id: str,
+        decision: str,
+        reviewer_note: str,
+    ) -> None:
+        """
+        Day 8 — a reviewer approved or rejected a held turn. Logged
+        separately from record_approval_gate() on purpose: the gate event
+        and the decision on it can be arbitrarily far apart in time (a
+        different process entirely, in the API case — see
+        orchestrator/approvals.py), and TRiSM's audit requirement is that
+        BOTH the gate and the decision on it are independently traceable,
+        not just the outcome.
+        """
+        self._write(_make_event(
+            session_id=self.session_id,
+            turn_id=turn_id,
+            event_type="APPROVAL_DECISION",
+            payload={"decision": decision, "reviewer_note": reviewer_note},
         ))
 
     def read_all(self) -> list[dict]:

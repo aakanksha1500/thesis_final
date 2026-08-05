@@ -63,6 +63,58 @@ def audit_tmp_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(settings.orchestrator, "audit_log_dir", tmp_path)
     return tmp_path
 
+@pytest.fixture(autouse=True)
+def _approval_store_isolation(tmp_path, monkeypatch):
+    """
+    ALWAYS isolate the Day 8 approval-gate database — unlike audit_tmp_dir
+    above (opt-in; fine there, since AuditLog is per-SESSION, so a test
+    that forgets it just leaves harmless stale data in its own inspectable
+    -only file). orchestrator/approvals.py's ApprovalStore is deliberately
+    ONE SHARED file across every session — a test that doesn't isolate it
+    doesn't leave harmless stale data, it pollutes the actual reviewer
+    queue a real deployment's GET /approvals serves from.
+
+    That risk is broad, not confined to Day 8's own test file: mock-mode
+    synthesis text (this whole suite runs in mock mode by default — see
+    _no_live_api_in_tests below) never grounds against real RAG context,
+    so the hallucination detector's fallback heuristic correctly, and
+    near-universally, flags it — meaning ANY test that runs InvestmentAgent
+    through a real process_turn() call trips the gate's hallucination_
+    flagged trigger, whether or not that test file has ever heard of Day
+    8. Found by actually running run_demo.py after the full suite, not
+    assumed — the "0 failed" pytest result never would have caught this,
+    since nothing in those tests' own assertions checks approvals.db.
+    """
+    from config.settings import settings
+    from orchestrator.approvals import ApprovalStore, set_approval_store
+
+    db_path = tmp_path / "approvals.db"
+    monkeypatch.setattr(settings.approval, "db_path", db_path, raising=False)
+    set_approval_store(ApprovalStore(db_path=db_path))
+    yield
+    set_approval_store(None)
+
+@pytest.fixture(autouse=True)
+def _customer_memory_isolation(tmp_path, monkeypatch):
+    """
+    Same reasoning as _approval_store_isolation immediately above, for
+    Day 9's data/customer_memory.py — also one shared SQLite file across
+    every session (see that module's docstring), also written on every
+    process_turn() call that has a customer_id set (Orchestrator.
+    _persist_customer_memory()), so the identical class of silent
+    cross-test pollution applies. Fixed proactively this time, before a
+    second "0 failed, real file polluted anyway" discovery — see Day 8's
+    equivalent finding above for why that would otherwise happen again.
+    """
+    from config.settings import settings
+    from data.customer_memory import CustomerMemoryStore, set_customer_memory_store
+
+    db_path = tmp_path / "customer_memory.db"
+    monkeypatch.setattr(settings.conversational, "memory_db_path", db_path, raising=False)
+    set_customer_memory_store(CustomerMemoryStore(db_path=db_path))
+    yield
+    set_customer_memory_store(None)
+
 
 # ── API isolation ──────────────────────────────────────────────────────────
 _PROVIDER_KEY_VARS = (

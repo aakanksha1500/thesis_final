@@ -474,10 +474,32 @@ class ExplainabilityAgent(BaseAgent):
         risk_payload: dict = context.get("risk_agent_payload") or {}
         investment_payload: dict = context.get("investment_agent_payload") or {}
 
+        budget_payload: dict = context.get("budget_agent_payload") or {}
+
+        nothing_to_explain = not risk_payload and not investment_payload and not budget_payload
+        if (
+            nothing_to_explain
+            and settings.collaboration.enabled
+            and context.get("user_features")
+        ):
+            return self._make_result(
+                payload={
+                    "status": "needs_input",
+                    "needs": ["risk_class"],
+                    "reason": (
+                        "Nothing to explain yet this session, but a "
+                        "customer profile is on file — worth a risk "
+                        "classification before falling back to a generic "
+                        "explanation."
+                    ),
+                },
+                duration_ms=(time.perf_counter() - start_time) * 1000,
+            )
+
         shap_summary: dict = risk_payload.get("feature_importance", {})
         risk_class: str = risk_payload.get("risk_class", "moderate")
         confidence: float = float(risk_payload.get("confidence", 0.7))
-        budget_payload: dict = context.get("budget_agent_payload") or {}
+        # budget_payload: dict = context.get("budget_agent_payload") or {}
 
         shortlist: list = investment_payload.get("shortlist", [])
         top_product_name: str = (
