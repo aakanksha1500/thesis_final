@@ -28,7 +28,7 @@ RUNNING
 from __future__ import annotations
 
 try:
-    from fastapi import FastAPI, HTTPException
+    from fastapi import APIRouter, FastAPI, HTTPException
     from pydantic import BaseModel
 except ImportError as exc:  # pragma: no cover - exercised only without fastapi installed
     raise ImportError(
@@ -45,18 +45,14 @@ from orchestrator.approvals import (
     get_approval_store,
 )
 
-app = FastAPI(
-    title="HALO Approvals",
-    version="1.0",
-    description="Day 8 human approval gate — the reviewer-facing queue.",
-)
+router = APIRouter()
 
 
 class DecisionBody(BaseModel):
     reviewer_note: str = ""
 
 
-@app.get("/approvals")
+@router.get("/approvals")
 def list_approvals(session_id: str | None = None) -> list[dict]:
     """Every turn currently awaiting review, oldest first. Filter to one
     session with ?session_id=..., or omit it for the full cross-customer
@@ -66,7 +62,7 @@ def list_approvals(session_id: str | None = None) -> list[dict]:
     return [p.to_dict() for p in store.list_pending(session_id=session_id)]
 
 
-@app.get("/approvals/{turn_id}")
+@router.get("/approvals/{turn_id}")
 def get_approval(turn_id: str) -> dict:
     store = get_approval_store()
     pending = store.get(turn_id)
@@ -75,7 +71,7 @@ def get_approval(turn_id: str) -> dict:
     return pending.to_dict()
 
 
-@app.post("/approvals/{turn_id}/approve")
+@router.post("/approvals/{turn_id}/approve")
 def approve(turn_id: str, body: DecisionBody = DecisionBody()) -> dict:
     store = get_approval_store()
     try:
@@ -87,7 +83,7 @@ def approve(turn_id: str, body: DecisionBody = DecisionBody()) -> dict:
     return approved.to_dict()
 
 
-@app.post("/approvals/{turn_id}/reject")
+@router.post("/approvals/{turn_id}/reject")
 def reject(turn_id: str, body: DecisionBody = DecisionBody()) -> dict:
     store = get_approval_store()
     try:
@@ -97,3 +93,9 @@ def reject(turn_id: str, body: DecisionBody = DecisionBody()) -> dict:
     except ApprovalTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return rejected.to_dict()
+app = FastAPI(
+    title="HALO Approvals",
+    version="1.0",
+    description="Day 8 human approval gate — the reviewer-facing queue.",
+)
+app.include_router(router)

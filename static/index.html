@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HALO — decision trail</title>
+<style>
+  :root{
+    --ink:      #12181f;
+    --panel:    #1a2330;
+    --panel-2:  #212c3b;
+    --line:     #2c3a4d;
+    --paper:    #e9ebee;
+    --muted:    #8592a3;
+    --trust:    #4fa39f;
+    --trust-dim:#2c5250;
+    --alert:    #d68b3a;
+    --alert-dim:#4a3620;
+    --danger:   #c2564a;
+    --danger-dim:#442420;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", "IBM Plex Sans", Helvetica, Arial, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0; background:var(--ink); color:var(--paper);
+    font-family:var(--sans); font-size:15px; line-height:1.5;
+  }
+  a{ color:var(--trust); }
+
+  header{
+    display:flex; align-items:baseline; gap:.75rem;
+    padding:.9rem 1.25rem; border-bottom:1px solid var(--line);
+    background:var(--panel);
+  }
+  header .mark{
+    font-family:var(--mono); font-weight:700; letter-spacing:.08em;
+    font-size:1.05rem; color:var(--paper);
+  }
+  header .mark span{ color:var(--trust); }
+  header .sub{ color:var(--muted); font-size:.85rem; font-family:var(--mono); }
+
+  .layout{
+    display:grid; grid-template-columns: minmax(320px, 42%) 1fr;
+    height:calc(100% - 50px);
+  }
+  @media (max-width: 860px){
+    .layout{ grid-template-columns: 1fr; height:auto; }
+  }
+
+  /* ---------- conversation ---------- */
+  .convo{ display:flex; flex-direction:column; border-right:1px solid var(--line); min-height:0; }
+  .msgs{ flex:1; overflow-y:auto; padding:1rem 1.1rem; display:flex; flex-direction:column; gap:.7rem; }
+  .msg{ max-width:88%; padding:.55rem .75rem; border-radius:10px; font-size:.95rem; white-space:pre-wrap; }
+  .msg.user{ align-self:flex-end; background:var(--trust-dim); color:var(--paper); border:1px solid var(--trust); }
+  .msg.assistant{ align-self:flex-start; background:var(--panel-2); border:1px solid var(--line); }
+  .msg.assistant.held{ border-color:var(--alert); background:var(--alert-dim); }
+  .msg .who{ display:block; font-family:var(--mono); font-size:.68rem; color:var(--muted); margin-bottom:.25rem; letter-spacing:.05em; text-transform:uppercase; }
+
+  .composer{ display:flex; gap:.5rem; padding:.85rem; border-top:1px solid var(--line); background:var(--panel); }
+  .composer input[type=text]{
+    flex:1; background:var(--ink); border:1px solid var(--line); border-radius:8px;
+    color:var(--paper); padding:.6rem .7rem; font:inherit; font-size:.92rem;
+  }
+  .composer input[type=text]:focus{ outline:2px solid var(--trust); outline-offset:1px; }
+  .composer button{
+    background:var(--trust); color:var(--ink); border:none; border-radius:8px;
+    padding:.6rem 1rem; font-weight:600; cursor:pointer; font-size:.9rem;
+  }
+  .composer button:disabled{ opacity:.5; cursor:default; }
+  .composer button:hover:not(:disabled){ filter:brightness(1.08); }
+
+  .setup{ padding:.6rem .9rem; border-bottom:1px solid var(--line); background:var(--panel);
+          display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+  .setup label{ font-family:var(--mono); font-size:.72rem; color:var(--muted); }
+  .setup input{
+    background:var(--ink); border:1px solid var(--line); border-radius:6px; color:var(--paper);
+    padding:.3rem .5rem; font-family:var(--mono); font-size:.78rem; width:11rem;
+  }
+
+  /* ---------- trust panel ---------- */
+  .trust{ overflow-y:auto; padding:1rem 1.1rem 2rem; }
+  .empty{ color:var(--muted); font-family:var(--mono); font-size:.85rem; padding:2rem 0; text-align:center; }
+
+  .card{
+    border:1px solid var(--line); border-radius:10px; margin-bottom:.85rem;
+    background:var(--panel); overflow:hidden;
+    animation: rise .35s ease both;
+  }
+  .card h3{
+    margin:0; padding:.55rem .8rem; font-family:var(--mono); font-size:.72rem;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--muted);
+    border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center;
+  }
+  .card .body{ padding:.7rem .8rem; }
+
+  @keyframes rise{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+
+  .step{
+    display:flex; align-items:center; gap:.6rem; padding:.4rem 0;
+    font-family:var(--mono); font-size:.86rem;
+    opacity:0; animation: rise .3s ease forwards;
+  }
+  .step .badge{
+    width:1.3rem; height:1.3rem; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:.72rem; flex-shrink:0; border:1px solid var(--line);
+  }
+  .step.ok .badge{ background:var(--trust-dim); border-color:var(--trust); color:var(--trust); }
+  .step.skip .badge{ background:transparent; border-color:var(--muted); color:var(--muted); }
+  .step.err .badge{ background:var(--danger-dim); border-color:var(--danger); color:var(--danger); }
+  .step .name{ flex:1; }
+  .step .meta{ color:var(--muted); font-size:.78rem; }
+  .step .reason{ display:block; color:var(--muted); font-size:.78rem; margin-left:1.9rem; margin-top:-.15rem; }
+
+  .pill{
+    font-family:var(--mono); font-size:.68rem; padding:.12rem .45rem; border-radius:20px;
+    border:1px solid var(--line); color:var(--muted);
+  }
+  .pill.good{ border-color:var(--trust); color:var(--trust); }
+  .pill.warn{ border-color:var(--alert); color:var(--alert); }
+  .pill.bad{ border-color:var(--danger); color:var(--danger); }
+
+  .layer-row{ display:flex; align-items:center; gap:.5rem; padding:.3rem 0; font-family:var(--mono); font-size:.85rem; }
+  .layer-row .letter{
+    width:1.3rem; height:1.3rem; border-radius:4px; background:var(--trust-dim);
+    color:var(--trust); display:flex; align-items:center; justify-content:center; font-size:.72rem; flex-shrink:0;
+  }
+
+  .constraint-row{ display:flex; justify-content:space-between; gap:.6rem; padding:.3rem 0; font-family:var(--mono); font-size:.83rem; }
+  .constraint-row .desc{ color:var(--muted); text-align:right; }
+
+  .approval-box{ border:1px solid var(--alert); background:var(--alert-dim); border-radius:8px; padding:.7rem .8rem; }
+  .approval-box .reasons{ font-family:var(--mono); font-size:.8rem; color:var(--paper); margin:.4rem 0 .7rem; }
+  .approval-box .reasons li{ margin-bottom:.2rem; }
+  .btnrow{ display:flex; gap:.5rem; }
+  .btnrow button{
+    flex:1; padding:.5rem; border-radius:6px; border:1px solid; font-weight:600;
+    font-family:var(--sans); font-size:.85rem; cursor:pointer; background:transparent;
+  }
+  .btn-approve{ border-color:var(--trust); color:var(--trust); }
+  .btn-approve:hover{ background:var(--trust-dim); }
+  .btn-reject{ border-color:var(--danger); color:var(--danger); }
+  .btn-reject:hover{ background:var(--danger-dim); }
+  .decision-note{ font-family:var(--mono); font-size:.78rem; color:var(--muted); margin-top:.5rem; }
+
+  .audit-ref{ font-family:var(--mono); font-size:.82rem; color:var(--muted); }
+  .audit-ref a{ text-decoration:none; }
+
+  details.raw{ margin-top:.6rem; }
+  details.raw summary{ font-family:var(--mono); font-size:.72rem; color:var(--muted); cursor:pointer; }
+  details.raw pre{
+    font-family:var(--mono); font-size:.72rem; color:var(--muted); background:var(--ink);
+    border:1px solid var(--line); border-radius:6px; padding:.6rem; overflow-x:auto; max-height:220px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .card, .step{ animation:none !important; opacity:1 !important; transform:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark">HALO<span>·</span>trace</div>
+  <div class="sub">decision trail for a regulated financial-advice pipeline — not a product, a TRiSM demonstrator</div>
+</header>
+
+<div class="layout">
+
+  <section class="convo">
+    <div class="setup">
+      <label for="sessionId">session</label>
+      <input id="sessionId" type="text" value="">
+      <label for="customerId">customer_id (optional)</label>
+      <input id="customerId" type="text" placeholder="e.g. DEMO_GC_042">
+    </div>
+    <div class="msgs" id="msgs">
+      <div class="empty">Send a message to start. Try &ldquo;Should I invest my savings?&rdquo;</div>
+    </div>
+    <form class="composer" id="composer">
+      <input type="text" id="messageInput" placeholder="Ask about your risk profile, investing, or budgeting…" autocomplete="off">
+      <button type="submit" id="sendBtn">Send</button>
+    </form>
+  </section>
+
+  <section class="trust" id="trust">
+    <div class="empty">Nothing to show yet — the decision trail for your first turn appears here.</div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const msgsEl   = document.getElementById("msgs");
+  const trustEl  = document.getElementById("trust");
+  const form     = document.getElementById("composer");
+  const input    = document.getElementById("messageInput");
+  const sendBtn  = document.getElementById("sendBtn");
+  const sessionEl  = document.getElementById("sessionId");
+  const customerEl = document.getElementById("customerId");
+
+  sessionEl.value = "ui-" + Math.random().toString(36).slice(2, 9);
+
+  function el(tag, opts){
+    const node = document.createElement(tag);
+    opts = opts || {};
+    if (opts.cls) node.className = opts.cls;
+    if (opts.text !== undefined) node.textContent = opts.text;
+    if (opts.html !== undefined) node.innerHTML = opts.html;
+    return node;
+  }
+
+  function clearEmpty(container){
+    const e = container.querySelector(".empty");
+    if (e) e.remove();
+  }
+
+  function addMessage(role, text, held){
+    clearEmpty(msgsEl);
+    const bubble = el("div", { cls: "msg " + role + (held ? " held" : "") });
+    bubble.appendChild(el("span", { cls: "who", text: role === "user" ? "you" : "assistant" }));
+    bubble.appendChild(document.createTextNode(text));
+    msgsEl.appendChild(bubble);
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+    return bubble;
+  }
+
+  // ---- trust panel rendering --------------------------------------------
+
+  function statusPill(text, kind){
+    return `<span class="pill ${kind}">${text}</span>`;
+  }
+
+  function renderPlanCard(data){
+    const card = el("div", { cls: "card" });
+    const planOk = data.plan.accepted;
+    card.appendChild(el("h3", {
+      html: `PLAN ${statusPill(
+        data.plan.source === "planner" ? (planOk ? "planner · accepted" : "planner · rejected") : "static table",
+        data.plan.source === "planner" && planOk ? "good" : "warn"
+      )}`
+    }));
+    const body = el("div", { cls: "body" });
+
+    const byName = {};
+    data.agent_results.forEach(r => { byName[r.agent_name] = r; });
+    const collabByAgent = {};
+    (data.collaboration_events || []).forEach(e => {
+      if (!e.retried) collabByAgent[e.requester] = e;
+    });
+
+    let i = 0;
+    data.plan.steps.forEach(name => {
+      const r = byName[name];
+      const row = el("div", { cls: "step " + (r ? (r.success ? "ok" : "err") : "skip") });
+      row.style.animationDelay = (i++ * 60) + "ms";
+      const badge = r ? (r.success ? "✓" : "✕") : "–";
+      row.appendChild(el("span", { cls: "badge", text: badge }));
+      row.appendChild(el("span", { cls: "name", text: name }));
+      if (r) row.appendChild(el("span", { cls: "meta", text: Math.round(r.duration_ms) + "ms" }));
+      body.appendChild(row);
+      const collab = collabByAgent[name];
+      if (collab) {
+        body.appendChild(el("span", {
+          cls: "reason",
+          text: `↳ needed '${collab.needs[0]}' → ${collab.producer || "no producer"} [${collab.resolved ? "resolved" : "unresolved"}]`
+        }));
+      }
+    });
+    (data.skipped || []).forEach(s => {
+      const row = el("div", { cls: "step skip" });
+      row.style.animationDelay = (i++ * 60) + "ms";
+      row.appendChild(el("span", { cls: "badge", text: "–" }));
+      row.appendChild(el("span", { cls: "name", text: s.agent }));
+      row.appendChild(el("span", { cls: "meta", text: "skipped" }));
+      body.appendChild(row);
+      body.appendChild(el("span", { cls: "reason", text: "↳ " + s.reason }));
+    });
+    if (data.recovered_agents && data.recovered_agents.length){
+      body.appendChild(el("span", {
+        cls: "reason",
+        text: "↳ recovered after retry: " + data.recovered_agents.join(", ")
+      }));
+    }
+    card.appendChild(body);
+    return card;
+  }
+
+  const LAYER_LABELS = {
+    shap: ["A", "SHAP"],
+    rag_citation: ["B", "RAG"],
+    counterfactual: ["C", "counterfactual"],
+    calibration_note: ["·", "calibration note"],
+  };
+
+  function renderLayersCard(data){
+    if (!data.explanation_layers.length) return null;
+    const card = el("div", { cls: "card" });
+    card.appendChild(el("h3", { text: "Explanation layers" }));
+    const body = el("div", { cls: "body" });
+    data.explanation_layers.forEach(layer => {
+      const [letter, label] = LAYER_LABELS[layer] || ["·", layer];
+      const row = el("div", { cls: "layer-row" });
+      row.appendChild(el("span", { cls: "letter", text: letter }));
+      row.appendChild(el("span", { text: label }));
+      row.appendChild(document.createTextNode(" "));
+      row.insertAdjacentHTML("beforeend", statusPill("applied", "good"));
+      body.appendChild(row);
+    });
+    card.appendChild(body);
+    return card;
+  }
+
+  function renderConstraintsCard(data){
+    if (!data.constraint_violations.length) {
+      const card = el("div", { cls: "card" });
+      card.appendChild(el("h3", { html: `Constraints ${statusPill("clear", "good")}` }));
+      return card;
+    }
+    const card = el("div", { cls: "card" });
+    const hardBlocks = data.constraint_violations.filter(v => v.severity === "hard_block").length;
+    card.appendChild(el("h3", {
+      html: `Constraints ${statusPill(hardBlocks ? hardBlocks + " hard block" : "warnings only", hardBlocks ? "bad" : "warn")}`
+    }));
+    const body = el("div", { cls: "body" });
+    data.constraint_violations.forEach(v => {
+      const row = el("div", { cls: "constraint-row" });
+      const kind = v.severity === "hard_block" ? "bad" : "warn";
+      row.insertAdjacentHTML("beforeend", `<span>${v.rule_id} ${statusPill(v.severity, kind)}</span>`);
+      row.appendChild(el("span", { cls: "desc", text: v.description || "" }));
+      body.appendChild(row);
+    });
+    card.appendChild(body);
+    return card;
+  }
+
+  function renderApprovalCard(data){
+    if (!data.awaiting_approval) return null;
+    const card = el("div", { cls: "card" });
+    card.appendChild(el("h3", { html: `Awaiting approval ${statusPill("held", "warn")}` }));
+    const body = el("div", { cls: "body" });
+    const box = el("div", { cls: "approval-box" });
+    box.appendChild(el("div", { text: "This response is withheld from the customer until a reviewer decides." }));
+    const list = el("ul", { cls: "reasons" });
+    // reasons aren't in the /chat payload itself (customer-facing side
+    // never sees them) — fetched from GET /approvals for this turn.
+    const btnrow = el("div", { cls: "btnrow" });
+    const approveBtn = el("button", { cls: "btn-approve", text: "Approve" });
+    const rejectBtn = el("button", { cls: "btn-reject", text: "Reject" });
+    const note = el("div", { cls: "decision-note" });
+
+    async function loadReasons(){
+      try {
+        const res = await fetch(`/approvals/${data.turn_id}`);
+        if (!res.ok) return;
+        const p = await res.json();
+        list.innerHTML = "";
+        (p.reasons || []).forEach(r => list.appendChild(el("li", { text: r })));
+      } catch (e) { /* reasons are supplementary; decision buttons still work without them */ }
+    }
+    loadReasons();
+
+    async function decide(action){
+      approveBtn.disabled = true; rejectBtn.disabled = true;
+      try {
+        const res = await fetch(`/approvals/${data.turn_id}/${action}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reviewer_note: "decided from the UI" }),
+        });
+        const p = await res.json();
+        if (!res.ok) {
+          note.textContent = "Could not " + action + ": " + (p.detail || res.status);
+          return;
+        }
+        if (action === "approve") {
+          note.textContent = "Approved. It will appear in the conversation on the next turn in this session.";
+        } else {
+          note.textContent = "Rejected. The customer will not receive this response.";
+        }
+        btnrow.remove();
+      } catch (e) {
+        note.textContent = "Request failed: " + e;
+      }
+    }
+    approveBtn.addEventListener("click", () => decide("approve"));
+    rejectBtn.addEventListener("click", () => decide("reject"));
+    btnrow.appendChild(approveBtn);
+    btnrow.appendChild(rejectBtn);
+
+    box.appendChild(list);
+    box.appendChild(btnrow);
+    box.appendChild(note);
+    body.appendChild(box);
+    card.appendChild(body);
+    return card;
+  }
+
+  function renderAuditCard(data){
+    const card = el("div", { cls: "card" });
+    card.appendChild(el("h3", { text: "Audit" }));
+    const body = el("div", { cls: "body audit-ref" });
+    body.appendChild(document.createTextNode(data.audit_ref || "(not recorded)"));
+
+    const details = el("details", { cls: "raw" });
+    details.appendChild(el("summary", { text: "view full turn result (JSON)" }));
+    const pre = el("pre", { text: JSON.stringify(data, null, 2) });
+    details.appendChild(pre);
+    body.appendChild(details);
+
+    card.appendChild(body);
+    return card;
+  }
+
+  function renderTrust(data){
+    trustEl.innerHTML = "";
+    [
+      renderPlanCard(data),
+      renderLayersCard(data),
+      renderConstraintsCard(data),
+      renderApprovalCard(data),
+      renderAuditCard(data),
+    ].forEach(card => { if (card) trustEl.appendChild(card); });
+  }
+
+  // ---- chat ---------------------------------------------------------------
+
+  form.addEventListener("submit", async function(ev){
+    ev.preventDefault();
+    const message = input.value.trim();
+    if (!message) return;
+
+    addMessage("user", message);
+    input.value = "";
+    sendBtn.disabled = true;
+    const thinking = addMessage("assistant", "…");
+
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionEl.value,
+          message: message,
+          customer_id: customerEl.value.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      thinking.remove();
+      if (!res.ok) {
+        addMessage("assistant", "Error: " + (data.detail || res.status));
+        return;
+      }
+      (data.delivered_approvals || []).forEach(text => {
+        addMessage("assistant", "[a previously held response was just approved]\n\n" + text);
+      });
+      addMessage("assistant", data.final_response, data.awaiting_approval);
+      renderTrust(data);
+    } catch (e) {
+      thinking.remove();
+      addMessage("assistant", "Request failed: " + e);
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  });
+
+  input.focus();
+})();
+</script>
+
+</body>
+</html>

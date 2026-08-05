@@ -489,7 +489,7 @@ class Orchestrator:
             f"[Orchestrator] Summarised {len(to_summarise)} earlier history "
             f"entries -> 1 summary + {keep} kept verbatim"
         )
-        
+
     def update_customer_features(self, features: dict[str, Any]) -> None:
         """
         Merge updated/newly-elicited features into the current session and
@@ -1518,7 +1518,8 @@ class Orchestrator:
         self._session_state["conversation_history"].append(
             {"role": "assistant", "content": final_response}
         )
-
+        self._persist_customer_memory()
+        self._maybe_summarise()
         total_ms = (time.perf_counter() - turn_start) * 1000
         agents_invoked = [r.agent_name for r in agent_results]
 

@@ -19,6 +19,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from collections import OrderedDict
 
 # Correlation IDs. contextvars (not globals) so concurrent sessions in the
 # same process never interleave each other's identity — which is exactly the
@@ -46,6 +47,33 @@ trace_config = TraceConfig()
 _C = {"dim": "\033[2m", "cyan": "\033[36m", "green": "\033[32m",
       "yellow": "\033[33m", "red": "\033[31m", "bold": "\033[1m",
       "reset": "\033[0m"}
+
+_captured: "OrderedDict[str, list[dict]]" = OrderedDict()
+
+
+def _capture(turn_id: str, record: dict) -> None:
+    if turn_id not in _captured:
+        _captured[turn_id] = []
+        while len(_captured) > trace_config.max_captured_turns:
+            _captured.popitem(last=False)
+    _captured[turn_id].append(record)
+
+
+def get_captured_events(turn_id: str) -> list[dict]:
+    """Every event captured for one turn, in emission order. [] if tracing
+    wasn't enabled (or wasn't in json format) when that turn ran — not an
+    error, just nothing was ever captured for it."""
+    return list(_captured.get(turn_id, []))
+
+
+def clear_captured_events(turn_id: str | None = None) -> None:
+    """Drop one turn's captured events, or every turn's if turn_id is
+    None. For tests, and for an API server that wants to bound memory
+    more aggressively than max_captured_turns alone."""
+    if turn_id is None:
+        _captured.clear()
+    else:
+        _captured.pop(turn_id, None)
 
 
 def _paint(text: str, colour: str) -> str:
@@ -80,6 +108,7 @@ def emit(event: str, message: str = "", **fields) -> None:
                 "message": message,
                 **fields,
             }
+            _capture(_turn_id.get(), record)
             print(json.dumps(record, default=str), file=trace_config.stream)
             return
 

@@ -8,6 +8,7 @@ Exists so that:
 """
 from __future__ import annotations
 
+import pyarrow.dataset
 import os
 import sys
 from pathlib import Path
