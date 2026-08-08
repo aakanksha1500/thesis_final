@@ -1,6 +1,5 @@
 """
-Added before ConversationalAgent so that the contract every agent must
-satisfy is settled first.
+Base class every specialist agent inherits from. Defines the shared run/prase contract and timing.
 
 Three things BaseAgent provides:
 1. AgentResult envelope
@@ -34,26 +33,12 @@ logger = get_logger(__name__)
 @dataclass
 class AgentResult:
     """
-    Standard envelope every agent.run() returns, regardless of what the
-    agent actually computed. Keeping this identical across agents is what
-    lets the evaluation layer (AgentBoard-style step metrics) and the
-    Orchestrator process any agent's output the same way.
+    The standard result every agent returns. Keeping one shape lets the Orchestrator 
+    and the evaluation layer handle any agent's output the same way.
     """
 
     # agent_name        -> which agent produced this (for step_records/logs)
     # step_id           -> unique per-call id; links this result to a step
-    #                      record for process-level evaluation (E1/E2)
-    # success           -> False only if something raised; run() itself
-    #                      never raises, it captures the error here instead
-    # payload           -> the actual agent-specific output (risk_class,
-    #                      recommendation text, etc.)
-    # duration_ms       -> wall-clock latency, used for cost/latency analysis
-    # tokens_used       -> LLM token spend, used for cost analysis
-    # rag_sources_used  -> citations, feeds the RAG explainability layer (X2b)
-    #                      (currently always empty — no RAG layer exists yet)
-    # routing_context   -> small dict the Orchestrator would read to decide
-    #                      what to call next (not consumed anywhere yet,
-    #                      since there's no Orchestrator)
 
     agent_name: str
     step_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
@@ -68,10 +53,8 @@ class AgentResult:
 
     def to_step_record(self) -> dict:
         """
-        Converts this result into the flat dict format the (planned)
-        AgentBoard-style step evaluator expects: one record per agent
-        invocation, so failures can be localised to a specific step
-        instead of only seeing a wrong final answer.
+        Converts this result into the flat record, one per agent call,
+        so a failure can be traced to a specific step.
         """
         return {
             "step_id": self.step_id,
@@ -83,15 +66,9 @@ class AgentResult:
         }
 class BaseAgent(abc.ABC):
     """
-    Abstract parent for every specialist agent. Subclasses MUST implement
+    Parent class for every specialist agent. Subclasses MUST implement
     system_prompt, _parse_response(), and run() — Python raises TypeError
-    at instantiation time if any is missing, which catches an incomplete
-    agent before it's ever run.
-
-    Subclass must implement:
-        - system_prompt: property returning the agent's system prompt string
-        - _parse_response(): converts raw LLM string output to structured dict
-        - run(): main entry point callled by th eOrchestrator
+    at instantiation time if any is missing.
     """
 
     def __init__(self, llm_client: LLMClient, name: str):
@@ -114,7 +91,6 @@ class BaseAgent(abc.ABC):
         """
         Parse raw LLM string output into a structured payload dict.
         Called inside run() after every LLM call.
-        Should never raise - return {"parse_error": raw} on failure.
         """
         ...
 
@@ -144,16 +120,13 @@ class BaseAgent(abc.ABC):
             system_override: str | None = None,
     ) -> tuple[str, int]:
         """
-        The only path an agent should use to talk to the LLM. Centralising
-        this means latency timing and error handling happen in exactly one
-        place instead of being duplicated (and inconsistently applied) in
-        every agent.
+        The only path an agent should use to talk to the LLM. 
 
         Args:
-            user_message: The primary user-turn content for this call.
-            extra_messages: Optional prior turns to pretend (for multi-turn context).
-            temperature: Per-call override; None uses client default.
-            system_override: Use this system message instead of
+            - user_message: The primary user-turn content for this call.
+            - extra_messages: Optional prior turns to pretend (for multi-turn context).
+            - temperature: Per-call override; None uses client default.
+            - system_override: Use this system message instead of
                 self.system_prompt for this one call. For a lightweight,
                 narrowly-scoped call (e.g. classification) where the
                 agent's full persona/instruction system prompt is mostly

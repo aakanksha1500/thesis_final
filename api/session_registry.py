@@ -51,7 +51,7 @@ class SessionRegistry:
         idle_timeout_seconds: float = 3600.0,
     ):
         self._llm_client = llm_client or LLMClient()
-        self._customer_store = customer_store or CustomerStore()
+        self._customer_store = customer_store if customer_store is not None else CustomerStore()
         self._idle_timeout = idle_timeout_seconds
         self._sessions: dict[str, SessionEntry] = {}
         self._lock = threading.Lock()

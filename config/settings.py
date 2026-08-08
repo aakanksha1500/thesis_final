@@ -199,6 +199,7 @@ class BudgetConfig:
     # window that demonstrably misreads annual-lump costs.
     transactions_path: str = "data/processed/transactions.json"
     periodicity_priors_path: Path = ROOT_DIR / "data" / "periodicity_priors.json"
+    auto_load_transactions: bool = True
 
 @dataclass
 class ExplainabilityConfig:

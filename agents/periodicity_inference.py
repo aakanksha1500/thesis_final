@@ -1,23 +1,6 @@
 """
-Recurring-expense periodicity inference — Section 3 of the production
-readiness review (data/../production_readiness_review.md if you still
-have it; the short version: a single observed insurance payment could be
-monthly, quarterly, half-yearly, annual, or one-time, and assuming any
-one of those without evidence is a silent guess dressed up as an
-analysis).
-
-Deliberately pure Python, no LLM call. The reasoning here needs to be
-reproducible and auditable — the same transaction history should always
-produce the same answer. Where an LLM belongs is downstream of this:
-phrasing the clarifying question naturally and interpreting the
-customer's free-text reply, never deciding the ambiguity itself.
-
-WHERE THIS FITS
-    BudgetAgent calls infer_periodicity() per category before treating a
-    category's observed amount as a reliable monthly figure. Designed to
-    be reusable by InvestmentAgent too, for SIP/contribution detection —
-    same shape of problem (a single contribution seen once, periodicity
-    unknown), so no reason to duplicate the logic there.
+Recurring-expense periodicity inference — works out whether an amount is weekly, monthly, or yearly
+and asks when it is unclear.
 
 THE THREE-STEP LOGIC
     1. Occurrence count + gap consistency: 2+ occurrences with a
@@ -64,9 +47,8 @@ class CategoryPrior:
     @property
     def is_evidence_based(self) -> bool:
         """
-        False for every prior currently shipped. Exists so the distinction
-        between an illustrative default and a fitted one is a value a caller
-        can branch on and an auditor can read, not a comment in a source file.
+        False for every prior currently shipped. Lets a caller tell an illustrative default
+        apart from a fitted one.
         """
         return self.prior_strength == "calibrated" and self.source != "illustrative_default"
 
@@ -109,9 +91,7 @@ _BUILTIN_PRIORS: dict[str, CategoryPrior] = {
 def load_priors(path: Path | str | None = None) -> dict[str, CategoryPrior]:
     """
     Read the priors file. Never raises: a missing or malformed file logs a
-    warning and returns _BUILTIN_PRIORS, because failing a customer's budget
-    analysis over a phrasing hint would be a wildly disproportionate response
-    to a bad config file.
+    warning and returns _BUILTIN_PRIORS
     """
     prior_path = Path(path) if path is not None else PRIORS_PATH
     try:
@@ -158,9 +138,6 @@ CATEGORY_PERIODICITY_PRIORS: dict[str, str] = {
 
 # Recognised period labels and the day-gap band that counts as "this
 # period" between two consecutive occurrences. Bands are tolerant
-# (a "monthly" bill doesn't land on exactly the same day every time)
-# but don't overlap, so a gap is never ambiguously classified as two
-# different periods at once.
 KNOWN_PERIODS: dict[str, tuple[int, int]] = {
     "weekly": (5, 9),
     "monthly": (25, 35),
@@ -171,10 +148,7 @@ KNOWN_PERIODS: dict[str, tuple[int, int]] = {
 
 # How many of each period fall in a month — the conversion from "€600 every
 # quarter" to "€200/month". Only ever applied to a CONFIDENTLY INFERRED
-# period (needs_clarification False, inferred_period not None). Applying it
-# to a suggested_default would be precisely the silent assumption this
-# module exists to prevent: it would take an illustrative phrasing hint and
-# turn it into a number in someone's budget.
+# period (needs_clarification False, inferred_period not None). 
 PERIOD_TO_MONTHLY_DIVISOR: dict[str, float] = {
     "weekly": 52 / 12,
     "monthly": 1.0,
@@ -237,14 +211,8 @@ def infer_periodicity(
     materiality_threshold_pct: float = 5.0,
 ) -> PeriodicityResult:
     """
-    transactions: THIS category's transactions only (pre-filtered by the
-        caller), each a dict with "date" ("YYYY-MM-DD") and "amount".
-        Order doesn't matter, sorted internally.
-    monthly_income: used for the materiality check.
-    materiality_threshold_pct: a category counts as material if its
-        average per-occurrence amount is at least this percentage of
-        monthly income. Default 5% -- roughly "big enough that guessing
-        wrong meaningfully distorts a budget", not a cited figure.
+    Works out whether a category's spending is weekly, monthly, quarterly or annual, and 
+    whether the answer is confident enough to use.
     """
     if not transactions:
         return PeriodicityResult(
@@ -332,12 +300,8 @@ def infer_periodicity(
 
 def build_clarifying_question(result: PeriodicityResult) -> str | None:
     """
-    Deterministic template, not an LLM call — the question text itself
-    doesn't need creativity, and a fixed template is easier to audit and
-    test than a freshly-generated one each time. If BudgetAgent's
-    narrative layer wants to soften the phrasing for tone, it can rewrite
-    around this, but the FACTS in the question (category, candidate
-    periods, suggested default) come from here, not from the LLM.
+    Builds the clarifying question text from a fixed template.
+    No LLM call, so the wording: easy to audit and test.
     """
     if not result.needs_clarification:
         return None

@@ -4,16 +4,6 @@ Phase 4 - InvestmentAgent
 Implements the context-aware hybrid recommendations model described in the proposed approach:
 rule-based constraints + feature-based scoring + LLM synthesis. This mirros
 the RiskProfilingAgent's hybrid pattern from Phase 3.
-
-Literature grounding:
-  - Nguyen et al. [8]: rule-based constraints as a deterministic secondary
-    layer alongside quantitative/ML scoring (E4) — implemented here as the
-    filter-then-rank pipeline that runs before any LLM involvement.
-  - Klesel & Wittmann [6]: grounding LLM output in retrieved/structured
-    data rather than free generation — the shortlist IS the grounding.
-  - Takayanagi et al. [7] / Li et al. [3]: calibrated trust (X3) — the
-    synthesis prompt requires stated trade-offs and assumptions, not
-    maximised confidence.
 """
 
 from __future__ import annotations
@@ -245,12 +235,6 @@ TICKER_PROXY_MAP: dict[str, dict[str, Any]] = {
 def _load_catalogue_seed() -> list[dict[str, Any]]:
     """
     Read the catalogue from data/raw/product_catalogue/catalogue_seed.json.
-
-    The seed nests illustrative figures under a "synthetic" key. This flattens
-    them into the shape the rest of the agent already expects, so no ranking,
-    filtering or constraint code changes — but the nesting on disk means a
-    reader of the file cannot mistake an illustrative expense ratio for a
-    sourced one, which a flat key invites.
     """
     path = settings.product_data.seed_path
     try:
@@ -282,18 +266,6 @@ def _apply_product_data(catalogue: list[dict[str, Any]]) -> list[dict[str, Any]]
     """
     Layer real sourced figures over the synthetic ones, per FIELD, with a
     provenance stamp per field rather than per product.
-
-    WHY PER-FIELD
-        expected_return_source already existed, covering one field. Once a
-        second source enriches a second field, a single product-level "is this
-        real?" flag becomes a lie in both directions: a product with a real
-        deposit rate and an illustrative expense ratio is neither "real" nor
-        "synthetic". Each enriched field therefore carries its own
-        <field>_source and <field>_citation, which is what lets
-        ExplainabilityAgent tell a user precisely which number is illustrative.
-
-    Gated on settings.product_data.use_real_product_data because turning it on
-    changes what RQ2 measures — see ProductDataConfig.
     """
     if not settings.product_data.use_real_product_data:
         return catalogue
@@ -326,15 +298,8 @@ def _apply_product_data(catalogue: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 def _apply_live_pricing(catalogue: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
-    Return a copy of `catalogue` with expected_return_pct replaced by a
-    live/snapshotted trailing return wherever TICKER_PROXY_MAP has an
-    entry and settings.market_data yields a quote. Falls through to the
-    synthetic value per-product on any failure — never raises, and never
-    mutates the module-level IRISH_PRODUCT_CATALOGUE.
-
-    Adds two provenance fields for the audit trail (O3):
-      expected_return_source: "live" | "synthetic"
-      pricing_note: proxy ticker(s) and period used, or None
+    Return a copy of the catalogue with expected returns replaced by live 
+    or snapshotted figures where a ticker is mapped. Keeps the syenthetic value otherwise.
     """
     from utils.market_data_client import market_data_client  # noqa: PLC0415
 
@@ -475,14 +440,6 @@ class InvestmentAgent(BaseAgent):
         lower cost is better) and horizon fit, combines them with weights
         from settings.investment, and returns the list sorted best-first.
 
-        Scoring components (weights from settings.investment, sum to 1.0):
-          return_score       — normalised expected_return_pct across shortlist
-          cost_score         — normalised (1 - expense_ratio_pct); lower cost
-                                is better, so the ratio is inverted before
-                                normalisation
-          horizon_fit_score  — from _horizon_fit_score() against the user's
-                                investment_horizon (default 5 years if absent)
-
         Args:
             products: output of _filter_by_risk_class() — already suitable.
             context:  run() context; reads 'user_features.investment_horizon'.
@@ -553,33 +510,6 @@ class InvestmentAgent(BaseAgent):
         """
         Detect what the customer is ALREADY contributing to investments or a
         pension, from their transaction history.
-
-        WHY THIS AGENT NEEDS IT
-            Recommending a €300/month equity fund to someone already putting
-            €400/month into a SIP and €250 into a pension is not a suitability
-            failure the constraint layer can catch — every individual product
-            passes the CBI allow-list. It's a failure to look at what's
-            already there. Left undetected, the agent's advice is
-            systematically additive: it can only ever tell people to invest
-            more, because it has no representation of what they already do.
-
-        WHY IT REUSES periodicity_inference RATHER THAN ITS OWN HEURISTIC
-            This is exactly the same problem BudgetAgent has with insurance —
-            one observed contribution could be a monthly standing order or a
-            one-off lump, and the two imply very different monthly capacity.
-            The Section 3 design doc named InvestmentAgent as the second
-            consumer of that component and it was never actually wired; this
-            is that wiring. A separate heuristic here would be a second,
-            differently-wrong answer to a question already answered once.
-
-        THE DISCIPLINE THAT MATTERS
-            A contribution whose period is CONFIDENTLY inferred is converted
-            to a monthly equivalent and stated as fact. One that is not is
-            reported as ambiguous with a clarifying question, and its amount
-            is deliberately NOT annualised using the category prior — the
-            prior is a phrasing hint, and turning it into a number in a
-            suitability assessment is the silent-assumption failure the whole
-            component exists to prevent.
 
         Returns:
             {
@@ -666,12 +596,7 @@ class InvestmentAgent(BaseAgent):
         Builds the LLM prompt using ONLY the already-filtered, already-
         ranked shortlist — the model is never shown the full catalogue or
         any rejected product, so it has no way to reference something it
-        wasn't given (a concrete anti-hallucination guardrail for this
-        agent).
-        contributions: from _detect_contributions(). Confirmed commitments
-            are stated as fact; ambiguous ones are handed to the model as
-            open questions to ASK, never as figures to reason over — same
-            treatment BudgetAgent gives its own periodicity flags.
+        wasn't given.
         """
         horizon = user_features.get("investment_horizon", "not stated")
         lines = [
@@ -786,10 +711,7 @@ class InvestmentAgent(BaseAgent):
         if shortlist:
             trace.emit("RANK", f"top={shortlist[0]['product_id']}",
                        score=shortlist[0]["score"], shortlisted=len(shortlist))
-        # Section 3 reuse — what is the customer ALREADY contributing?
-        # Runs after ranking (so it can't affect which products survive
-        # suitability filtering — that stays a pure CBI rule decision) and
-        # before synthesis (so the narrative can account for it).
+        
         contributions = self._detect_contributions(
             context.get("transactions") or [],
             context.get("monthly_income")

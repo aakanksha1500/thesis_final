@@ -1,12 +1,6 @@
 """
-Phase 5 - BudgetAgent
-
-Responsibilities:
-    1. Cashflow analysis - income minus expenditure, savings rate calculations.
-    2. Benchmark comparison - each spending category classified as above / below /
-       inline versus the Ireland HouseholdB Budget survey
-    3. LLM synthesis - plain-english recommendations grounded in the benchmarkgaps.
-
+Works out cashflow and savings rate, then compares each spending category against Irish
+household averages.
 """
 from __future__ import annotations
 
@@ -66,8 +60,6 @@ class BudgetAgent(BaseAgent):
           disposable_income — monthly_income - total_expenses
           savings_rate_pct  — disposable_income / monthly_income * 100
           expense_fractions — each category as fraction of income
-
-        No LLM involved — pure arithmetic, fully testable.
         """
        if monthly_income <= 0:
             return {
@@ -187,25 +179,6 @@ class BudgetAgent(BaseAgent):
         them is a measurable statement about why single-snapshot budget
         advice misleads.
 
-        transactions: [{"date": "YYYY-MM-DD", "category": str, "amount": float}, ...]
-            Not required to be sorted or pre-filtered to any window.
-        months: how many whole calendar months back from `as_of` to
-            include (e.g. months=1 is the single most recent calendar
-            month present, months=12 is the full year if that much
-            history exists).
-        as_of: ISO date string ("YYYY-MM-DD") treated as "today". Defaults
-            to the date of the latest transaction in the list, so this
-            works unmodified against historical/synthetic data without
-            needing the real wall-clock date.
-        monthly_income: if given, also runs periodicity ambiguity
-            detection (agents.periodicity_inference) per category within
-            the window — a category seen too infrequently, or with an
-            inconsistent gap between occurrences, to confidently tell how
-            often it recurs gets flagged rather than silently averaged
-            as if its observed frequency were reliable. None (default)
-            skips this — purely a widening of what this method reports,
-            never a behaviour change to monthly_expenses itself.
-
         Returns:
             {
               "monthly_expenses": {category: average euros/month over the window},
@@ -321,19 +294,11 @@ class BudgetAgent(BaseAgent):
         questionnaire_confidence: dict[str, Any] | None = None,
     ) -> str:
         """
-        Used when the LLM synthesis call itself fails (rate limit,
-        timeout, provider outage — Section 4, production readiness
-        review: operational failures). No LLM available here by
-        definition, so this can't phrase anything naturally — but it
-        must not silently drop the disclosure or clarifying questions
-        just because the call that would have phrased them nicely
-        failed. An earlier version of this fallback did exactly that:
-        it reported the cashflow numbers fine, but a customer whose
-        insurance payment needed a clarifying question, or whose budget
-        was built on 1 month of history, would have gotten a
-        confident-sounding fallback with no caveat at all — worse than
-        the "normal" failure mode of a garbled LLM response, since a
-        human reading this would have no reason to doubt it.
+        Used when the LLM synthesis call itself fails (rate limit, timeout, provider outage — 
+        (production readiness review: operational failures). No LLM available here by
+        definition, so this can't phrase anything naturally — but it must not silently drop 
+        the disclosure or clarifying questions just because the call that would have phrased 
+        them nicely failed. 
         """
         lines = [
             f"Your monthly disposable income is €{cashflow['disposable_income']:.2f} "
@@ -396,7 +361,7 @@ class BudgetAgent(BaseAgent):
             settled fact.
         questionnaire_confidence: from agents.budget_questionnaire.
             self_report_confidence(), if this run's monthly_expenses came
-            (fully or partly) from Section 2's questionnaire rather than
+            (fully or partly) from this questionnaire rather than
             transaction history. Always capped at "medium" confidence
             regardless of completeness — the LLM is told this explicitly
             rather than left to infer confidence from how complete the
@@ -498,18 +463,6 @@ class BudgetAgent(BaseAgent):
     def run(self, context: dict[str, Any]) -> AgentResult:
         """
         Process one budget analysis request.
-
-        context keys used:
-          'monthly_income'    (float, required) — gross monthly income in euros
-          'monthly_expenses'  (dict,  optional) — category -> euros spent per month
-          'transactions'      (list,  optional) — used to derive monthly_expenses
-                               via _aggregate_transactions() if monthly_expenses
-                               is not provided directly. See
-                               'aggregation_window_months' below.
-          'aggregation_window_months' (int, optional) — window size for
-                               transaction aggregation, default
-                               settings.budget.default_aggregation_window_months
-          'user_features'     (dict,  optional) — reads income if monthly_income absent
 
         Returns AgentResult with payload:
           status, monthly_income, monthly_expenses, total_expenses,

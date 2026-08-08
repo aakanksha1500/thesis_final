@@ -57,6 +57,7 @@ from config.prompts import ORCHESTRATOR_SYSTEM, SUMMARISER_SYSTEM
 from config.settings import settings
 from data.customer_store import CustomerStore
 from data.psychometric_proxy import derive_loss_tolerance_proxy
+from data.transaction_store import TransactionStore
 from explainability.explainability_agent import ExplainabilityAgent
 from orchestrator.audit_log import AuditLog
 from orchestrator.conflict_resolver import ConflictResolver
@@ -168,6 +169,7 @@ class Orchestrator:
             customer_id: str | None = None,
             customer_context: dict[str, Any] | None = None,
             customer_store: CustomerStore | None = None,
+            transaction_store: TransactionStore | None = None,
     ):
         self.session_id = session_id or str(uuid.uuid4())[:12]
         self.llm = llm_client
@@ -178,7 +180,10 @@ class Orchestrator:
         self.judge_llm = self._derive_client(
             llm_client, settings.llm.judge_model, "judge"
         )
-        self.customer_store = customer_store or CustomerStore()
+        self.customer_store = customer_store if customer_store is not None else CustomerStore()
+        self.transaction_store = (
+            transaction_store if transaction_store is not None else TransactionStore()
+        )
 
         # Per-session components
         self.audit_log = AuditLog(session_id=self.session_id)
@@ -235,6 +240,7 @@ class Orchestrator:
 
         if customer_id:
             self._load_customer_memory(customer_id)
+            self._load_customer_transactions(customer_id)
 
 
     @staticmethod
@@ -395,6 +401,48 @@ class Orchestrator:
             f"risk_profile={'present' if memory.risk_profile else 'none'} "
             f"preferences={sorted(memory.preferences)}"
         )
+
+    def _load_customer_transactions(self, customer_id: str) -> None:
+        """
+
+        WHY AN EMPTY RESULT HERE IS CORRECT, NOT A BUG TO CHASE FURTHER
+            TransactionStore's only current records are the TXN_* synthetic
+            scenarios generate_transactions.py built for the aggregation-
+            window research question (RQ1) — none of them share an ID
+            with a CustomerStore demo customer (DEMO_GC_042 and friends).
+            So today, a real lookup by customer_id finds nothing for any
+            of them, and BudgetAgent correctly falls to the self-report
+            questionnaire — the honest behaviour for a customer whose
+            transaction history was never associated with their own ID,
+            not a sign this method is broken. Associating real transaction
+            data with the demo customer IDs is a separate, deliberate data
+            decision (would mean writing new records, not regenerating
+            generate_transactions.py's existing evidence-backing ones) —
+            not bundled into this fix.
+
+        WHY run_demo.py's --persona SYSTEM STILL TAKES PRECEDENCE
+            This runs during __init__, before any turn — --persona's own
+            transaction injection happens per-turn in send(), and was
+            changed from setdefault(...) to a direct assignment specifically
+            so a deliberate demo choice always overrides whatever this
+            general lookup found first. See run_demo.py's own comment at
+            that assignment.
+        """
+        if not settings.budget.auto_load_transactions:
+            return
+        transactions = self.transaction_store.lookup(customer_id)
+        self._session_state["transactions"] = transactions
+        if transactions:
+            logger.info(
+                f"[Orchestrator] Loaded {len(transactions)} transactions for "
+                f"customer_id={customer_id!r}"
+            )
+        else:
+            logger.info(
+                f"[Orchestrator] No transaction history found for "
+                f"customer_id={customer_id!r} — BudgetAgent will fall to "
+                f"the self-report questionnaire if asked a budget question"
+            )
 
     def _persist_customer_memory(self) -> None:
         """
@@ -1805,13 +1853,40 @@ class Orchestrator:
                 f"{first_question.question_text}"
             )
 
-        # --- Case 2b: BudgetAgent just reported insufficient data ---------
+        # Case 2b: BudgetAgent cannot produce a budget yet -----------------
+        #
+        # THREE WAYS A BUDGET TURN ARRIVES HERE WITH NOTHING TO ANALYSE, AND
+        # WHY ALL THREE HAVE TO BE CAUGHT
+        #     insufficient_history — the customer is on file and their
+        #         transactions were assessed, but there is too little of
+        #         them. This is the only case the original check handled.
+        #     incomplete — a brand-new session with no customer_id has no
+        #         "transactions" key at all, so BudgetAgent never reaches
+        #         its sufficiency assessment (see budget_agent.py's
+        #         `if not monthly_expenses and "transactions" in context`)
+        #         and falls through to its missing-income guard instead.
+        #         Matching only insufficient_history left exactly the
+        #         customer this questionnaire exists for with a generic
+        #         non-answer.
+        #     skipped — dynamic routing (planner-accepted plans only)
+        #         re-checks BudgetAgent's requires={"monthly_expenses"}
+        #         before calling it, so on those turns the agent produces
+        #         no result to inspect at all. Mirrors the "or skipped"
+        #         half the risk branch above already has, for the same
+        #         reason: prevention must not make the repair path
+        #         unreachable
         budget_result = next(
             (r for r in agent_results if r.agent_name == "BudgetAgent"), None
         )
-        if (
+        budget_skip = next(
+            (s for s in (skipped or []) if s["agent"] == "BudgetAgent"), None
+        )
+        budget_blocked = (
             budget_result is not None
-            and budget_result.payload.get("status") == "insufficient_history"
+            and budget_result.payload.get("status") in ("insufficient_history", "incomplete")
+        ) or budget_skip is not None
+        if (
+            budget_blocked
             and not state["questionnaire_completed"]
             and not getattr(conv_agent, "questionnaire_active", False)
         ):
@@ -1827,15 +1902,24 @@ class Orchestrator:
             )
             if first_question is None:
                 return None
-            trace.emit("Q&A", "questionnaire started",
-                       trigger="insufficient_history", first=first_question.slot_name)
-            logger.info(
-                f"[Orchestrator] Insufficient transaction history — starting "
-                f"Section 2 questionnaire at {first_question.slot_name!r}"
+            trigger = (
+                budget_result.payload["status"] if budget_result is not None
+                else "skipped_no_expense_data"
             )
-            preamble = budget_result.payload.get("message") or (
-                "There isn't enough transaction history yet to build a "
-                "reliable budget."
+            trace.emit("Q&A", "questionnaire started",
+                       trigger=trigger, first=first_question.slot_name)
+            logger.info(
+                f"[Orchestrator] BudgetAgent {trigger} — starting budget "
+                f"questionnaire at {first_question.slot_name!r}"
+            )
+            preamble = (
+                budget_result.payload.get("message")
+                if budget_result is not None
+                and budget_result.payload.get("status") == "insufficient_history"
+                else None
+            ) or (
+                "There isn't enough information about your spending yet to "
+                "build a reliable budget."
             )
             return (
                 f"{preamble}\n\n"

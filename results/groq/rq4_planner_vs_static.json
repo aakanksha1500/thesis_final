@@ -1,8 +1,8 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-08-04T02:41:12.549446+00:00",
-    "git_sha": "ab5cc41-dirty",
-    "prompt_version": "v1.0",
+    "generated_at_utc": "2026-08-07T17:49:40.656768+00:00",
+    "git_sha": "c9258f5-dirty",
+    "prompt_version": "v1.2",
     "llm_mode": "groq",
     "orchestrator_model": "llama-3.3-70b-versatile",
     "specialist_model": "llama3.1:8b",
@@ -28,22 +28,11 @@
   },
   "summary": {
     "scenarios": 12,
-    "plan_validity_rate": 0.9167,
-    "accepted": 11,
-    "fallbacks": 1,
-    "agreement_rate_over_accepted": 0.3636,
+    "plan_validity_rate": 0.8333,
+    "accepted": 10,
+    "fallbacks": 2,
+    "agreement_rate_over_accepted": 0.5,
     "disagreements": [
-      {
-        "id": "S05_investment_new_user",
-        "planner": [
-          "ConversationalAgent"
-        ],
-        "static": [
-          "RiskProfilingAgent",
-          "InvestmentAgent",
-          "ExplainabilityAgent"
-        ]
-      },
       {
         "id": "S06_investment_returning_user",
         "planner": [
@@ -53,16 +42,6 @@
         "static": [
           "RiskProfilingAgent",
           "InvestmentAgent",
-          "ExplainabilityAgent"
-        ]
-      },
-      {
-        "id": "S07_budget",
-        "planner": [
-          "BudgetAgent"
-        ],
-        "static": [
-          "BudgetAgent",
           "ExplainabilityAgent"
         ]
       },
@@ -93,7 +72,6 @@
       {
         "id": "S11_narrow_question",
         "planner": [
-          "RiskProfilingAgent",
           "InvestmentAgent"
         ],
         "static": [
@@ -118,11 +96,11 @@
       }
     ],
     "rejection_counts": {
-      "unsatisfied_requires": 1
+      "unsatisfied_requires": 3
     },
-    "mean_steps_planner": 2.0,
+    "mean_steps_planner": 2.167,
     "mean_steps_static": 2.333,
-    "planner_tokens_total": 6081,
+    "planner_tokens_total": 7189,
     "static_scenarios_with_contextual_gaps": 2
   },
   "scenarios": [
@@ -140,7 +118,7 @@
         "ConversationalAgent"
       ],
       "planner_rejections": [],
-      "planner_tokens": 493,
+      "planner_tokens": 588,
       "static_steps": [
         "ConversationalAgent"
       ],
@@ -161,7 +139,7 @@
         "ConversationalAgent"
       ],
       "planner_rejections": [],
-      "planner_tokens": 494,
+      "planner_tokens": 589,
       "static_steps": [
         "ConversationalAgent"
       ],
@@ -188,7 +166,7 @@
         "ExplainabilityAgent"
       ],
       "planner_rejections": [],
-      "planner_tokens": 507,
+      "planner_tokens": 598,
       "static_steps": [
         "RiskProfilingAgent",
         "ExplainabilityAgent"
@@ -218,7 +196,7 @@
         "ExplainabilityAgent"
       ],
       "planner_rejections": [],
-      "planner_tokens": 522,
+      "planner_tokens": 613,
       "static_steps": [
         "RiskProfilingAgent",
         "InvestmentAgent",
@@ -234,14 +212,27 @@
       "probes": "nothing known \u2014 does the planner still chain correctly?",
       "available_context_keys": [],
       "planner_proposed": [
-        "ConversationalAgent"
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
       ],
-      "planner_accepted": true,
+      "planner_accepted": false,
       "planner_steps": [
-        "ConversationalAgent"
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
       ],
-      "planner_rejections": [],
-      "planner_tokens": 491,
+      "planner_rejections": [
+        {
+          "code": "unsatisfied_requires",
+          "detail": "step 1 RiskProfilingAgent requires ['user_features'], not present in context and not produced by any earlier step"
+        },
+        {
+          "code": "unsatisfied_requires",
+          "detail": "step 2 InvestmentAgent requires ['user_features'], not present in context and not produced by any earlier step"
+        }
+      ],
+      "planner_tokens": 592,
       "static_steps": [
         "RiskProfilingAgent",
         "InvestmentAgent",
@@ -281,7 +272,7 @@
         "ExplainabilityAgent"
       ],
       "planner_rejections": [],
-      "planner_tokens": 508,
+      "planner_tokens": 599,
       "static_steps": [
         "RiskProfilingAgent",
         "InvestmentAgent",
@@ -301,20 +292,22 @@
         "user_features"
       ],
       "planner_proposed": [
-        "BudgetAgent"
+        "BudgetAgent",
+        "ExplainabilityAgent"
       ],
       "planner_accepted": true,
       "planner_steps": [
-        "BudgetAgent"
+        "BudgetAgent",
+        "ExplainabilityAgent"
       ],
       "planner_rejections": [],
-      "planner_tokens": 498,
+      "planner_tokens": 595,
       "static_steps": [
         "BudgetAgent",
         "ExplainabilityAgent"
       ],
       "static_contextual_gaps": [],
-      "agrees_with_static": false
+      "agrees_with_static": true
     },
     {
       "id": "S08_budget_no_data",
@@ -323,7 +316,6 @@
       "probes": "table proposes BudgetAgent with no expense data \u2014 this is where the static arm should score a contextual gap",
       "available_context_keys": [],
       "planner_proposed": [
-        "ConversationalAgent",
         "BudgetAgent",
         "ExplainabilityAgent"
       ],
@@ -335,10 +327,10 @@
       "planner_rejections": [
         {
           "code": "unsatisfied_requires",
-          "detail": "step 2 BudgetAgent requires ['monthly_expenses', 'monthly_income'], not present in context and not produced by any earlier step"
+          "detail": "step 1 BudgetAgent requires ['monthly_expenses'], not present in context and not produced by any earlier step"
         }
       ],
-      "planner_tokens": 499,
+      "planner_tokens": 586,
       "static_steps": [
         "BudgetAgent",
         "ExplainabilityAgent"
@@ -346,7 +338,7 @@
       "static_contextual_gaps": [
         {
           "code": "unsatisfied_requires",
-          "detail": "step 1 BudgetAgent requires ['monthly_expenses', 'monthly_income'], not present in context and not produced by any earlier step"
+          "detail": "step 1 BudgetAgent requires ['monthly_expenses'], not present in context and not produced by any earlier step"
         }
       ],
       "agrees_with_static": false
@@ -373,7 +365,7 @@
         "ExplainabilityAgent"
       ],
       "planner_rejections": [],
-      "planner_tokens": 523,
+      "planner_tokens": 614,
       "static_steps": [
         "RiskProfilingAgent",
         "InvestmentAgent",
@@ -405,7 +397,7 @@
         "ExplainabilityAgent"
       ],
       "planner_rejections": [],
-      "planner_tokens": 514,
+      "planner_tokens": 606,
       "static_steps": [
         "ExplainabilityAgent"
       ],
@@ -425,16 +417,14 @@
         "user_features"
       ],
       "planner_proposed": [
-        "RiskProfilingAgent",
         "InvestmentAgent"
       ],
       "planner_accepted": true,
       "planner_steps": [
-        "RiskProfilingAgent",
         "InvestmentAgent"
       ],
       "planner_rejections": [],
-      "planner_tokens": 511,
+      "planner_tokens": 597,
       "static_steps": [
         "RiskProfilingAgent",
         "InvestmentAgent",
@@ -467,7 +457,7 @@
         "ExplainabilityAgent"
       ],
       "planner_rejections": [],
-      "planner_tokens": 521,
+      "planner_tokens": 612,
       "static_steps": [
         "RiskProfilingAgent",
         "InvestmentAgent",
@@ -479,11 +469,11 @@
   ],
   "planner_stats": {
     "attempts": 12,
-    "accepted": 11,
-    "fallbacks": 1,
-    "validity_rate": 0.9167,
+    "accepted": 10,
+    "fallbacks": 2,
+    "validity_rate": 0.8333,
     "rejection_counts": {
-      "unsatisfied_requires": 1
+      "unsatisfied_requires": 3
     }
   },
   "llm_mode": "groq",

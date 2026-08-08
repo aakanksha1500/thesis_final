@@ -300,6 +300,10 @@ def main() -> int:
             print(f"Persona: {args.persona} -> customer_id={customer_id}")
         else:
             print(f"Persona: {args.persona} -> unknown customer, elicitation from scratch")
+    elif customer_id:
+        transactions = None
+        print(f"customer_id={customer_id} -> using Orchestrator's own "
+              f"TransactionStore lookup (no --persona override)")
     else:
         # No persona named: default to the same full transaction history the
         # original script effectively demonstrated, so a bare
@@ -330,7 +334,9 @@ def main() -> int:
         # yet, so they are injected into session state for the demo.
         # orch._session_state.setdefault("monthly_expenses", DEMO_EXPENSES)
         # orch._session_state.setdefault("monthly_income", DEMO_FEATURES["income"] / 12)
-        orch._session_state.setdefault("transactions", transactions)
+        if transactions is not None:
+            orch._session_state["transactions"] = transactions
+        # orch._session_state.setdefault("transactions", transactions)
         show(n, msg, orch.process_turn(msg))
 
     if args.message:

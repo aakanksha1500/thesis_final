@@ -1,3 +1,6 @@
+"""
+Declares what each agent needs and produces, plus the fallback routing table.
+"""
 from __future__ import annotations
 
 import os
@@ -187,17 +190,6 @@ ORCHESTRATOR_SUPPLIED_KEYS = frozenset({
 def validate_capability_graph() -> list[str]:
     """
     Static check on CAPABILITIES itself, independent of any particular run.
-
-    A capability graph with an unsatisfiable requirement is a bug the
-    planner would otherwise hit at runtime: PlanValidator (Day 4-5) would
-    reject every plan containing that agent, silently, for the life of the
-    project, because nothing declared anywhere can ever satisfy it. This
-    catches that at import/test time instead of via an unexplained
-    rejection-rate metric nobody investigates.
-
-    Returns a list of human-readable problems; empty means every
-    `requires` key is covered by either some capability's `produces` or
-    ORCHESTRATOR_SUPPLIED_KEYS.
     """
     produced = {key for cap in CAPABILITIES.values() for key in cap.produces}
     satisfiable = produced | ORCHESTRATOR_SUPPLIED_KEYS

@@ -1,22 +1,5 @@
 """
-Phase 3 - RiskProfilingAgent.
-
-Implements the Context-Aware Hybrid scoring model described in the Literature Review:
-    hybrid_score = 0.6 * ml_score + 0.4 * rule_score
-
-Literature grounding:
-  - Nguyen et al. [8]: rule-based constraints as a secondary deterministic
-    layer alongside ML — the 0.4 rule_weight implements this directly.
-  - Takayanagi et al. [7]: confidence must be stated explicitly (X3 goal).
-    min_confidence threshold in RiskConfig enforces this.
-  - Klesel & Wittmann [6]: SHAP attributions are an independent XAI layer.
-    _compute_shap_proxy() produces the feature importance dict that
-    ExplainabilityAgent (Phase 6) will consume via Layer A (X2a).
-
-Datasets used for ML training (Phase 3 training run):
-  [D7] German Credit Data — credit risk labels + behavioural features
-  [D8] GiveMeSomeCredit — probability of financial distress features
-  [D9] Bank Marketing — supplementary employment/contact features
+Scores a customer's risk tier by blending a trained model with deterministic rules.
 """
 
 from __future__ import annotations
@@ -70,8 +53,6 @@ class RiskProfilingAgent(BaseAgent):
         """
         Load trained sklearn model from disk if available.
         Returns None if not found - heuristic fallback activates automatically.
-        Model is trained in Phase 3 training script on German Credit [D7]
-        and GiveMeSomeCredit. [D8] datasets.
         """
         model_path = settings.risk.model_path
         if model_path.exists() and not settings.risk.use_trained_model:
@@ -180,14 +161,6 @@ class RiskProfilingAgent(BaseAgent):
         """
         Return a risk appetite score in [0, 1].
         0.0 = most conservative, 1.0 = most aggressive.
-
-        With trained model: uses predict_proba() weighted by class index.
-        Without model: calibratedheuristic proxy based on feature relationships
-        established in German Credit [D7] literature.
-
-        The heuristic is not a replacement for the trained model - it is a
-        development scaffold that keeps the pipeline runnable before training.
-        RQ1 evaluation uses the trained model scores.
         """
         if (
             isinstance(self._ml_model, dict)
@@ -257,11 +230,6 @@ class RiskProfilingAgent(BaseAgent):
         """
         Deterministic rule-based score grounded in CBI model risk guidelines.
         Returns [0, 1] risk score.
-
-        This component always runs - it is the regulatory floor layer
-        described in Nguyen et al.: multi-agent rule-based constraints
-        reduce hallucination rates by preventing ML from recommending
-        products that violate hard suitability rules.
 
         Rules:
             R1: High debt-to-income (>50%) -> conservative floor
@@ -345,10 +313,6 @@ class RiskProfilingAgent(BaseAgent):
         Confidence estimate based on distance from the nearest class boundary.
         Score near a boundary (0.2, 0.4, 0.6, 0.8) -> lower confidence.
         Score near a class centre (0.1, 0.3, 0.5, 0.7, 0.9) -> higher confidence.
-
-        This directly implements the X3 trust calibration goal from
-        Takayanagi et l. [7] and Liao et al. [3]: confidence must reflect
-        genuine uncertainty, not always  return a high number.
         """
 
         boundaries = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
@@ -365,7 +329,7 @@ class RiskProfilingAgent(BaseAgent):
             ml_score: float,
     ) -> dict[str, dict]:
         """
-        SHAP feature attribution proxy for ExplainabilityAgent Layer A (X2).
+        SHAP feature attribution proxy for ExplainabilityAgent Layer A.
 
         With a trained sklearn model, this would call shap.TreeExplainer.
         Without a model, produces calibrated proxy attribution based on the

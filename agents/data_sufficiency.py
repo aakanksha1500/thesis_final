@@ -1,14 +1,5 @@
 """
-Data sufficiency assessment — Section 1 of the production readiness
-review.
-
-The question this answers isn't "does the customer have 12 months of
-history" — it's "how much of what we're about to tell them can we
-actually stand behind, and which specific parts can't we yet". A
-customer with 12 months of window but an account used twice a month
-(salary paid elsewhere) is a DIFFERENT kind of unreliable than a
-customer who joined 6 weeks ago, even though both might technically
-"have 12 months on file" by the time you check.
+Scores how much we actually know about a customer, based on data coverage and density.
 
 TWO DIMENSIONS
     coverage  — how many months of history exist at all. Determines
@@ -23,36 +14,6 @@ TWO DIMENSIONS
                 would say HIGH.
 
     confidence_score = coverage_score * density_score
-
-    This is deliberately a single combined system, not two separate
-    mechanisms — a long-standing customer with sparse data (production
-    readiness review, Section 2's motivating case) hits exactly the same
-    scoring path as a genuinely new customer, just via the density term
-    instead of the coverage term.
-
-CATEGORY-LEVEL VERIFICATION
-    A category's monthly_expenses figure is "verified" if:
-      - it's NOT one of periodicity_inference.AMBIGUOUS_CATEGORIES, and
-        it's been observed at all — housing appearing once is fine,
-        housing is obviously monthly by category, no need for repeat
-        observations to trust it: OR
-      - it IS an ambiguous category, and periodicity_inference confidently
-        inferred its period (needs_clarification is False). Reuses
-        Section 3 directly rather than a second, separate heuristic for
-        the same underlying question.
-    Everything else is unverified: either never observed, or an
-    ambiguous category observed too rarely/inconsistently to trust.
-
-WHY THIS DOESN'T CHANGE THE UNDERLYING AVERAGING MATH
-    The production readiness review's answer to "what should the upper
-    history threshold be" is a recency-weighted window rather than a
-    hard cutoff. Deliberately NOT changed here —
-    BudgetAgent._aggregate_transactions()'s equal-weighted averaging is
-    what Day 2a's window-comparison evidence is built on (the 1-month-
-    miss / 3-month-~4x-overstatement numbers), and silently changing that
-    math would invalidate already-generated, already-documented evidence
-    rather than adding a new capability on top of it. Recency weighting
-    is a deliberate, separate follow-up, not an oversight here.
 """
 from __future__ import annotations
 
@@ -164,18 +125,8 @@ def assess_data_sufficiency(
     as_of: str | None = None,
 ) -> DataSufficiencyResult:
     """
-    transactions: the customer's full available transaction history —
-        NOT pre-filtered to any particular analysis window. Coverage is
-        determined FROM the data's own span, independent of whatever
-        window BudgetAgent._aggregate_transactions() is separately asked
-        to average over.
-    monthly_income: passed through to periodicity_inference for
-        materiality checks on ambiguous categories. None means ambiguous
-        categories are reported unverified by default rather than guessed.
-    as_of: ISO date ("YYYY-MM-DD") treated as "today"; defaults to the
-        latest transaction's own date — same convention as
-        BudgetAgent._aggregate_transactions(), so the two stay consistent
-        against the same data without needing the real wall-clock date.
+    Scores how much of a budget we can stand behind, from coverage (months of history) times
+    density (how many of those months have acitivity).
     """
     if not transactions:
         return DataSufficiencyResult(

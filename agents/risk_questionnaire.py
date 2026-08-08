@@ -1,49 +1,5 @@
 """
-Risk-profiling elicitation — the risk-side counterpart to
-agents/budget_questionnaire.py, sharing ConversationalAgent's
-questionnaire engine (start_questionnaire/_questionnaire_turn) rather
-than duplicating it. See ConversationalAgent's "kind" parameter.
-
-WHY THIS EXISTS
-    RiskProfilingAgent.run() returns status="incomplete" when
-    RiskConfig.required_features aren't all present
-    (_check_missing_features) — deliberate, it will not guess. Until
-    now nothing asked for what was missing in a way a customer could
-    actually answer: Orchestrator._elicitation_response() writes good
-    copy but only fires for RoutingDecision.FULL_ADVISORY pruned to
-    nothing runnable, a route the RISK_PROFILING/INVESTMENT paths never
-    go through; and RiskProfilingAgent's own "incomplete" message is
-    written for whatever calls it programmatically, not for the
-    customer. This module is what the conversation does next.
-
-WHY THIS IS SIMPLER THAN budget_questionnaire.py
-    BudgetAgent degrades gracefully — self-reported answers blend with
-    whatever transaction data exists, capped at a lower confidence
-    ceiling, and stop early is fine (a half-finished budget with
-    caveats beats an abandoned conversation). RiskProfilingAgent's
-    contract is binary: ALL required_features or nothing runs. So
-    there's no optional-question weighting, no coverage threshold, no
-    confidence ceiling to compute — every question below is mandatory,
-    and is_sufficient() is just "all mandatory answered or skipped, or
-    the customer asked to stop". If the customer stops early, elicitation
-    ends the same way budget's does (respecting that over completeness),
-    and RiskProfilingAgent simply reports "incomplete" again next time,
-    now customer-facing (see risk_profiling_agent.py's message text).
-
-THE "annual_income" / "income" RENAME — READ BEFORE CHANGING SLOT NAMES
-    budget_questionnaire.py's "income" slot is monthly take-home
-    ("What's your monthly take-home income?"), reused directly by
-    BudgetAgent (_advance_questionnaire treats questionnaire_answers
-    ["income"] as a monthly figure). RiskConfig.required_features'
-    "income" is annual gross (run_demo.py's DEMO_FEATURES, demo_
-    customers.json, and RiskProfilingAgent's own scoring all treat it
-    that way). Same word, different unit — reusing the slot name
-    "income" here would silently overwrite one with the other the first
-    time both questionnaires touch the same session. This module asks
-    for and stores "annual_income" instead, and only renames it to
-    "income" at the very end, in build_user_features_from_slots(),
-    when handing the finished answers to RiskProfilingAgent. Do not
-    rename this back to "income" without re-checking that boundary.
+Asks the risk-profiling questions when the customer record is missing the answers.
 
 ANSWER TYPES
     Every question here sets QuestionnaireQuestion.answer_type so
@@ -186,8 +142,7 @@ def build_user_features_from_slots(collected_slots: dict[str, Any]) -> dict[str,
     """
     Map elicited answers onto RiskConfig.required_features' exact keys.
     Only annual_income is renamed (-> "income"); every other slot name
-    here already IS the RiskConfig feature name. See the module
-    docstring's note on why annual_income can't just be called "income".
+    here already IS the RiskConfig feature name.
     """
     features: dict[str, Any] = {}
     for q in QUESTIONNAIRE_SCHEMA:

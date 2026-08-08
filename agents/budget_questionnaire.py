@@ -1,25 +1,12 @@
 """
-Insufficient-data questionnaire — Section 2 of the production readiness
-review.
+Asks the user for spending figures when their transaction history is too thin to work from.
 
 WHEN THIS APPLIES
     BudgetAgent.run() returns status="insufficient_history" when
     agents.data_sufficiency.assess_data_sufficiency() finds less than a
     month of real transaction history (or none at all — a brand new
     customer, or TransactionStore.lookup() returning [] for an unknown
-    one). This module is what the conversation should do NEXT in that
-    case instead of just reporting "insufficient" and stopping: ask a
-    short, prioritised set of questions and build a budget from
-    self-reported answers, honestly capped at a lower confidence
-    ceiling than transaction-derived data ever gets.
-
-REUSES THE EXISTING ELICITATION MECHANISM, DOESN'T DUPLICATE IT
-    ConversationalAgent already tracks slots across turns
-    (settings.conversational.tracked_slots, update_slots(),
-    get_missing_slots()) for risk-profiling questions. The budget slot
-    names below are meant to be added to that same tracked_slots list —
-    "income" is already tracked for risk profiling and is reused
-    directly here, not asked twice.
+    one).
 
 QUESTION SET AND ORDERING
     Mandatory (asked first, always, in this order):
@@ -32,11 +19,7 @@ QUESTION SET AND ORDERING
     spend, HBS-anchored where a direct category exists):
       food_spend, utilities_spend, discretionary_spend,
       debt_repayments, large_recurring_items (insurance/subscriptions/
-      school fees/etc. combined — the same categories Section 3 treats
-      as periodicity-ambiguous when they show up in real transactions;
-      self-reported here, so periodicity has to be asked directly
-      rather than inferred from recurrence, since there's no
-      transaction history to infer it from).
+      school fees/etc. 
 
 STOPPING CRITERIA
     All mandatory answered, AND EITHER:
@@ -103,10 +86,7 @@ class QuestionnaireQuestion:
 
 _HBS = settings.budget.ireland_hbs_benchmarks
 
-# Order matters: within each mandatory/optional group, this is the ASK
-# order. Optional questions are ordered by weight descending, so the
-# 70%-of-optional-weight stopping criterion is reached in the fewest
-# questions rather than by chance of dict ordering.
+
 QUESTIONNAIRE_SCHEMA: list[QuestionnaireQuestion] = [
     QuestionnaireQuestion(
         "income", "What's your monthly take-home income?",
@@ -232,14 +212,10 @@ def build_monthly_expenses_from_slots(
 ) -> dict[str, float]:
     """
     Convert questionnaire answers into the same monthly_expenses shape
-    BudgetAgent already works with. large_recurring_items is collected
+    BudgetAgent expects. large_recurring_items is collected
     as an ANNUAL total (that's what the question asks for) and divided
     by 12 here to produce a monthly-equivalent figure — a labelled
-    assumption, not a periodicity inference (there's no transaction
-    history to infer anything from; the customer was asked for an
-    annual figure directly because a single self-reported "monthly"
-    guess for something like insurance would be exactly the kind of
-    unfounded assumption Section 3 exists to avoid).
+    assumption, not a periodicity inference.
     """
     expenses: dict[str, float] = {}
     for q in QUESTIONNAIRE_SCHEMA:
@@ -257,11 +233,8 @@ def build_monthly_expenses_from_slots(
 
 def self_report_confidence(collected_slots: dict[str, Any]) -> dict[str, Any]:
     """
-    Confidence summary for a self-report-only budget. Deliberately
-    capped at SELF_REPORT_CONFIDENCE_CEILING ("medium") regardless of
-    how complete the answers are — this is a hard rule, not computed
-    from completeness, so it can never drift up to "high" just because
-    every optional question happened to get answered.
+    Confidence summary for a budget built only from self-reported answers. 
+    Capped at medium regardless of how complete the answers are.
     """
     total_answered = sum(
         1 for q in QUESTIONNAIRE_SCHEMA if collected_slots.get(q.slot_name) is not None
@@ -313,9 +286,7 @@ _SKIP_PATTERNS: tuple[str, ...] = (
 )
 
 # "None"/"nothing" is a real, informative answer meaning zero — distinct from
-# a skip, which leaves the category unknown. A customer with no debt and a
-# customer who won't discuss their debt are in different positions and their
-# budgets should not look identical.
+# a skip, which leaves the category unknown. 
 _ZERO_PATTERNS: tuple[str, ...] = (
     r"^\s*(none|nothing|nil|zero|n/?a)\s*[.!]?\s*$",
     r"\b(i )?(have|got) (no|none|nothing)\b",
@@ -326,10 +297,7 @@ _ZERO_PATTERNS: tuple[str, ...] = (
 
 # A range is two numbers with ONLY a connector between them. Checking the
 # span between the two matches, rather than searching the whole message for
-# a connector word, is what stops "I moved in in 2019 and pay 1200" being
-# read as the range 2019–1200 and averaged to €1,609.50 — which an earlier
-# version of this function did, and which is the kind of quietly absurd
-# number that then gets narrated as though it were a fact.
+# a connector word.
 _RANGE_CONNECTOR_RE = re.compile(r"^\s*(to|-|–|—|and|or)\s*$", re.IGNORECASE)
 
 _MONEY_RE = re.compile(
@@ -396,10 +364,6 @@ def parse_money_answer(text: str) -> tuple[float | None, str]:
         "range_midpoint"   — "1200 to 1400" / "between 1200 and 1400"
         "unparsed"         — value is None; caller may escalate to the LLM
         "skip"             — value is None; the customer declined this item
-
-    Deliberately refuses rather than guesses when a message contains several
-    unrelated numbers ("I moved in in 2019 and pay 1200") — picking one would
-    be a coin flip written into someone's budget. That case escalates.
     """
     if not text or not text.strip():
         return None, "unparsed"
@@ -431,9 +395,7 @@ def parse_money_answer(text: str) -> tuple[float | None, str]:
         return round(values[0], 2), "single_figure"
 
     # Two numbers with nothing but a connector between them is a range, and
-    # its midpoint is a defensible reading. Anything else — two numbers with
-    # words in between, or three or more numbers — is ambiguous and gets
-    # refused rather than guessed at.
+    # its midpoint is a defensible reading. Anything else is rejected.
     if len(values) == 2:
         between = lowered[matches[0].end():matches[1].start()]
         if _RANGE_CONNECTOR_RE.match(between):
@@ -470,14 +432,8 @@ def blend_expenses(
     transaction_verified_categories: set[str],
 ) -> dict[str, float]:
     """
-    Category by category, not all-or-nothing: once transaction data
-    exists for a category AND it's verified (see
-    agents.data_sufficiency's per-category verification — the caller is
-    expected to pass only the categories that came back verified there),
-    prefer it over the self-reported figure for that category
-    specifically. Self-reported answers for categories transaction data
-    doesn't (yet) cover survive untouched — don't discard a customer's
-    own estimates the moment ANY real data shows up elsewhere.
+    Combine transaction figures with questionnaire answers, category by category. A verified
+    transaction figure wins; otherwise the self-reported answer is used.
     """
     blended = dict(self_reported)
     for category, value in transaction_derived.items():

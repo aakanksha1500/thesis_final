@@ -1,19 +1,6 @@
 """
-Resposibilities:
-    1. Intent classification against the banking77 taxanomy.
-    2. Multi-turn slot tracking in the style of MultiWOZ - persistent state across conversation turns.
-    3. Natural elicitation of missing slots before escalation.
-    4. Safe escalation signal to the Orchestrator when the user's intent requires a specialist agent.
-
-Literature grounding:
-    - Gap 1 (monolithic bottleneck): this agent is the ONLY user-facing surface. It never produces financial
-        content itself - It routes
-    - Sharma et al. [5] identify the absence of this separation as the primary scalability bottleneck
-        in existing financial AI systems.
-    - Artusi et al. [10]: tone must be accessible for non-expert retail investors.
-        This is enforced in the system prompt (config/prompts.py)
-    - Takayanagi et al. [7]: users over-trust AI financial advice. The agent
-        explicitly avoids implying authority it does not have.
+The only aagent the user talks to directly. Classifies intent, fills slots, and hands off 
+to specialist agents.
 
 Evaluation:
     - Banking77 intent accuracy (Phase 2 eval)
@@ -43,10 +30,6 @@ import agents.risk_questionnaire as risk_questionnaire
 
 # Registry so start_questionnaire()/_questionnaire_turn() are schema-agnostic:
 # add a new kind here (schema, next_question, is_sufficient, is_plausible)
-# rather than branching all over the class. Both modules share
-# ConversationalAgent's QuestionnaireQuestion dataclass (see
-# budget_questionnaire.py's answer_type field) so the engine below never
-# needs to know which kind it's running beyond this lookup.
 _QUESTIONNAIRE_KINDS: dict[str, dict[str, Any]] = {
     "budget": {
         "schema": _BUDGET_SCHEMA,
@@ -89,22 +72,8 @@ INTENT_BUCKETS: dict[str, list[str]] = {
     "explanation_request": [
         "why", "explain", "how_did_you", "reasoning",
     ],
-    # R7 - the bucket that makes RoutingDecision.FULL_ADVISORY reachable.
-    #
-    # FULL_ADVISORY had a definition, an agent sequence and a test, but no
-    # intent mapped to it, so the most comprehensive route in the system could
-    # never be selected at runtime. The tests passed because they called
-    # _get_agent_sequence() directly, which made it look covered.
-    #
-    # The target user is the one who arrives with no specific question:
-    # "I know nothing about finance, tell me what to do." That request is not
-    # investment_advice (no product question), not budget_analysis (no spending
-    # question) and not general_query (it wants advice, not a fact).
-    #
-    # DISCRIMINATOR: scope, not topic. See the SCOPE RULE in _classify_intent's
-    # prompt — without it this bucket becomes a magnet and steals traffic from
-    # investment_advice and budget_analysis, which would quietly degrade RQ4
-    # routing accuracy rather than improve coverage.
+    # the bucket that makes RoutingDecision.FULL_ADVISORY reachable.
+    # FULL_ADVISORY had a definition and a sequence but no intent bucket to reach it.
     "full_advisory": [
         "complete_financial_review", "where_do_i_start", "holistic_plan",
         "new_to_finance", "overall_situation",
@@ -132,16 +101,62 @@ _CLASS_TO_BUCKET: dict[str, str] = {
     for cls in classes
 }
 
+INTENT_BUCKET_GUIDE: dict[str, str] = {
+    "general_query": (
+        "generic banking questions not needing a specialist — balance, "
+        "spending limits, exchange rates, card status. "
+        'e.g. "what\'s my balance", "is my card about to expire", '
+        '"what\'s the exchange rate"'
+    ),
+    "risk_profiling": (
+        "wants their own risk tolerance or investor profile assessed. "
+        'e.g. "what\'s my risk profile", "am I a cautious investor", '
+        '"assess my risk tolerance"'
+    ),
+    "investment_advice": (
+        "wants investment or savings recommendations, or asks what "
+        'return they could get. e.g. "should I invest my savings", '
+        '"how can I grow my money", "is now a good time to invest"'
+    ),
+    "budget_analysis": (
+        "wants to understand THEIR OWN spending, cash flow, or budget. "
+        'e.g. "where does my money go", "what am I spending on", '
+        '"show me my budget", "am I overspending", "how much do I '
+        'have left each month"'
+    ),
+    "product_suggestion": (
+        "wants a specific banking product — a card, cheque book, account "
+        'type. e.g. "I need a new card", "order me a cheque book", '
+        '"what card types do you offer"'
+    ),
+    "explanation_request": (
+        "wants to understand WHY a previous answer or recommendation was "
+        'given. e.g. "why did you recommend that", "explain that", '
+        '"how did you work that out"'
+    ),
+    "full_advisory": (
+        "wants a complete financial review with no specific question — "
+        'scope, not topic. e.g. "I don\'t know where to start", "give me '
+        'a full picture of my finances", "I\'m new to all this"'
+    ),
+    "out_of_scope": (
+        "not a banking or financial matter — legal, medical, or "
+        'unrelated. e.g. "can you give me legal advice", "what '
+        'medication should I take"'
+    ),
+}
+assert set(INTENT_BUCKET_GUIDE) == set(INTENT_BUCKETS), (
+    "INTENT_BUCKET_GUIDE must describe exactly the buckets INTENT_BUCKETS "
+    "declares — an added/removed bucket here without updating the other "
+    "would silently leave the live classifier prompt incomplete."
+)
+
 class ConversationalAgent(BaseAgent):
     """
     User-facing conversational interface.
 
     Owns its own session state (slots + history) rather than relying on
     the Orchestrator to track it — one instance per user session.
-
-    State management:
-        self._slots - dict of slot_name -> value, persists across turns
-        self._history - list of {"role": str, "content": str} dicts
     """
 
     def __init__(self, llm_client: LLMClient):
@@ -197,16 +212,14 @@ class ConversationalAgent(BaseAgent):
         """
         Asks the LLM to classify the message into one of 7 buckets as
         JSON. There's no separate classifier model — the LLM does double
-        duty as both classifier and responder. Falls back to
-        ("general_query", 0.5) on any parse failure so a malformed LLM
-        reply can never crash the turn.
+        duty as both classifier and responder. 
 
         Returns:
             (bucket_name, confidence_float)
         """
         bucket_list = "\n".join(
-            f"  {bucket}: {', '.join(examples[:3])}"
-            for bucket, examples in INTENT_BUCKETS.items()
+            f"  {bucket}: {description}"
+            for bucket, description in INTENT_BUCKET_GUIDE.items()
         )
         prompt = (
             f"Classify this user message into exactly one intent bucket.\n\n"
@@ -251,11 +264,6 @@ class ConversationalAgent(BaseAgent):
         """
         Classify intent with ONE LLM call and no side effects.
 
-        QW9: the Orchestrator used to call run() purely to read the intent
-        label, which cost three LLM calls (classify + extract slots +
-        generate a reply) and then threw the generated reply away. It also
-        incremented _turn_count, so a CONVERSATIONAL_ONLY turn counted twice.
-
         Use this when you need the routing label only. Use run() when you
         actually want a reply.
         """
@@ -288,47 +296,11 @@ class ConversationalAgent(BaseAgent):
         return {}
 
     # QUESTIONNAIRE MODE — turn-by-turn loop
-    #
-    # WHY THIS LIVES IN ConversationalAgent
-    #     agents/budget_questionnaire.py already had the schema, the ordering,
-    #     the stopping criteria and the confidence ceiling; what it never had
-    #     was anything that actually ASKED. questionnaire_answers had to
-    #     arrive at BudgetAgent already-structured, which meant the module was
-    #     a well-specified form nobody could fill in.
-    #
-    #     The asking belongs here for the same reason slot tracking already
-    #     does: this agent is the only user-facing surface in the system, it
-    #     already owns persistent per-session slot state, and it already has
-    #     the one LLM client that's allowed to interpret free text. Putting
-    #     the loop in BudgetAgent would either give a specialist agent a
-    #     second conversational surface (the exact monolith Gap 1 is about) or
-    #     require it to return "ask this next" on every turn and trust the
-    #     caller to do it — which is what the previous design did, and why the
-    #     loop was never actually closed.
-    #
-    #     The division of labour is unchanged and deliberate: this agent
-    #     decides WHAT TO ASK and PARSES what comes back; BudgetAgent decides
-    #     what the answers MEAN. No budget arithmetic happens in here.
-    #
-    # WHERE THE LLM IS AND ISN'T USED
-    #     Deterministic (budget_questionnaire's regex layer): which question
-    #     is next, whether a reply contains a stop signal, whether it contains
-    #     a skip, and the number itself in the common cases. Free, reproducible,
-    #     unit-testable, and identical every run.
-    #     LLM: only the residue — a reply the rules couldn't read at all
-    #     ("about twelve hundred"), and an ambiguous non-answer that might or
-    #     might not be someone asking to stop. Even then the model only
-    #     PROPOSES: an extracted figure is range-checked before it's accepted,
-    #     because a misread order of magnitude here goes straight into a
-    #     budget, and mock/offline mode must degrade to "ask again" rather
-    #     than to a wrong number.
 
     def _kind_funcs(self, kind: str | None = None) -> dict[str, Any]:
         """
         Look up the active (or given) questionnaire kind's schema/functions
-        from _QUESTIONNAIRE_KINDS. Defaults to "budget" for both the kind
-        argument and an unset self._questionnaire_kind, so every existing
-        caller that never knew "kind" existed keeps working unchanged.
+        from _QUESTIONNAIRE_KINDS. Defaults to "budget".
         """
         return _QUESTIONNAIRE_KINDS[kind or self._questionnaire_kind or "budget"]
 
@@ -338,12 +310,6 @@ class ConversationalAgent(BaseAgent):
         """
         Enter questionnaire mode for `kind` ("budget" or "risk") and return
         the first question to ask, or None if nothing needs asking.
-
-        Seeds from slots already collected this session — e.g. age/income
-        may already be known from earlier small talk or the other
-        questionnaire, and are reused rather than asked a second time,
-        which is the single most irritating thing a form can do to someone
-        who has already answered it.
         """
         self._questionnaire_active = True
         self._questionnaire_kind = kind
@@ -428,15 +394,6 @@ class ConversationalAgent(BaseAgent):
     def _detect_stop_intent(self, user_message: str) -> tuple[bool, str]:
         """
         Hybrid stop detection. Returns (wants_to_stop, basis).
-
-        Rules first — they're high-precision and cover the common phrasings.
-        Only a genuinely ambiguous message (no recognised stop phrase, no
-        number, no skip phrase) costs an LLM call, and if that call fails or
-        is running against a mock client the answer is False: the fallback on
-        an unreadable message is to keep the conversation going, because the
-        recovery from that (they say "stop" again, more plainly) is cheap and
-        obvious, whereas silently ending a questionnaire someone wanted is not
-        recoverable at all — they just get a worse budget and no explanation.
         """
         deterministic = detect_stop_intent(user_message)
         if deterministic is not None:
@@ -466,14 +423,8 @@ class ConversationalAgent(BaseAgent):
         self, user_message: str, question: QuestionnaireQuestion
     ) -> tuple[Any, str]:
         """
-        Dispatches to a type-specific parser based on question.answer_type
-        (defaults to "money" — every existing budget question). Returns
-        (value, basis), where value None means "not obtained" — either
-        declined or unreadable. All four parsers share the same shape:
-        deterministic first, an LLM proposal only for what the rules
-        couldn't read, and every LLM-proposed value range-checked against
-        the active kind's plausibility table before acceptance — that
-        check isn't validating the customer, it's validating the model.
+        Parses an answer using the question's answer_type. Returns (value, basis); a value of
+        None means the answer was declined or inreadable.
         """
         answer_type = getattr(question, "answer_type", "money")
         if answer_type == "text":
@@ -504,10 +455,7 @@ class ConversationalAgent(BaseAgent):
         """
         Shared by "money" and "integer" — both are ultimately "find the
         number", differing only in rounding and which prompt wording asks
-        for money vs. a plain count. Reuses budget_questionnaire's money
-        regex (currency-symbol-optional, so "34" parses the same as
-        "€34") and stop/skip detectors, which are generic text-pattern
-        matchers, not budget-specific.
+        for money vs. a plain count.
         """
         value, basis = parse_money_answer(user_message)
         if basis in {"explicit_zero", "single_figure", "range_midpoint"}:
@@ -555,10 +503,7 @@ class ConversationalAgent(BaseAgent):
     ) -> tuple[int | None, str]:
         """
         1-5 self-rating questions (loss_tolerance, financial_knowledge_score).
-        Clamped to 1-5 rather than rejected when out of range — "10 out of
-        10" is a legible answer on this kind of scale, not a misread order
-        of magnitude the way a €120,000 rent would be, so there is nothing
-        to protect against by refusing it.
+        Clamped to 1-5 rather than rejected when out of range
         """
         value, basis = parse_money_answer(user_message)
         if basis == "skip":
@@ -592,15 +537,6 @@ class ConversationalAgent(BaseAgent):
         """
         One questionnaire turn: interpret the reply to the pending question,
         then either ask the next one or hand the finished answers on.
-
-        Precedence is deliberate and not arbitrary:
-          1. STOP outranks everything, including a usable answer in the same
-             message ("it's about 1200 but I'd rather not go through more") —
-             the answer is still recorded, and then we stop.
-          2. SKIP applies to this question only and never re-asks it.
-          3. Otherwise, parse; an unreadable reply re-asks the SAME question
-             once rather than silently advancing past it, because advancing
-             would leave a gap the customer thinks they filled.
         """
         funcs = self._kind_funcs()
         question = self._pending_question
@@ -639,11 +575,6 @@ class ConversationalAgent(BaseAgent):
                 self._skipped_slots.add(question.slot_name)
                 self._record_questionnaire_event("skip", slot=question.slot_name)
             else:
-                # Unreadable. Re-ask this question once; if it's still
-                # unreadable next turn we treat it as a skip rather than
-                # looping, because a customer repeating something the system
-                # can't parse is a system problem, and making them do it a
-                # third time is not going to fix it.
                 already_retried = any(
                     e.get("event") == "reask" and e.get("slot") == question.slot_name
                     for e in self._questionnaire_events
@@ -675,9 +606,7 @@ class ConversationalAgent(BaseAgent):
         if following is None:
             self._questionnaire_active = False
             # MAX_QUESTIONS_PER_SITTING is a budget-specific ceiling (there
-            # to stop the optional tail of 5 low-priority questions); risk's
-            # schema is 8 mandatory questions with no artificial cap, so
-            # reaching that count there means "sufficient", not "capped".
+            # to stop the optional tail of 5 low-priority questions).
             if (self._questionnaire_kind == "budget"
                     and self._questions_asked_this_sitting >= MAX_QUESTIONS_PER_SITTING):
                 reason = "per_sitting_cap"
@@ -706,7 +635,7 @@ class ConversationalAgent(BaseAgent):
         kind = self._questionnaire_kind
         # Two audiences use this label: (1) the Orchestrator, which needs it
         # verbatim to keep routing to the right agent while a form is
-        # mid-flight (see process_turn()'s questionnaire short-circuit); (2)
+        # mid-flight (see process_turn's questionnaire short-circuit); (2)
         # INTENT_BUCKETS' own vocabulary, so a real classifier could in
         # principle produce the same string. "risk_profiling" is already a
         # bucket name; budget's mode reuses "budget_analysis" as it always has.
@@ -773,10 +702,8 @@ class ConversationalAgent(BaseAgent):
 
     def _needs_escalation(self, intent: str, confidence: float) -> bool:
         """
-        True only if the (alias-resolved) intent is in the escalation set
-        AND confidence clears the configured threshold — low-confidence
-        classifications stay in-conversation instead of routing to a
-        specialist on a guess.
+        True when the intent is one a specialist handles and confidence clears the threshold.
+        Low-confidence guesses stay in conversation.
         """
         resolved = INTENT_ALIASES.get(intent, intent)
         escalation_buckets = {
