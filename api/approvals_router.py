@@ -1,29 +1,5 @@
 """
-api/approvals_router.py — Day 8, GET /approvals and POST /approvals/{turn_id}/approve|reject.
-
-SOFT DEPENDENCY ON FASTAPI, DELIBERATELY
-    Every other optional heavyweight dependency in this codebase
-    (sentence-transformers, faiss, torch, requests) degrades gracefully
-    when missing — a warning at import time, not a crash. This module
-    does the equivalent: importing it without fastapi installed raises
-    one clear ImportError explaining what to install, rather than a
-    router that silently exists but can't actually run.
-
-    The core mechanism has NO dependency on this file at all —
-    orchestrator/approvals.py's ApprovalStore, and run_demo.py's
-    --list-approvals/--approve/--reject flags, are the actual reviewer
-    workflow this prototype was built and demonstrated with, using
-    nothing beyond the standard library. This router is a thin,
-    optional HTTP face on the exact same store, for whoever eventually
-    builds Day 10's UI against it.
-
-RUNNING
-    pip install fastapi uvicorn
-    uvicorn api.approvals_router:app --reload
-
-    GET  /approvals?session_id=...        -> list pending (all sessions if omitted)
-    POST /approvals/{turn_id}/approve     -> body: {"reviewer_note": "..."}
-    POST /approvals/{turn_id}/reject      -> body: {"reviewer_note": "..."}
+HTTP routes for the reviewer approval queue.
 """
 from __future__ import annotations
 
@@ -54,10 +30,8 @@ class DecisionBody(BaseModel):
 
 @router.get("/approvals")
 def list_approvals(session_id: str | None = None) -> list[dict]:
-    """Every turn currently awaiting review, oldest first. Filter to one
-    session with ?session_id=..., or omit it for the full cross-customer
-    queue — see orchestrator/approvals.py's module docstring for why this
-    is one shared queue rather than per-session, unlike the audit log."""
+    """Lists turns awating review, oldest first. Pass session_id to filter to one
+    session, or ."""
     store = get_approval_store()
     return [p.to_dict() for p in store.list_pending(session_id=session_id)]
 

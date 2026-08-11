@@ -8,7 +8,6 @@ Run:
 
 import logging
 import os
-from unittest import result
 
 import pytest
 

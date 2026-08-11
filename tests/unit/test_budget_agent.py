@@ -10,7 +10,7 @@ GROUP A: Cashflow arithmetic (no LLM, no API key)
 GROUP B: Benchmark comparison logic (no LLM)
     Tests _compare_to_benchmarks() against the Ireland HBS benchmark
     Verifies: above/below/inline classification, tolerance band, gap_pct_points
-    direction, unkown categories.
+    direction, unknown categories.
 
 GROUP C: Full run() integration (mock LLM)
     Tests the full agent pipeline: input validation, cashflow + benchmark
@@ -36,7 +36,7 @@ from utils.llm_client import LLMClient
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent.parent / "results"
 
-# Hepler
+# Helper
 def make_agent() -> BudgetAgent:
     """BudgetAgent in mock mode — all arithmetic runs without API key."""
     client = LLMClient()

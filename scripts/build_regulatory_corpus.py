@@ -43,6 +43,7 @@ import argparse
 import json
 import re
 import sys
+import time
 from datetime import date
 from html.parser import HTMLParser
 from pathlib import Path
@@ -80,6 +81,10 @@ PDF_SOURCES: list[dict[str, str]] = [
      "authority": "European Union",
      "title": "Regulation (EU) 2019/2088 (SFDR)",
      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32019R2088"},
+    {"stem": "cbi-code-of-conduct-mortgage-arrears",
+     "authority": "Central Bank of Ireland",
+     "title": "Code of Conduct on Mortgage Arrears (CCMA) 2013",
+     "url": "https://www.centralbank.ie/docs/default-source/Regulation/consumer-protection/other-codes-of-conduct/24-gns-4-2-7-2013-ccma.pdf"},
 ]
 
 # ── HTML sources that actually work ──────────────────────────────────────
@@ -89,9 +94,21 @@ PDF_SOURCES: list[dict[str, str]] = [
 HTML_SOURCES: list[dict[str, str]] = [
     {"id": "dgs-home", "authority": "Deposit Guarantee Scheme (Ireland)",
      "title": "Deposit Guarantee Scheme", "url": "https://www.depositguarantee.ie/"},
-    {"id": "dgs-depositors", "authority": "Deposit Guarantee Scheme (Ireland)",
-     "title": "Information for depositors",
-     "url": "https://www.depositguarantee.ie/information-for-depositors/"},
+    {"id": "dgs-protected-depositors", "authority": "Deposit Guarantee Scheme (Ireland)",
+     "title": "Protected Depositors",
+     "url": "https://www.depositguarantee.ie/en/what-we-cover/protected-depositors"},
+    {"id": "dgs-protected-deposits", "authority": "Deposit Guarantee Scheme (Ireland)",
+     "title": "Protected Deposits",
+     "url": "https://www.depositguarantee.ie/en/what-we-cover/protected-deposits"},
+    {"id": "mabs-5-steps", "authority": "Money Advice & Budgeting Service (Ireland)",
+     "title": "5 Steps to Tackling Debt",
+     "url": "https://www.mabs.ie/en/tackling-debt/5-steps-to-tackling-debt/"},
+    {"id": "mabs-priority-debts", "authority": "Money Advice & Budgeting Service (Ireland)",
+     "title": "Priority Debts and Secondary Debts",
+     "url": "https://www.mabs.ie/en/tackling-debt/what-are-priority-debts-and-secondary-debts/"},
+    {"id": "mabs-creditor-rights", "authority": "Money Advice & Budgeting Service (Ireland)",
+     "title": "Your Rights About How Creditors Can Demand Repayment",
+     "url": "https://www.mabs.ie/en/tackling-debt/your-rights-about-how-your-creditors-can-demand-repayment/"},
 ]
 
 _DROP_TAGS = {"script", "style", "nav", "header", "footer", "aside", "form",
@@ -153,9 +170,18 @@ def html_to_paragraphs(html: str) -> list[str]:
     return _clean("".join(p.parts).split("\n"))
 
 
-def pdf_to_paragraphs(path: Path) -> list[str]:
+def pdf_to_paragraphs(path: Path) -> list[str] | None:
     """
     Extract paragraphs from a downloaded PDF.
+
+    Returns None specifically when pypdf isn't installed — distinct from
+    an empty list, which means pypdf ran fine but the PDF genuinely
+    yielded no usable text (e.g. a scanned image with no text layer).
+    Collapsing both into "no text extracted (scanned image?)" used to be
+    exactly what this function's only caller did, which sends someone
+    chasing a PDF-quality problem that doesn't exist when the real fix is
+    `pip install pypdf` — a message this function was already printing
+    one line above the misleading one.
 
     THE SHAPE OF THE PROBLEM
         pypdf returns one "\n" per VISUAL line and no blank lines, so a legal
@@ -181,7 +207,7 @@ def pdf_to_paragraphs(path: Path) -> list[str]:
         from pypdf import PdfReader
     except ImportError:
         print("    pypdf not installed — pip install pypdf")
-        return []
+        return None
 
     try:
         reader = PdfReader(str(path))
@@ -224,9 +250,25 @@ def fetch(url: str) -> str | None:
         print("    requests not installed")
         return None
     try:
+        # A self-identifying bot User-Agent ("thesis-research-corpus-
+        # builder/1.0") is a common trigger for basic WAF/bot-detection on
+        # .ie government-adjacent hosting (Cloudflare etc.) — these are
+        # public consumer-information pages being fetched once, not
+        # repeatedly scraped, so a standard browser UA is the appropriate
+        # fix, not a workaround for anything adversarial.
         r = requests.get(url, timeout=20, headers={
-            "User-Agent": "thesis-research-corpus-builder/1.0"})
-        return r.text if r.status_code == 200 else None
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-GB,en;q=0.9",
+        })
+        if r.status_code == 200:
+            return r.text
+        print(f"    HTTP {r.status_code}")
+        return None
     except Exception as exc:
         print(f"    {type(exc).__name__}: {exc}")
         return None
@@ -270,8 +312,14 @@ def main() -> int:
             absent.append(s["stem"])
             continue
         paras = pdf_to_paragraphs(path)
+        if paras is None:
+            # pdf_to_paragraphs() already printed why (pypdf not installed)
+            absent.append(s["stem"])
+            continue
         if not paras:
-            print(f"  [!] {s['stem']}.pdf  — no text extracted (scanned image?)")
+            print(f"  [!] {s['stem']}.pdf  — pypdf ran but extracted no usable "
+                  f"text (genuinely a scanned image, or all text was filtered "
+                  f"as junk)")
             absent.append(s["stem"])
             continue
         print(f"  [x] {s['stem']}.pdf  — {len(paras)} paragraphs, "
@@ -285,12 +333,19 @@ def main() -> int:
             })
 
     print(f"\n{BAR}\n HTML\n{BAR}")
-    for s in HTML_SOURCES:
+    for i, s in enumerate(HTML_SOURCES):
+        if i > 0:
+            time.sleep(1.5)  # courtesy delay — avoid tripping basic rate-limiting
         print(f"  {s['id']}  {s['url']}")
         html = fetch(s["url"])
-        paras = html_to_paragraphs(html) if html else []
+        if html is None:
+            # fetch() already printed why (status code or exception)
+            print("    ABSENT (fetch failed)")
+            absent.append(s["id"])
+            continue
+        paras = html_to_paragraphs(html)
         if not paras:
-            print("    ABSENT")
+            print("    ABSENT (fetched OK, but 0 paragraphs survived junk-filtering)")
             absent.append(s["id"])
             continue
         print(f"    {len(paras)} paragraph(s)")

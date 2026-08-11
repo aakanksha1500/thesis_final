@@ -127,18 +127,52 @@ class RiskProfilingAgent(BaseAgent):
                 value = float(median)
             row.append(value)
 
-        p_distress = float(bundle["model"].predict_proba(np.array([row]))[0][1])
+        X = np.array([row])
+        p_distress = float(bundle["model"].predict_proba(X)[0][1])
 
-        percentile = (
-            float(np.searchsorted(bundle["percentile_grid"], p_distress))
-            / 100.0
-        )
+        p_used = p_distress
+        grid = bundle["percentile_grid"]
+        mode = "raw"
 
+        age_neutral_grid = bundle.get("percentile_grid_age_neutral")
+        if age_neutral_grid is not None and "age" in names:
+            try:
+                import shap
+
+                explainer = shap.TreeExplainer(bundle["model"])
+                raw_shap = explainer.shap_values(X)
+                arr = np.array(
+                    raw_shap[1]
+                    if isinstance(raw_shap, list) and len(raw_shap) == 2
+                    else raw_shap
+                )
+                vals = arr[0][..., 1] if arr.ndim == 3 else arr[0]
+                vals = np.asarray(vals, dtype=float).ravel()[: len(names)]
+                shap_age = float(vals[names.index("age")])
+
+                p_used = float(np.clip(p_distress - shap_age, 0.0, 1.0))
+                grid = age_neutral_grid
+                mode = "age_neutral"
+
+            except ImportError:
+                logger.warning(
+                    "[RiskProfilingAgent] shap not installed — capacity falls "
+                    "back to raw (age-inclusive) P(distress) against the "
+                    "original GMSC-calibrated grid. pip install shap"
+                )
+            except Exception as exc:
+                logger.warning(
+                    f"[RiskProfilingAgent] Age-neutral capacity computation "
+                    f"failed: {exc} — falling back to raw P(distress)"
+                )
+
+        percentile = float(np.searchsorted(grid, p_used)) / 100.0
         capacity = 1.0 - min(max(percentile, 0.0), 1.0)
 
         logger.debug(
-            f"[RiskProfilingAgent] P(distress)={p_distress:.4f} "
-            f"→ percentile={percentile:.2f} → capacity={capacity:.4f}"
+            f"[RiskProfilingAgent] mode={mode} P(distress)={p_distress:.4f} "
+            f"P(used)={p_used:.4f} → percentile={percentile:.2f} "
+            f"→ capacity={capacity:.4f}"
         )
 
         return capacity
@@ -263,9 +297,9 @@ class RiskProfilingAgent(BaseAgent):
             logger.debug(
                 f"[RiskProfilingAgent] Rule R2: {employment} -> -0.20"
             )
-        elif employment == "self_employed":
+        elif employment in ("self_employed", "self-employed"):
             score -= 0.05
-            logger.debug("[RiskProfilingAgent] Rule R2: self_employed -> -0.05")
+            logger.debug(f"[RiskProfilingAgent] Rule R2: {employment} -> -0.05")
 
         # R3: Dependents
         dependent_penalty = min(dependents * 0.05, 0.20)
@@ -280,6 +314,13 @@ class RiskProfilingAgent(BaseAgent):
         if income < 25000:
             score -= 0.10
             logger.debug("[RiskProfilingAgent] Rule R4: low income -> -0.10")
+        if debt_to_income < 0.1 and employment == "employed":
+            score += 0.05
+            logger.debug(
+                "[RiskProfilingAgent] Rule R5: low DTI + stable employment "
+                "-> +0.05"
+            )
+
 
         return float(np.clip(score, 0.0, 1.0))
 
@@ -381,12 +422,18 @@ class RiskProfilingAgent(BaseAgent):
 
                 vals = np.asarray(vals, dtype=float).ravel()[: len(names)]
 
+                age_neutralised = (
+                    "age" in names
+                    and bundle.get("percentile_grid_age_neutral") is not None
+                )
+
                 attributions = {}
 
                 for name, value, shap_value in zip(names, row, vals):
+                    impact = 0.0 if (name == "age" and age_neutralised) else float(-shap_value)
                     attributions[name] = {
                         "value": features.get(name, value),
-                        "shap_impact": round(float(-shap_value), 4),
+                        "shap_impact": round(impact, 4),
                         "source": "shap",
                     }
 

@@ -141,13 +141,28 @@ STAGES: list[Stage] = [
               "derivation.",
     ),
     Stage(
+        key="recalibrate",
+        label="Recalibrate percentile grid (age-neutral, own population)",
+        command=[sys.executable, "scripts/recalibrate_risk_model_age_neutral.py"],
+        produces=[],
+        est_tokens=0,
+        rq="RQ1",
+        depends_on=["riskmodel"],
+        notes="No LLM. Must run AFTER riskmodel (it edits the .pkl that stage "
+              "just wrote, adding percentile_grid_age_neutral) and BEFORE rq1 "
+              "(otherwise RQ1 evaluates the un-recalibrated grid). Retraining "
+              "the model from scratch resets it to the GMSC-only grid, so this "
+              "has to be re-run every time riskmodel is — that dependency is "
+              "what depends_on enforces here, not just documents.",
+    ),
+    Stage(
         key="rq1",
         label="RQ1 — risk classification (hybrid vs rule-only)",
         command=PYTEST + ["tests/unit/test_risk_profiling_agent.py::TestRQ1Evaluation"],
         produces=["phase3_risk_baseline.json"],
         est_tokens=2_000,
         rq="RQ1",
-        depends_on=["riskmodel"],
+        depends_on=["riskmodel", "recalibrate"],
     ),
     Stage(
         key="rq2",
@@ -156,7 +171,7 @@ STAGES: list[Stage] = [
         produces=["rq2_investment_baseline.json"],
         est_tokens=12_000,
         rq="RQ2",
-        depends_on=["riskmodel"],
+        depends_on=["riskmodel", "recalibrate"],
         notes="Moved by R23 (prohibited-phrase regex now catches evasions the "
               "substring check missed).",
     ),
@@ -178,7 +193,7 @@ STAGES: list[Stage] = [
         produces=["rq4_mas_coherence.json"],
         est_tokens=52_000,
         rq="RQ4",
-        depends_on=["riskmodel", "index"],
+        depends_on=["riskmodel", "recalibrate", "index"],
         notes="The expensive one, and the one four separate patches moved: "
               "R5 judge dimensions, R10 model tiers, R24 disclaimer scoping, "
               "R7 the eighth intent bucket.",

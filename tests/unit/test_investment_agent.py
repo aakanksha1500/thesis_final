@@ -3,10 +3,10 @@ Phase 4 - InvestmentAgent evaluation, RQ2 metrics baseline.
 
 3 test groups:
 GROUP A: Ranking unit tests (no LLM, no API key)
-    Tests the pure arithmatic of _normalise(), _horizon_fit_score(), and
+    Tests the pure arithmetic of _normalise(), _horizon_fit_score(), and
     _rank_products(). mirrors the RiskProfilingAgent Group A design (Phase 3):
     (hybrid vs baseline recommendation comparison) depends on the ranking
-    arithmethic being correct, independent of any LLM output.
+    arithmetic being correct, independent of any LLM output.
 
 GROUP B: Full run() pipeline tests (mock mode)
     Verifies the three-layer pipeline wires together correctly and produces

@@ -17,7 +17,7 @@ TRiSM requires:
 EU AI Act requirements addressed:
     - Traceability: full decision chain reconstructable from logs alone.
     - Human oversight: audit trail enables post-hoc review of any decision.
-    - GDPR: user message content is NOT logged - only messgae length.
+    - GDPR: user message content is NOT logged - only message length.
     Slot values collected during the session ARE logged (user provided them
     for the advisory services: this is within the purpose limitation).
 
@@ -66,7 +66,7 @@ class AuditLog:
 
     One instance per Orchestrator session.
     All writes are append only - rrec ords are never modified or deleted.
-    If a write fails, it is logged to the appliation logger but does not raise -
+    If a write fails, it is logged to the application logger but does not raise -
     audit failure must never block a user response.
     """
 
@@ -86,6 +86,7 @@ class AuditLog:
         "TURN_END",
         "CUSTOMER_LOAD",
         "HALLUCINATION_FLAG",
+        "RAG_CITATIONS",
         "APPROVAL_GATE",
         "APPROVAL_DECISION",
     }
@@ -140,7 +141,7 @@ class AuditLog:
     def record_turn_start(self, turn_id: str, user_message: str) -> None:
         """
         Log start of a conversational turn.
-        GDPR: only messgae length is stored, not content.
+        GDPR: only message length is stored, not content.
         """
         self._write(_make_event(
             session_id=self.session_id,
@@ -338,6 +339,54 @@ class AuditLog:
                 "score": round(score, 4),
                 "threshold": threshold,
                 "detector_mode": mode,
+            },
+        ))
+
+    def record_citations(
+        self,
+        turn_id: str,
+        agent_name: str,
+        query: str,
+        citations: list[dict],
+    ) -> None:
+        """
+        Log the RAG citations actually used to ground a response (source,
+        retrieved text, relevance score) — same "every decision traceable"
+        TRiSM principle (O3) as record_hallucination_flag, applied to
+        grounding rather than detection.
+
+        WHY THIS EXISTS
+            _get_rag_citations() (explainability/explainability_agent.py)
+            computes real source/text/relevance for each citation and
+            folds them into full_explanation for synthesis — then nothing
+            persists them. After the turn ends, there is no way to verify
+            whether a claim in the final response text was actually
+            grounded in a specific retrieved passage, or came from the
+            synthesis LLM's own general knowledge dressed up with a vague
+            "according to regulatory sources" — the exact ambiguity a
+            debt-distress query surfaced when a returning-customer session
+            first exercised this corpus. Logging the query alongside each
+            citation is what makes that check possible after the fact:
+            re-run the same query against the retrieve() call recorded
+            here and compare.
+        """
+        self._write(_make_event(
+            session_id=self.session_id,
+            turn_id=turn_id,
+            event_type="RAG_CITATIONS",
+            payload={
+                "agent": agent_name,
+                "query": query,
+                "citations": [
+                    {
+                        "source": c.get("source"),
+                        "text": c.get("text"),
+                        "relevance": c.get("relevance"),
+                        "document_set": c.get("document_set"),
+                        "doc_id": c.get("doc_id"),
+                    }
+                    for c in citations
+                ],
             },
         ))
 

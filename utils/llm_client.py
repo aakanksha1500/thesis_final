@@ -94,7 +94,7 @@ class LLMClient:
         model: Override the default model string. If None, reads from
                ORCHESTRATOR_MODEL env var, else falls back to gpt-4o-mini.
         temperature: Default sampling temperature. Agents may override
-                    per-call by passing tempreature = to chat().
+                    per-call by passing temperature = to chat().
                     max_tokens: Hard on response length.
     """
 

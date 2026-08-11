@@ -20,7 +20,7 @@ from typing import Any, TypedDict
 
 class LossToleranceProxy(TypedDict):
     value: int
-    confidience: str
+    confidence: str
     basis: list[str]
 
 def derive_loss_tolerance_proxy(features: dict[str, Any]) -> LossToleranceProxy| None:

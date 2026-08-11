@@ -248,6 +248,20 @@ class TestApprovalGateIntegration:
             "dependents": 0, "existing_debt": 5000, "investment_horizon": 15,
             "loss_tolerance": 4, "financial_knowledge_score": 3,
         }
+        # These features run through the REAL RiskProfilingAgent (only
+        # InvestmentAgent is faked below), so shortlist fixtures below use
+        # "corporate_bond" specifically because it's valid under BOTH
+        # "moderate" and "moderately_aggressive" (RISK_PRODUCT_ALLOW) — this
+        # fixed input currently classifies as moderately_aggressive, but the
+        # point of these tests is the approval gate's return-threshold
+        # trigger, not the exact tier a given calibration produces. A
+        # category valid under only one tier would make these tests silently
+        # depend on RiskProfilingAgent's exact calibration (see
+        # scripts/recalibrate_risk_model_age_neutral.py for why that number
+        # moved once already) — ConflictResolver strips anything outside the
+        # assigned tier's allowed set before the gate ever sees it, so an
+        # incompatible category masks the gate logic entirely rather than
+        # failing loudly.
         orch._classify_intent = lambda msg: (RoutingDecision.INVESTMENT, "forced", 1.0)
 
         real_execute = orch._execute_agent
@@ -268,7 +282,7 @@ class TestApprovalGateIntegration:
     def test_gated_turn_withholds_the_real_response(self, approval_store, audit_tmp_dir):
         orch = self._orch_with_fake_investment(
             "int-1",
-            [{"name": "Bond", "category": "government_bond",
+            [{"name": "Bond", "category": "corporate_bond",
               "product_id": "X1", "expected_return_pct": 50.0}],
         )
         result = orch.process_turn("Should I invest?")
@@ -278,7 +292,7 @@ class TestApprovalGateIntegration:
     def test_gated_turn_creates_a_pending_row_matching_the_turn(self, approval_store, audit_tmp_dir):
         orch = self._orch_with_fake_investment(
             "int-2",
-            [{"name": "Bond", "category": "government_bond",
+            [{"name": "Bond", "category": "corporate_bond",
               "product_id": "X1", "expected_return_pct": 50.0}],
         )
         result = orch.process_turn("Should I invest?")
@@ -293,7 +307,7 @@ class TestApprovalGateIntegration:
     def test_clean_turn_is_never_gated(self, approval_store, audit_tmp_dir):
         orch = self._orch_with_fake_investment(
             "int-3",
-            [{"name": "SafeBond", "category": "government_bond",
+            [{"name": "SafeBond", "category": "corporate_bond",
               "product_id": "X2", "expected_return_pct": 2.5}],
         )
         result = orch.process_turn("Should I invest?")
@@ -303,7 +317,7 @@ class TestApprovalGateIntegration:
     def test_approve_then_collect_returns_the_original_draft(self, approval_store, audit_tmp_dir):
         orch = self._orch_with_fake_investment(
             "int-4",
-            [{"name": "Bond", "category": "government_bond",
+            [{"name": "Bond", "category": "corporate_bond",
               "product_id": "X1", "expected_return_pct": 50.0}],
         )
         result = orch.process_turn("Should I invest?")
@@ -318,7 +332,7 @@ class TestApprovalGateIntegration:
     def test_collect_before_approval_returns_none(self, approval_store, audit_tmp_dir):
         orch = self._orch_with_fake_investment(
             "int-5",
-            [{"name": "Bond", "category": "government_bond",
+            [{"name": "Bond", "category": "corporate_bond",
               "product_id": "X1", "expected_return_pct": 50.0}],
         )
         result = orch.process_turn("Should I invest?")
@@ -327,7 +341,7 @@ class TestApprovalGateIntegration:
     def test_collect_after_rejection_returns_none(self, approval_store, audit_tmp_dir):
         orch = self._orch_with_fake_investment(
             "int-6",
-            [{"name": "Bond", "category": "government_bond",
+            [{"name": "Bond", "category": "corporate_bond",
               "product_id": "X1", "expected_return_pct": 50.0}],
         )
         result = orch.process_turn("Should I invest?")
@@ -339,7 +353,7 @@ class TestApprovalGateIntegration:
     ):
         orch = self._orch_with_fake_investment(
             "int-7",
-            [{"name": "Bond", "category": "government_bond",
+            [{"name": "Bond", "category": "corporate_bond",
               "product_id": "X1", "expected_return_pct": 50.0}],
         )
         result = orch.process_turn("Should I invest?")
@@ -355,7 +369,7 @@ class TestApprovalGateIntegration:
     def test_gate_and_decision_are_both_audit_logged(self, approval_store, audit_tmp_dir):
         orch = self._orch_with_fake_investment(
             "int-8",
-            [{"name": "Bond", "category": "government_bond",
+            [{"name": "Bond", "category": "corporate_bond",
               "product_id": "X1", "expected_return_pct": 50.0}],
         )
         result = orch.process_turn("Should I invest?")

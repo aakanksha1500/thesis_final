@@ -63,6 +63,8 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+_SPECIALIST_AGENTS = frozenset({"BudgetAgent", "RiskProfilingAgent", "InvestmentAgent"})
+
 
 class RejectionReason(str, Enum):
     """
@@ -104,7 +106,7 @@ class Plan:
 
     `proposed` is kept even when the plan was rejected. The rejected proposal
     IS the measurement: "the planner wanted Investment → Risk → Explainability
-    and was refused because risk_class was not yet produced" 
+    and was refused because risk_class was not yet produced"
     """
     steps: tuple[str, ...]
     source: str                                   # "planner" | "static_fallback"
@@ -123,6 +125,30 @@ class Plan:
     def rejection_codes(self) -> tuple[str, ...]:
         return tuple(r.code.value for r in self.rejections)
 
+    @property
+    def specialists_present(self) -> tuple[str, ...]:
+        """Which of BudgetAgent/RiskProfilingAgent/InvestmentAgent this plan runs."""
+        return tuple(sorted(_SPECIALIST_AGENTS.intersection(self.steps)))
+
+    @property
+    def explainability_skipped(self) -> bool:
+        """
+        True when this plan runs a specialist agent (BudgetAgent/
+        RiskProfilingAgent/InvestmentAgent — financial guidance the user
+        may act on) without ExplainabilityAgent to calibrate, ground, or
+        disclaim it.
+
+        NOT a rejection — G6's whole point is that the planner is allowed
+        to choose exactly this, to save a model call when it judges
+        explanation unnecessary. This property exists so that choice is
+        visible (trace, audit log, planner-vs-static metrics) instead of
+        a silent gap the response text gives no sign of. See
+        orchestrator.orchestrator's "SKIP-EXPLAIN" trace emission and
+        AuditLog.record_plan, both driven by this.
+        """
+        specialists_present = self.specialists_present
+        return bool(specialists_present) and "ExplainabilityAgent" not in self.steps
+
     def as_dict(self) -> dict:
         return {
             "steps": list(self.steps),
@@ -133,6 +159,7 @@ class Plan:
             "rejections": [r.as_dict() for r in self.rejections],
             "llm_tokens": self.llm_tokens,
             "duration_ms": round(self.duration_ms, 2),
+            "explainability_skipped": self.explainability_skipped,
         }
 
 
@@ -475,7 +502,7 @@ class Planner:
         steps = extract_plan_json(getattr(response, "content", "") or "")
         if steps is None:
             preview = (getattr(response, "content", "") or "")[:120].replace("\n", " ")
-            logger.warning(f"[Planner] unparseable plan response: {preview!r}")
+            logger.warning(f"[Planner] unparsable plan response: {preview!r}")
             return (), tokens, Rejection(RejectionReason.MALFORMED_JSON,
                                          f"no JSON plan list in response: {preview!r}")
         return tuple(steps), tokens, None

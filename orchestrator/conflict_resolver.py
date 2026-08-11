@@ -12,7 +12,7 @@ Conflict types detected:
 
     LOW_CONFIDENCE_AGGRESSIVE - RiskProfileAgent confidence is below
     min_confidence threshold but routig selected an aggressive product.
-    Resoution: downgrade shortlist to the next more conservative tier.
+    Resolution: downgrade shortlist to the next more conservative tier.
 
     MISSING_RISK_BEFORE_INVESTMENT - InvestmentAgent ran without a
     confirmed risk class. This should not happen if Orchestrator routing

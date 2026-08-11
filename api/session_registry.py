@@ -1,17 +1,5 @@
 """
-Phase 8b - SessionRegistry: holds one Orchestrator instance per
-concurrent user, so the prototype can demostrate mutiple customers
-seeking advice at the same time without their sessions interfacing.
-
-This exists because Orchestrator itself is stateful per-session but
-it otherwise stateless in how it's constructed - nothing about it assumes
-there's only ever one instance alive. SessionRegistry just gives that
-multi-instance usage a single, obvious place to live, instead of leaving
-it implicit in whatever calls Orchestrator() directly.
-
-In production this responsibility would sit inside the API layer's request
-handling; this in-memory version is intentionally the simplest thing that
-lets one demo process serve several concurrent browser sessions.
+Keeps one Orchestrator per active user so several sessions can rn at 
 """
 
 from __future__ import annotations

@@ -916,12 +916,12 @@ def finqa_exact_match(
         )
 
     correct = 0
-    unparseable = 0
+    unparsable = 0
     for pred, gold in zip(predictions, ground_truth):
         pred_val = _normalise_numeric_answer(pred)
         gold_val = _normalise_numeric_answer(gold)
         if pred_val is None or gold_val is None:
-            unparseable += 1
+            unparsable += 1
             continue
         if abs(pred_val - gold_val) <= tolerance:
             correct += 1
@@ -934,7 +934,7 @@ def finqa_exact_match(
         details={
             "n": len(predictions),
             "correct": correct,
-            "unparseable": unparseable,
+            "unparsable": unparsable,
             "tolerance": tolerance,
         },
     )

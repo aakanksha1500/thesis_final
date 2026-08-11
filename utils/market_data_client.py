@@ -59,7 +59,7 @@ class MarketDataClient:
 
     def _init_yfinance(self) -> None:
         try:
-            import yfinance
+            import yfinance # noqa: F401 — import itself is the availability probe
 
             self._yf_mode = "yfinance"
             logger.info("[MarketDataClient] yfinance available — live pricing enabled")

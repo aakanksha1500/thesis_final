@@ -208,9 +208,27 @@ class ExplainabilityAgent(BaseAgent):
         keeping the query focused on the claim-bearing parts (product
         category + return figures) retrieves more relevant chunks than
         embedding the whole paragraph, including its calibration language.
+
+        BudgetAgent has no equivalent "shortlist" of recommendations — its
+        savings_rate_flag is already a full natural-language sentence (e.g.
+        "Your current savings rate of X% is below the Y% threshold...")
+        and is the closest thing it produces to a claim worth grounding.
+
+        FALLBACK: if neither investment nor budget output yields anything
+        (e.g. a debt-distress question routed to BudgetAgent with a
+        healthy savings rate and no flag — or any future intent this
+        function hasn't been taught about yet), fall back to the user's
+        own message. This used to silently return "" and retrieve
+        nothing — a correct routing decision upstream still produced zero
+        citations, with nothing in the trace to say why. See the CCMA/
+        MABS corpus addition: routing "I'm behind on payments, what are
+        my rights" to BudgetAgent alone would NOT have been sufficient
+        without this — the derived fields above are all investment- or
+        savings-rate-shaped, and a rights question triggers neither.
         """
         investment_payload: dict = context.get("investment_agent_payload") or {}
         risk_payload: dict = context.get("risk_agent_payload") or {}
+        budget_payload: dict = context.get("budget_agent_payload") or {}
 
         risk_class = risk_payload.get("risk_class", "")
         shortlist = investment_payload.get("shortlist", [])
@@ -220,7 +238,16 @@ class ExplainabilityAgent(BaseAgent):
         if shortlist:
             top = shortlist[0]
             parts.append(f"{top.get('category', '')} {top.get('name', '')}")
-        return " ".join(parts).strip()
+
+        savings_flag = budget_payload.get("savings_rate_flag")
+        if savings_flag:
+            parts.append(savings_flag)
+
+        query = " ".join(parts).strip()
+        if query:
+            return query
+
+        return str(context.get("user_message", "")).strip()
 
     _CITATION_DOCUMENT_SETS: tuple[str, ...] = (
         "regulatory", "cbi_open_data", "eu_digital_finance",
@@ -351,7 +378,7 @@ class ExplainabilityAgent(BaseAgent):
             )
             return(
                 "This recommendation assumes stable employment and income. "
-                "A significan change to either would warrant reassessment."
+                "A significant change to either would warrant reassessment."
                 + confidence_flag
                 + hallucination_flag
             )
@@ -441,8 +468,14 @@ class ExplainabilityAgent(BaseAgent):
         if shap_narrative:
             parts.append(shap_narrative)
         if rag_citations:
-            sources = ", ".join(c.get("source", "unknown") for c in rag_citations[:2])
-            parts.append(f"This analysis draws on: {sources}.")
+            snippets = []
+            for c in rag_citations[:2]:
+                source = c.get("source", "unknown")
+                text = (c.get("text") or "").strip()
+                if len(text) > 220:
+                    text = text[:220].rsplit(" ", 1)[0] + "..."
+                snippets.append(f"{source}: \"{text}\"" if text else source)
+            parts.append("Grounded in: " + " | ".join(snippets))
         if counterfactual:
             parts.append(counterfactual)
         parts.append(calibration_note)
@@ -531,16 +564,24 @@ class ExplainabilityAgent(BaseAgent):
             logger.debug("[ExplainabilityAgent] Layer A (SHAP) applied")
 
         # Layer B: RAG citations
-        trace.emit("LAYER B", "rag citations" if cfg.use_rag_citation
-                   else "SKIPPED (use_rag_citation=False)")
         rag_citations: list[dict] = []
+        rag_query = ""
         if cfg.use_rag_citation:
+            rag_query = self._build_rag_query(context)
             rag_citations = self._get_rag_citations(context)
             layers_applied.append("rag_citation")
             logger.debug(
                 f"[ExplainabilityAgent] Layer B (RAG) applied "
                 f"- {len(rag_citations)} citations"
             )
+            trace.emit(
+                "LAYER B",
+                f"rag citations — query={rag_query[:60]!r}",
+                retrieved=len(rag_citations),
+                sources=[c.get("source", "?") for c in rag_citations],
+            )
+        else:
+            trace.emit("LAYER B", "SKIPPED (use_rag_citation=False)")
 
         # Layer C: Counterfactual
         trace.emit("LAYER C", "counterfactual" if cfg.use_counterfactual
@@ -600,6 +641,7 @@ class ExplainabilityAgent(BaseAgent):
             "shap_narrative": shap_narrative,
             "attribution_method": attribution_method,
             "rag_citations": rag_citations,
+            "rag_query": rag_query,
             "counterfactual": counterfactual,
             "calibration_note": calibration_note,
             "estimated_input_note": estimated_input_note,

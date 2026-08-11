@@ -126,7 +126,7 @@ def assess_data_sufficiency(
 ) -> DataSufficiencyResult:
     """
     Scores how much of a budget we can stand behind, from coverage (months of history) times
-    density (how many of those months have acitivity).
+    density (how many of those months have activity).
     """
     if not transactions:
         return DataSufficiencyResult(

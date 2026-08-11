@@ -33,8 +33,9 @@ logger = get_logger(__name__)
 @dataclass
 class AgentResult:
     """
-    The standard result every agent returns. Keeping one shape lets the Orchestrator 
-    and the evaluation layer handle any agent's output the same way.
+    The result every agent returns: which agent ran, whether it succeeded, its payload, timing
+    and token count. One shape for all agents so the Orchestrator and the evaluation layer can 
+    handle any of them the same way.
     """
 
     # agent_name        -> which agent produced this (for step_records/logs)
@@ -67,8 +68,8 @@ class AgentResult:
 class BaseAgent(abc.ABC):
     """
     Parent class for every specialist agent. Subclasses MUST implement
-    system_prompt, _parse_response(), and run() — Python raises TypeError
-    at instantiation time if any is missing.
+    system_prompt, _parse_response(), and run() — Python raises TypeError at instantiation 
+    time if any is missing, which catches an incomplete agent before it's ever run.
     """
 
     def __init__(self, llm_client: LLMClient, name: str):
@@ -120,7 +121,9 @@ class BaseAgent(abc.ABC):
             system_override: str | None = None,
     ) -> tuple[str, int]:
         """
-        The only path an agent should use to talk to the LLM. 
+        The only path an agent should use to talk to the LLM, so timing and  error hadling live in one
+        place. Returns the response text and the token count, and lets provider errors propogate
+        so thhe failure handler can act.
 
         Args:
             - user_message: The primary user-turn content for this call.
@@ -136,7 +139,7 @@ class BaseAgent(abc.ABC):
             (response_text, tokens_used)
 
         Raises:
-            Exception from LLMClient on API failure - let it propogate so the
+            Exception from LLMClient on API failure - let it propagate so the
             Orchestrator's failure handler can act.
         """
 

@@ -107,9 +107,6 @@ class BudgetAgent(BaseAgent):
             "label":              "above" | "below" | "inline" | "unknown",
             "gap_pct_points":     float  (user - benchmark, in percentage points)
           }
-
-        The gap in percentage points is the key input for the LLM synthesis:
-        "You spend X percentage points more than the Irish average on housing."
         """
         tolerance = settings.budget.inline_tolerance
         result = {}
@@ -352,9 +349,7 @@ class BudgetAgent(BaseAgent):
         All inputs are deterministically computed — LLM only narrates them.
 
         sufficiency_result: agents.data_sufficiency.DataSufficiencyResult,
-            if this run derived monthly_expenses from transactions. None
-            (the explicit-monthly_expenses path) means no disclosure is
-            added — there's no coverage/density basis to disclose against.
+            if this run derived monthly_expenses from transactions.
         clarifying_questions: from BudgetAgent._aggregate_transactions()'s
             periodicity_flags. If non-empty, the LLM is told to surface
             these rather than state the flagged categories' figures as
@@ -462,7 +457,9 @@ class BudgetAgent(BaseAgent):
     # Main entry point
     def run(self, context: dict[str, Any]) -> AgentResult:
         """
-        Process one budget analysis request.
+        Produces one budget analysis. Takes monthly income and expenses from the context, or
+        derives expenses from transactions when only those are available, comapre each category
+        to the Irish benchmarks, and askss the LLM to narrate the result.
 
         Returns AgentResult with payload:
           status, monthly_income, monthly_expenses, total_expenses,

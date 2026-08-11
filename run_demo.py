@@ -181,6 +181,18 @@ def show(turn_no: int, message: str, result) -> None:
                 f"density={sufficiency['density_score']:.2f} "
                 f"confidence={sufficiency['confidence_score']:.2f}"
             )
+        citations = ar.payload.get("rag_citations")
+        if citations:
+            query = ar.payload.get("rag_query", "")
+            print(f"          \u2514\u2500 citations: {len(citations)} retrieved "
+                  f"(query={query[:50]!r}...)")
+            for i, c in enumerate(citations, 1):
+                text = (c.get("text") or "").strip()
+                if len(text) > 90:
+                    text = text[:90].rsplit(" ", 1)[0] + "..."
+                print(f"             [{i}] {c.get('source', '?')} "
+                      f"(relevance={c.get('relevance', 0):.2f}): \"{text}\"")
+
 
     print(f"\n  ASSISTANT: {result.final_response}\n")
 
@@ -235,7 +247,7 @@ def main() -> int:
             return 0
 
         if args.approve:
-            approved = store.approve(args.approve, reviewer_note=args.reviewer_note)
+            store.approve(args.approve, reviewer_note=args.reviewer_note)
             delivered = store.mark_delivered(args.approve)
             print(f"Approved {args.approve} (session={delivered.session_id}).")
             print(f"\n{BAR}\nDELIVERED:\n{BAR}\n{delivered.draft_response}\n")
@@ -261,14 +273,14 @@ def main() -> int:
     if args.persona and args.customer and args.customer != PERSONAS[args.persona]["customer_id"]:
         print(f"Note: --persona {args.persona!r} overrides --customer "
               f"({PERSONAS[args.persona]['customer_id']!r} is used instead of "
-              f"{args.customer!r})")    
+              f"{args.customer!r})")
 
     if args.debug:
         os.environ["DEBUG"] = "true"
 
+    from data.customer_store import CustomerStore
     from orchestrator.orchestrator import Orchestrator
     from utils.llm_client import LLMClient
-    from data.customer_store import CustomerStore
 
     client = LLMClient()
     print(f"\nLLM mode: {client.mode}"

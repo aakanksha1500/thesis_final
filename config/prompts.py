@@ -1,3 +1,5 @@
+"""All system prompts, kept in one place so they can be versioned together."""
+
 PROMPT_VERSION = "v1.2"
 
 INTENT_CLASSIFIER_SYSTEM = (
@@ -46,7 +48,7 @@ Classify the uset into one of five risk tiers based on their financial profile:
     conservative | moderately_conservative | moderate | moderately_aggressive | aggressive
 
 CLASSIFICATION PROCESS:
-1. You receive a set of user features (age, income, employment_status, dependets,
+1. You receive a set of user features (age, income, employment_status, dependents,
 existing_debt, investment_horizon, loss_tolerance, financial_knowledge_score).
 2. You produce a plain-English rationale explaining what drove the classification.
 3. You state your confidence level honestly. If confidence is below 0.6, say so
@@ -166,7 +168,7 @@ EXPLAINABILITY_CALIBRATION_PROMPT = """You are generating the trust calibration 
 
 You receive:
     - The risk classification and confidence score
-    - The tap product recommndation
+    - The tap product recommendation
     - The conditions that drove the classification
 
 YOUR TASK:
@@ -238,19 +240,6 @@ Two to four sentences. Denser is better than more complete — this note
 exists so a later turn does not have to re-read the raw transcript, not
 so it can reconstruct it verbatim."""
 # Layer 1 planner : See orchestrator/planner.py.
-#
-# SEPARATE FROM ORCHESTRATOR_SYSTEM, WHICH IS A SYNTHESIS PROMPT
-#     ORCHESTRATOR_SYSTEM describes all three HALO layers but is only ever
-#     sent for Layer 3 synthesis — its Layer 1 and 2 sections are narrative,
-#     describing what deterministic Python already does. This prompt is the
-#     opposite: the model's answer IS the routing decision, so everything
-#     below is a constraint the PlanValidator independently enforces.
-#
-#     The duplication between the rules here and the checks in
-#     PlanValidator is deliberate and one-directional. Stating a rule in the
-#     prompt raises the chance the model follows it; the validator is what
-#     makes it true. A rule may never appear here WITHOUT a corresponding
-#     check — that would be a constraint the system merely hopes for.
 PLANNER_SYSTEM = (
     "You are the planning layer of a multi-agent financial advisory system "
     "for retail investors in Ireland. You do not answer the user. You choose "

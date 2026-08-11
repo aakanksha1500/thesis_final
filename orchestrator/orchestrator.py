@@ -31,7 +31,6 @@ Routing decisions (5 buckets matching ConversationalAgent intent taxonomy):
 from __future__ import annotations
 
 import json
-import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -39,26 +38,26 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+import agents.risk_questionnaire as risk_questionnaire
 from agents.base_agent import AgentResult
 from agents.budget_agent import BudgetAgent
 from agents.conversational_agent import ConversationalAgent
 from agents.investment_agent import InvestmentAgent
 from agents.payloads import CAPABILITIES, STATIC_SEQUENCES
 from agents.risk_profiling_agent import RiskProfilingAgent
-import agents.risk_questionnaire as risk_questionnaire
-from orchestrator.approvals import ApprovalStore, PendingApproval, get_approval_store
+from config.constraints import financial_constraints
+from config.prompts import ORCHESTRATOR_SYSTEM, SUMMARISER_SYSTEM
+from config.settings import settings
 from data.customer_memory import (
     CustomerMemoryStore,
     extract_preferences_from_slots,
     get_customer_memory_store,
 )
-from config.constraints import financial_constraints
-from config.prompts import ORCHESTRATOR_SYSTEM, SUMMARISER_SYSTEM
-from config.settings import settings
 from data.customer_store import CustomerStore
 from data.psychometric_proxy import derive_loss_tolerance_proxy
 from data.transaction_store import TransactionStore
 from explainability.explainability_agent import ExplainabilityAgent
+from orchestrator.approvals import ApprovalStore, PendingApproval, get_approval_store
 from orchestrator.audit_log import AuditLog
 from orchestrator.conflict_resolver import ConflictResolver
 from orchestrator.failure_handler import FailureHandler
@@ -365,15 +364,28 @@ class Orchestrator:
         merged into one store.
 
         risk_profile restored here lands in the EXACT session_state key
-        (_session_state["risk_profile"]) _execute_plan() already reads as
-        a cross-turn fallback for ExplainabilityAgent/InvestmentAgent
-        (see _cache_agent_output's docstring) and available_context_keys()
-        already treats as a source of a satisfied "risk_class" (orchestrator
-        /planner.py). No new plumbing needed for a returning customer's
-        remembered risk profile to actually get used — it was already
-        the mechanism Day 6/7 built for a DIFFERENT reason (staying
-        useful across turns within one session); this just seeds it one
-        step earlier, from BEFORE the session started at all.
+        (_session_state["risk_profile"]) available_context_keys()
+        (orchestrator/planner.py) already treats as a source of a
+        satisfied "risk_class" — so the planner correctly proposes plans
+        that skip re-running RiskProfilingAgent for a returning customer.
+
+        THAT satisfiability check is NOT the same thing as InvestmentAgent
+        actually having the value: InvestmentAgent reads a bare
+        context["risk_class"] (agents/investment_agent.py), which is
+        normally only populated by _publish() when RiskProfilingAgent
+        executes THIS turn. The cross-turn fallback in _execute_plan()
+        (context.setdefault("risk_agent_payload", ...)) does not cover
+        this either — that seeds ExplainabilityAgent's narration payload,
+        a different key entirely. Restoring risk_profile alone left a
+        turn like "returning customer asks an investment question" with
+        the planner correctly skipping RiskProfilingAgent, and
+        InvestmentAgent then failing with "Missing risk_class" — the
+        worst of both, and no questionnaire either, since the
+        questionnaire trigger (_questionnaire_turn's docstring) only
+        fires off RiskProfilingAgent reporting "incomplete" in
+        agent_results, and RiskProfilingAgent was never in the plan to
+        report anything. Flattening risk_class here, exactly as
+        _publish() would from a live run, is the fix.
 
         preferences restored here seed ConversationalAgent's slot
         tracking directly, so a previously-stated investment_goal or name
@@ -388,6 +400,8 @@ class Orchestrator:
 
         if memory.risk_profile:
             self._session_state["risk_profile"] = memory.risk_profile
+            if memory.risk_profile.get("risk_class"):
+                self._session_state["risk_class"] = memory.risk_profile["risk_class"]
 
         if memory.preferences:
             self._agents["ConversationalAgent"].update_slots(memory.preferences)
@@ -691,7 +705,30 @@ class Orchestrator:
                         error=str(exc),
                     )
 
-        # All retries exhausted — invoke failure handler (O4)
+        # All retries exhausted.
+        # R9 fix: enable_failure_recovery previously had no effect anywhere
+        # in the codebase — FailureHandler ran unconditionally. Disabling
+        # the flag now skips O4 recovery entirely and fails the agent
+        # outright, the same way enable_conflict_resolution=False already
+        # skips ConflictResolver above.
+        if not settings.orchestrator.enable_failure_recovery:
+            self.audit_log.record_agent_failure(
+                turn_id=context.get("_turn_id", "unknown"),
+                agent_name=agent_name,
+                error=str(last_error),
+                recovery_strategy="disabled",
+                recovery_success=False,
+            )
+            trace.emit("✗ FAIL", agent_name, reason="failure_recovery disabled")
+            failed_result = AgentResult(
+                agent_name=agent_name,
+                success=False,
+                payload={},
+                error=str(last_error),
+            )
+            return failed_result, False
+
+        # Invoke failure handler (O4)
         recovery = self._failure_handler.attempt_recovery(
             agent_name, last_error, context
         )
@@ -805,6 +842,15 @@ class Orchestrator:
                             threshold=settings.hallucination.hhem_threshold,
                             mode=hreport.get("mode", "fallback"),
                         )
+        if agent_name == "ExplainabilityAgent":
+            citations = result.payload.get("rag_citations")
+            if citations and settings.rag.log_citations_to_audit:
+                self.audit_log.record_citations(
+                    turn_id=context.get("_turn_id", "unknown"),
+                    agent_name=agent_name,
+                    query=result.payload.get("rag_query", ""),
+                    citations=citations,
+                )
 
     def _find_producer(self, need: str, exclude: frozenset[str]) -> str | None:
         """
@@ -1054,13 +1100,42 @@ class Orchestrator:
         # RiskProfilingAgent/InvestmentAgent, _publish() below overwrites
         # these with the fresh payload before Explainability's own turn in
         # the loop; if it doesn't, Explainability still sees last turn's.
-        context.setdefault(
-            "risk_agent_payload", self._session_state.get("risk_profile") or {}
+        #
+        # SUPPRESSED for a PURE budget turn only (BudgetAgent planned,
+        # Risk/Investment not) — not applied unconditionally. A returning
+        # customer's session_state["risk_profile"] persists for the whole
+        # session, so an unconditional fallback made risk_agent_payload
+        # truthy on EVERY turn regardless of topic, including a pure
+        # budget/debt-distress turn. ExplainabilityAgent.run()'s
+        # budget_only check (`not risk_payload`) then always saw a
+        # non-empty risk_agent_payload and fell into the investment/risk
+        # explanation branch instead — producing a "moderately
+        # conservative, 4% confidence" explanation for a turn that was
+        # never about risk or investment.
+        #
+        # NOT gated on "RiskProfilingAgent"/"InvestmentAgent" literally
+        # being in agent_names, which looked like the obvious condition
+        # but breaks two real cases: explanation_request (["Explainability
+        # Agent"] alone, re-explaining a PRIOR investment/risk turn — the
+        # exact case this fallback exists for) and an investment turn
+        # where RiskProfilingAgent gets skipped from the plan because
+        # risk_class was already satisfied via memory (the returning-
+        # customer fix earlier this session) — both would silently
+        # degrade to a generic "moderate" explanation instead of the
+        # customer's real risk class. "Is BudgetAgent planned WITHOUT
+        # Risk/Investment also planned" is the actual distinguishing
+        # question, not "is Risk/Investment literally in the list".
+        budget_only_plan = "BudgetAgent" in agent_names and not (
+            "RiskProfilingAgent" in agent_names or "InvestmentAgent" in agent_names
         )
-        context.setdefault(
-            "investment_agent_payload",
-            self._session_state.get("prior_investment_output") or {},
-        )
+        if not budget_only_plan:
+            context.setdefault(
+                "risk_agent_payload", self._session_state.get("risk_profile") or {}
+            )
+            context.setdefault(
+                "investment_agent_payload",
+                self._session_state.get("prior_investment_output") or {},
+            )
 
         for agent_name in agent_names:
             if dynamic:
@@ -1175,7 +1250,7 @@ class Orchestrator:
             }
             violations.append(vdict)
             self.audit_log.record_constraint_violation(
-                turn_id=turn_id,  # filled in by caller
+                turn_id=turn_id,  # R11 fix: now genuinely supplied by process_turn()
                 rule_id=v.rule_id,
                 severity=v.severity,
                 description=v.description,
@@ -1333,17 +1408,27 @@ class Orchestrator:
         results_summary = "\n\n".join(results_summary_parts)
         slots = self._session_state.get("user_features", {})
 
+        # R9 fix: synthesis_max_words was defined in OrchestratorConfig but
+        # never read anywhere — the 150-word cap was hardcoded here instead,
+        # so changing the config setting had no effect. Read it live.
+        max_words = settings.orchestrator.synthesis_max_words
         synthesis_prompt = (
             f"User message: '{user_message}'\n"
             f"Routing: {routing_decision.value}\n"
             f"Known user context: {json.dumps(slots)}\n\n"
             f"Agent outputs:\n{results_summary}\n\n"
-            f"Synthesise a coherent, concise response (max 150 words) "
-            f"for the retail investor. Include the CBI disclaimer if any "
-            f"investment content is present. If any agent output above is "
-            f"marked UNSUCCESSFUL, state its 'message' plainly and honestly "
-            f"as part of your response — do not omit it and do not invent "
-            f"a recommendation to fill the gap."
+            f"Synthesise a coherent, concise response (max {max_words} words) "
+            f"for the retail investor. If ExplainabilityAgent's output above "
+            f"includes grounded/cited content (look for 'Grounded in:' in its "
+            f"full_explanation), use that content to actually answer the "
+            f"user's question — do not just repeat other agents' numeric "
+            f"output while leaving the user's actual question unanswered. "
+            f"Include the CBI disclaimer if any investment content is "
+            f"present — do so silently; never write a sentence explaining "
+            f"whether or why a disclaimer is or isn't required. If any agent "
+            f"output above is marked UNSUCCESSFUL, state its 'message' "
+            f"plainly and honestly as part of your response — do not omit "
+            f"it and do not invent a recommendation to fill the gap."
         )
 
         try:
@@ -1517,8 +1602,12 @@ class Orchestrator:
                     user_message, agent_results, routing
                 )
             # -- Layer 3c: Constraint validation --
+            # R11 fix: turn_id must be passed explicitly here — the parameter
+            # defaults to "unknown" and nothing upstream fills it in, so a
+            # missed argument here silently orphans every constraint
+            # violation logged this turn from the audit trail.
             final_response, violations, was_blocked = self._check_constraints(
-                raw_response, agent_results
+                raw_response, agent_results, turn_id
             )
 
             trace.emit(
@@ -1661,6 +1750,20 @@ class Orchestrator:
             rejections=len(plan.rejections),
             tokens=plan.llm_tokens,
         )
+        if plan.explainability_skipped:
+            trace.emit(
+                "⚠ SKIP-EXPLAIN",
+                f"{plan.source} plan runs {list(plan.specialists_present)} without "
+                f"ExplainabilityAgent — no calibration, no RAG citations, no "
+                f"counterfactual this turn (G6: planner chose brevity over "
+                f"explanation; CBI disclaimers are unaffected, see "
+                f"_check_constraints)",
+            )
+            logger.warning(
+                f"[Orchestrator] turn={turn_id} plan "
+                f"{list(plan.steps)} skips ExplainabilityAgent — no "
+                f"citations/calibration this turn (G6 planner choice)"
+            )
         self.audit_log.record_plan(turn_id=turn_id, plan=plan.as_dict())
 
         if not plan.accepted and plan.proposed:

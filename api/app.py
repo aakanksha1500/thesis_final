@@ -1,17 +1,5 @@
 """
-api/app.py — Day 10, the UI's server.
-
-FastAPI + one HTML file. Not a product — a TRiSM demonstrator: what makes
-it worth showing is that it exposes the trust artefacts (plan, explanation
-layers, constraints, approval state, audit reference), not just the chat
-text. See static/index.html for the actual panel.
-
-SOFT DEPENDENCY ON FASTAPI — see api/approvals_router.py's docstring for
-the reasoning; this file follows the identical pattern. Unlike that
-router, this file's entire purpose requires FastAPI to exist at all, so
-there's no "core mechanism works without it" claim to make here — the
-core mechanism is run_demo.py, and it remains fully independent of
-everything in this file.
+FastAPI server for the web UI.
 
 ENDPOINTS
     POST /chat              -> one turn result, JSON (see _serialise_result)
@@ -19,17 +7,6 @@ ENDPOINTS
     GET  /approvals         -> from api/approvals_router.py, included whole
     POST /approvals/{id}/approve|reject  -> likewise
     GET  /                  -> static/index.html
-
-WHY TRACING IS FORCE-ENABLED AT STARTUP, NOT LEFT TO .env
-    TRACE defaults to false everywhere else in this codebase (near-zero
-    cost when off, per utils/trace.py's own docstring) — correct for
-    run_demo.py, where trace output is just console noise most of the
-    time. This server's whole purpose is serving GET /trace/{turn_id};
-    leaving that empty because nobody remembered to export TRACE=true
-    would make the one endpoint that makes this a "TRiSM demonstrator"
-    rather than a plain chat box silently do nothing. So this module
-    overrides trace_config at import time — deliberate, not a default
-    left lying around.
 
 RUNNING
     pip install fastapi uvicorn
@@ -56,7 +33,7 @@ except ImportError as exc:  # pragma: no cover - exercised only without fastapi 
 import api.approvals_router as approvals_router
 from api.session_registry import SessionRegistry
 from orchestrator.orchestrator import AgentResult, OrchestratorResult
-from orchestrator.approvals import get_approval_store
+# from orchestrator.approvals import get_approval_store
 from utils import trace
 from utils.logger import get_logger
 
@@ -91,10 +68,7 @@ def _serialise_agent_result(r: AgentResult) -> dict[str, Any]:
     """
     Full payload included, deliberately — the whole point of this panel
     is showing what an agent actually produced (SHAP values, shortlist,
-    hallucination report, ...), not a status summary. AgentResult.
-    to_step_record() (agents/base_agent.py) exists for a different
-    consumer (the planned AgentBoard step evaluator) and drops payload
-    entirely, which is exactly the part this UI needs.
+    hallucination report, ...), not a status summary. 
     """
     return {
         "agent_name": r.agent_name,
@@ -108,21 +82,15 @@ def _serialise_agent_result(r: AgentResult) -> dict[str, Any]:
 
 def _serialise_result(result: OrchestratorResult) -> dict[str, Any]:
     """
-    One JSON shape covering every panel in the mockup (see module
-    docstring): PLAN, EXPLANATION LAYERS (read straight from
-    ExplainabilityAgent's own payload.layers_applied — already exactly
-    what that panel needs, no separate extraction), CONSTRAINTS,
-    approval state, and an audit reference. Not derived from captured
-    trace events — those are supplementary detail (GET /trace/{turn_id}),
-    not the primary data source, so this endpoint still returns
-    something complete even when TRACE-based capture is empty (a fresh
-    server restart, or a turn that ran before this process's tracing
-    was live).
+    Turn an OrchestratorResult into the JSON the UI panels read: plan, explanation layers, 
+    constraints and audit reference.
     """
     explanation_layers: list[str] = []
+    citations: list[dict[str, Any]] = []
     for r in result.agent_results:
         if r.agent_name == "ExplainabilityAgent" and r.success:
             explanation_layers = list(r.payload.get("layers_applied") or [])
+            citations = list(r.payload.get("rag_citations") or [])
 
     awaiting_approval = result.final_response == _withheld_message()
 
@@ -147,6 +115,7 @@ def _serialise_result(result: OrchestratorResult) -> dict[str, Any]:
         "constraint_violations": result.constraint_violations,
         "recovered_agents": result.recovered_agents,
         "explanation_layers": explanation_layers,
+        "citations": citations,
         # Set by chat() below, which is the caller that actually has the
         # live AuditLog instance (result itself carries no reference to
         # it) — the line number a reviewer would jump to first.
@@ -162,18 +131,8 @@ def _withheld_message() -> str:
 @app.post("/chat")
 def chat(req: ChatRequest) -> dict[str, Any]:
     """
-    One turn. Reuses (never creates a second) Orchestrator per session_id
-    via SessionRegistry — customer_id/customer_context only take effect
-    on that session's FIRST call, exactly as SessionRegistry documents.
-
-    Checks for newly-delivered approvals FIRST, same as run_demo.py's -i
-    loop does before its own input() prompt — a reviewer deciding a held
-    turn (elsewhere: another tab, run_demo.py --approve, the API
-    directly) should surface here on this session's next message, not
-    require the customer to somehow know to ask again. Without this,
-    "approve it, watch it deliver" (the build plan's own demo line) would
-    only actually work from the CLI, not from this UI — found by tracing
-    through what the UI's own copy promises, not assumed to already work.
+    Handles one turn. Reuse the Orchestrator for this session_id; customer_id and 
+    customer_context only apply on the session's first call.
     """
     orch = _registry.get_or_create(
         req.session_id, customer_id=req.customer_id, customer_context=req.customer_context,
@@ -190,11 +149,8 @@ def chat(req: ChatRequest) -> dict[str, Any]:
 @app.get("/trace/{turn_id}")
 def get_trace(turn_id: str) -> list[dict]:
     """
-    Raw captured trace events for one turn, emission order. [] is a
-    normal, valid response — it means no turn with this id has run in
-    THIS server process since it started (captures are in-memory, not
-    persisted — see utils/trace.py's module docstring), not an error;
-    left as 200 rather than 404 for exactly that reason.
+    Returns the trace events for one turn, in order. An empty list is normal and means no
+    such turn ran in this server process.
     """
     return trace.get_captured_events(turn_id)
 

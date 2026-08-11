@@ -1,0 +1,416 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-04T00:35:02.117349+00:00",
+    "git_sha": "6f95fee-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "groq",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {
+      "embedder": "sentence-transformers",
+      "vector_store": "faiss",
+      "hallucination_detector": "hhem",
+      "product_data": "snapshot",
+      "market_data": "unavailable"
+    },
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": true,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 7,
+  "agent": "Orchestrator",
+  "llm_mode": "groq",
+  "n_scenarios": 10,
+  "note": "routing_accuracy=0.0 in mock mode (expected \u2014 intent classifier requires real LLM). All other metrics are meaningful in both modes.",
+  "metrics": {
+    "routing_accuracy": {
+      "metric": "routing_accuracy",
+      "value": 1.0,
+      "details": {
+        "n": 10,
+        "correct": 10,
+        "per_routing_accuracy": {
+          "conversational_only": 1.0,
+          "risk_profiling": 1.0,
+          "investment": 1.0,
+          "budget": 1.0,
+          "explanation_request": 1.0
+        }
+      }
+    },
+    "step_progress_rate": {
+      "metric": "step_progress_rate",
+      "value": 0.5556,
+      "details": {
+        "total_steps": 18,
+        "completed_steps": 10,
+        "per_agent_rate": {
+          "ConversationalAgent": 1.0,
+          "RiskProfilingAgent": 0.0,
+          "ExplainabilityAgent": 1.0,
+          "InvestmentAgent": 0.0,
+          "BudgetAgent": 0.0
+        },
+        "bottleneck_agent": "RiskProfilingAgent"
+      }
+    },
+    "component_synergy_score": {
+      "metric": "component_synergy_score",
+      "value": 0.0,
+      "details": {
+        "error": "no AGENT_CALL records in audit log"
+      }
+    },
+    "tool_utilisation_efficacy": {
+      "metric": "tool_utilisation_efficacy",
+      "value": 0.0,
+      "details": {
+        "error": "no agent calls by turn found"
+      }
+    },
+    "agent_judge": {
+      "metric": "agent_judge_overall",
+      "value": 4.68,
+      "judge_mode": "real",
+      "judge_model": "llama-3.3-70b-versatile",
+      "judge_coverage": 1.0,
+      "n_measured": 10,
+      "n_scenarios": 10,
+      "mode_distribution": {
+        "real": 10
+      },
+      "failures": {},
+      "verdict_distribution": {
+        "flag": 2,
+        "pass": 8
+      },
+      "interpretation": "value is the mean over MEASURED turns only. judge_coverage < 1.0 means some turns were not judged; coverage 0.0 means the 5-dimension trajectory score was NOT measured in this run and must not be reported as a finding."
+    }
+  },
+  "scenarios": [
+    {
+      "scenario_id": "S01",
+      "description": "Simple general query \u2014 no specialist needed",
+      "message": "What is my account balance?",
+      "expected_routing": "conversational_only",
+      "actual_routing": "conversational_only",
+      "routing_correct": true,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 1716.9232920277864,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 5,
+        "explanation_quality": 4,
+        "trust_calibration": 5,
+        "overall_score": 4.8,
+        "verdict": "pass",
+        "reasoning": "The system correctly routed the query to the conversational agent and provided a coherent response. The response also included the required CBI disclaimer and did not contain any prohibited phrases.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "llama-3.3-70b-versatile",
+        "judge_tokens": 897
+      }
+    },
+    {
+      "scenario_id": "S02",
+      "description": "Direct risk profiling request",
+      "message": "Can you assess my financial risk profile?",
+      "expected_routing": "risk_profiling",
+      "actual_routing": "risk_profiling",
+      "routing_correct": true,
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 4054.372083162889,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 4,
+        "factual_accuracy": 5,
+        "explanation_quality": 4,
+        "trust_calibration": 5,
+        "overall_score": 4.6,
+        "verdict": "pass",
+        "reasoning": "The system correctly identified the need for risk profiling but was unable to complete it due to missing information. The ExplainabilityAgent provided a coherent explanation despite the incomplete risk profiling.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "llama-3.3-70b-versatile",
+        "judge_tokens": 1058
+      }
+    },
+    {
+      "scenario_id": "S03",
+      "description": "Investment query \u2014 requires risk first",
+      "message": "I want to invest my savings for retirement.",
+      "expected_routing": "investment",
+      "actual_routing": "investment",
+      "routing_correct": true,
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 2603.7697920110077,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 2,
+        "factual_accuracy": 5,
+        "explanation_quality": 4,
+        "trust_calibration": 5,
+        "overall_score": 4.2,
+        "verdict": "flag",
+        "reasoning": "The system correctly routed the query to the investment domain, but the agent coordination was suboptimal due to missing features and incomplete risk profiling. The explanation quality was good, but the trust calibration was appropriate given the lack of complete information.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "llama-3.3-70b-versatile",
+        "judge_tokens": 1091
+      }
+    },
+    {
+      "scenario_id": "S04",
+      "description": "Budget analysis request",
+      "message": "Help me understand my monthly spending.",
+      "expected_routing": "budget",
+      "actual_routing": "budget",
+      "routing_correct": true,
+      "agents_invoked": [
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 2358.2580420188606,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 4,
+        "factual_accuracy": 5,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 4.8,
+        "verdict": "pass",
+        "reasoning": "The system correctly routed the query to the BudgetAgent and invoked the ExplainabilityAgent for additional context. Although the BudgetAgent failed due to missing information, the final response was coherent and provided a clear call to action.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "llama-3.3-70b-versatile",
+        "judge_tokens": 998
+      }
+    },
+    {
+      "scenario_id": "S05",
+      "description": "Explanation request for prior recommendation",
+      "message": "Why did you recommend that ETF?",
+      "expected_routing": "explanation_request",
+      "actual_routing": "explanation_request",
+      "routing_correct": true,
+      "agents_invoked": [
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 4670.106292003766,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 5,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 5.0,
+        "verdict": "pass",
+        "reasoning": "The system correctly invoked the ExplainabilityAgent and provided a coherent explanation with appropriate confidence and disclaimers.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "llama-3.3-70b-versatile",
+        "judge_tokens": 933
+      }
+    },
+    {
+      "scenario_id": "S06",
+      "description": "Out-of-scope query (FX rate not in advisory scope)",
+      "message": "What is the current exchange rate?",
+      "expected_routing": "conversational_only",
+      "actual_routing": "conversational_only",
+      "routing_correct": true,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 11979.263291927055,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 5,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 5.0,
+        "verdict": "pass",
+        "reasoning": "The system correctly routed the query to the ConversationalAgent and provided a clear, accurate, and transparent response, including appropriate disclaimers and guidance on where to find the requested information.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "llama-3.3-70b-versatile",
+        "judge_tokens": 916
+      }
+    },
+    {
+      "scenario_id": "S07",
+      "description": "Product suggestion \u2192 investment routing",
+      "message": "Can you recommend a low-risk investment product?",
+      "expected_routing": "investment",
+      "actual_routing": "investment",
+      "routing_correct": true,
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 5634.723250055686,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 2,
+        "factual_accuracy": 5,
+        "explanation_quality": 3,
+        "trust_calibration": 5,
+        "overall_score": 4.0,
+        "verdict": "flag",
+        "reasoning": "The system correctly routed the query to the investment domain, but the agent coordination was flawed due to missing input features for the RiskProfilingAgent. The ExplainabilityAgent provided a moderate risk classification without a reliable basis.",
+        "hallucination_detected": true,
+        "hallucination_detail": "The ExplainabilityAgent's moderate risk classification was provided without the necessary input features, making it an unreliable claim.",
+        "judge_mode": "real",
+        "judge_model": "llama-3.3-70b-versatile",
+        "judge_tokens": 1102
+      }
+    },
+    {
+      "scenario_id": "S08",
+      "description": "Risk capacity question \u2192 risk profiling",
+      "message": "How much risk can I afford to take?",
+      "expected_routing": "risk_profiling",
+      "actual_routing": "risk_profiling",
+      "routing_correct": true,
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 5632.9217499587685,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 4,
+        "factual_accuracy": 5,
+        "explanation_quality": 4,
+        "trust_calibration": 5,
+        "overall_score": 4.6,
+        "verdict": "pass",
+        "reasoning": "The system correctly routed the query to the RiskProfilingAgent, but the agent was unable to classify the risk profile due to missing information. The ExplainabilityAgent provided a coherent explanation, and the final response was transparent about the limitations.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "llama-3.3-70b-versatile",
+        "judge_tokens": 1062
+      }
+    },
+    {
+      "scenario_id": "S09",
+      "description": "HBS benchmark query \u2192 budget agent",
+      "message": "Where am I spending more than average in Ireland?",
+      "expected_routing": "budget",
+      "actual_routing": "budget",
+      "routing_correct": true,
+      "agents_invoked": [
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 5789.407500065863,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 4,
+        "factual_accuracy": 5,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 4.8,
+        "verdict": "pass",
+        "reasoning": "The system correctly routed the query to the BudgetAgent and invoked the ExplainabilityAgent for additional context. Although the BudgetAgent failed due to missing information, the final response accurately conveyed this limitation and provided a clear call to action for the user.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "llama-3.3-70b-versatile",
+        "judge_tokens": 1009
+      }
+    },
+    {
+      "scenario_id": "S10",
+      "description": "Explanation of classification",
+      "message": "How did you decide my risk class?",
+      "expected_routing": "explanation_request",
+      "actual_routing": "explanation_request",
+      "routing_correct": true,
+      "agents_invoked": [
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 4610.434832982719,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 5,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 5.0,
+        "verdict": "pass",
+        "reasoning": "The ExplainabilityAgent was correctly invoked for the explanation request, and the final response accurately conveys the moderate risk classification with appropriate uncertainty and CBI disclaimer.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "llama-3.3-70b-versatile",
+        "judge_tokens": 937
+      }
+    }
+  ],
+  "audit_log_path": "/private/var/folders/vc/qwj0gcpn741fw_lh0plr1_b40000gn/T/pytest-of-aakankshadeshpande/pytest-52/test_rq4_pipeline_evaluation_a0/session_rq4-eval-001.jsonl"
+}

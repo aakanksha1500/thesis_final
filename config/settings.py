@@ -208,7 +208,7 @@ class ExplainabilityConfig:
     needed to switch ablation conditions. Calibration note (X3) always on.
     """
     use_shap: bool = True
-    use_rag_citation: bool = True  
+    use_rag_citation: bool = True
     use_counterfactual: bool = True
     use_calibration_note: bool = True  # X3 — never ablated
     prompt_version: str = "v1.0"
@@ -281,6 +281,17 @@ class PlannerConfig:
       plan that runs it first has it explaining an empty context. Enforced
       by position rather than by prompt, because a prompt instruction is a
       request and this is a constraint.
+
+    NOTE — a plan that includes BudgetAgent/RiskProfilingAgent/
+    InvestmentAgent without ExplainabilityAgent is deliberately still
+    valid (G6's whole point: the planner may choose a shorter plan than
+    the static table). This is NOT silent, though — see Plan.
+    explainability_skipped in orchestrator/planner.py and the
+    "SKIP-EXPLAIN" trace/audit event it drives. Considered making this a
+    hard validator rejection instead; rejected that approach because it
+    directly reverses a documented, tested G6 capability
+    (test_planner_may_choose_a_shorter_plan_than_the_table) rather than
+    just making its cost visible.
 
     allow_empty_plan:
       False. An empty plan is the model declining to route; the static
@@ -437,6 +448,7 @@ class RAGConfig:
     index_dir: Path = ROOT_DIR / "data" / "embeddings" / "rag_index"
     chunk_size_chars: int = 500
     chunk_overlap_chars: int = 50
+    log_citations_to_audit: bool = True
     document_sets: list = field(default_factory=lambda: [
         "regulatory",
         "cbi_open_data",

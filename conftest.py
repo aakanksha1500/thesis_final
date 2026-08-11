@@ -8,7 +8,7 @@ Exists so that:
 """
 from __future__ import annotations
 
-import pyarrow.dataset
+import pyarrow.dataset  # noqa: E402, F401
 import os
 import sys
 from pathlib import Path

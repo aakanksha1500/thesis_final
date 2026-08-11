@@ -184,9 +184,8 @@ def next_question(
     skipped_slots: set[str] | None = None,
 ) -> QuestionnaireQuestion | None:
     """
-    The next question to ask, or None if the questionnaire should stop
-    (either because is_sufficient() is True, or because every question
-    has already been answered — nothing left to ask regardless).
+    Returns the next question to ask, or None when enough has been answered, 
+    the customer asked to stop, or the per-sitting limit is reached.
     """
     skipped = skipped_slots or set()
     if customer_wants_to_stop:
@@ -212,10 +211,7 @@ def build_monthly_expenses_from_slots(
 ) -> dict[str, float]:
     """
     Convert questionnaire answers into the same monthly_expenses shape
-    BudgetAgent expects. large_recurring_items is collected
-    as an ANNUAL total (that's what the question asks for) and divided
-    by 12 here to produce a monthly-equivalent figure — a labelled
-    assumption, not a periodicity inference.
+    BudgetAgent expects. Annual figures are divided by 12.
     """
     expenses: dict[str, float] = {}
     for q in QUESTIONNAIRE_SCHEMA:
@@ -233,8 +229,10 @@ def build_monthly_expenses_from_slots(
 
 def self_report_confidence(collected_slots: dict[str, Any]) -> dict[str, Any]:
     """
-    Confidence summary for a budget built only from self-reported answers. 
-    Capped at medium regardless of how complete the answers are.
+    Confidence summary for a self-report-only budget. Deliberately capped at
+    SELF_REPORT_CONFIDENCE_CEILING ("medium") regardless of how complete the answers are — this
+    is a hard rule, not computed from completeness, so it can never drift up to "high" just
+    because every optional question happened to get answered
     """
     total_answered = sum(
         1 for q in QUESTIONNAIRE_SCHEMA if collected_slots.get(q.slot_name) is not None

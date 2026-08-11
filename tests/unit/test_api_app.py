@@ -68,7 +68,7 @@ def _rig_investment_turn(appmod, session_id, expected_return_pct=50.0):
         if agent_name == "InvestmentAgent":
             payload = {
                 "status": "complete", "risk_class": context.get("risk_class", "moderate"),
-                "shortlist": [{"name": "TestFund", "category": "government_bond",
+                "shortlist": [{"name": "TestFund", "category": "corporate_bond",
                               "product_id": "X1", "expected_return_pct": expected_return_pct}],
                 "synthesis": "a recommendation", "deliverable": True,
                 "hallucination_flagged": False,

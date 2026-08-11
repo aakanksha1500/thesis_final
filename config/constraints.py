@@ -85,15 +85,6 @@ class FinancialConstraints:
         Regex-based, not substring — see DISCLAIMER_PATTERNS for why.
         Violations are still reported using the canonical label, so nothing
         downstream (audit log, results JSON) changes shape.
-
-        R24 - `advisory` scopes the check to responses that actually give
-        advice. Requiring "past performance is not a guide to future returns"
-        on the reply to "hello" is not a compliance finding, it is noise: it
-        put a warn-level R004 in the audit log on literally every turn, which
-        is the fastest way to train a reviewer to ignore R004 entirely. CBI
-        consumer-protection disclosure obligations attach to advice, not to
-        conversation, so scoping the rule here matches the regulation the rule
-        is modelling rather than merely quietening the log.
         """
         if not advisory:
             return []

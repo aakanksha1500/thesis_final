@@ -10,23 +10,32 @@ Evaluation:
 """
 
 from __future__ import annotations
-
+ 
 import json
 import re
 import time
 from typing import Any
-
+ 
+import agents.risk_questionnaire as risk_questionnaire
 from agents.base_agent import AgentResult, BaseAgent
-from agents.budget_questionnaire import MAX_QUESTIONS_PER_SITTING
+from agents.budget_questionnaire import (
+    MAX_QUESTIONS_PER_SITTING,
+    QuestionnaireQuestion,
+    detect_stop_intent,
+    is_skip_answer,
+    parse_money_answer,
+)
 from agents.budget_questionnaire import QUESTIONNAIRE_SCHEMA as _BUDGET_SCHEMA
-from agents.budget_questionnaire import QuestionnaireQuestion
-from agents.budget_questionnaire import detect_stop_intent
-from agents.budget_questionnaire import is_skip_answer
 from agents.budget_questionnaire import is_plausible as _budget_is_plausible
 from agents.budget_questionnaire import is_sufficient as _budget_is_sufficient
 from agents.budget_questionnaire import next_question as _budget_next_question
-from agents.budget_questionnaire import parse_money_answer
-import agents.risk_questionnaire as risk_questionnaire
+from config.prompts import CONVERSATIONAL_SYSTEM, INTENT_CLASSIFIER_SYSTEM
+from config.settings import settings
+from utils.llm_client import LLMClient
+from utils.logger import get_logger
+ 
+logger = get_logger(__name__)
+
 
 # Registry so start_questionnaire()/_questionnaire_turn() are schema-agnostic:
 # add a new kind here (schema, next_question, is_sufficient, is_plausible)
@@ -44,12 +53,6 @@ _QUESTIONNAIRE_KINDS: dict[str, dict[str, Any]] = {
         "is_plausible": risk_questionnaire.is_plausible,
     },
 }
-from config.prompts import CONVERSATIONAL_SYSTEM, INTENT_CLASSIFIER_SYSTEM
-from config.settings import settings
-from utils.llm_client import LLMClient
-from utils.logger import get_logger
-
-logger = get_logger(__name__)
 
 INTENT_BUCKETS: dict[str, list[str]] = {
     "general_query": [
@@ -119,10 +122,14 @@ INTENT_BUCKET_GUIDE: dict[str, str] = {
         '"how can I grow my money", "is now a good time to invest"'
     ),
     "budget_analysis": (
-        "wants to understand THEIR OWN spending, cash flow, or budget. "
+        "wants to understand THEIR OWN spending, cash flow, or budget — "
+        "including financial difficulty, arrears, or debt they're "
+        "struggling with. "
         'e.g. "where does my money go", "what am I spending on", '
         '"show me my budget", "am I overspending", "how much do I '
-        'have left each month"'
+        'have left each month", "I\'m behind on payments, what are my '
+        'rights", "I can\'t afford my bills", "what happens if I miss a '
+        'payment"'
     ),
     "product_suggestion": (
         "wants a specific banking product — a card, cheque book, account "
@@ -155,8 +162,8 @@ class ConversationalAgent(BaseAgent):
     """
     User-facing conversational interface.
 
-    Owns its own session state (slots + history) rather than relying on
-    the Orchestrator to track it — one instance per user session.
+    Owns its own slots and history for the session, classifies each message's intent, and 
+    signals the Orchestrator when a specialist is needed.
     """
 
     def __init__(self, llm_client: LLMClient):
@@ -212,7 +219,7 @@ class ConversationalAgent(BaseAgent):
         """
         Asks the LLM to classify the message into one of 7 buckets as
         JSON. There's no separate classifier model — the LLM does double
-        duty as both classifier and responder. 
+        duty as both classifier and responder.
 
         Returns:
             (bucket_name, confidence_float)
@@ -243,7 +250,7 @@ class ConversationalAgent(BaseAgent):
                 # Validate bucket name
                 if intent not in INTENT_BUCKETS:
                     logger.warning(
-                        f"[ConversationalAgent] Unkown bucket '{intent}' - "
+                        f"[ConversationalAgent] Unknown bucket '{intent}' - "
                         f"falling back to general_query"
                     )
                     intent = "general_query"
@@ -310,6 +317,9 @@ class ConversationalAgent(BaseAgent):
         """
         Enter questionnaire mode for `kind` ("budget" or "risk") and return
         the first question to ask, or None if nothing needs asking.
+        Seeds from. slots already collected this session - e.g. age/income may already be 
+        known from eariler small talk or the other questionnaire, and are reused rather than asked again,
+        which is the single most irritating thing a form can do to someone who has already answered it. 
         """
         self._questionnaire_active = True
         self._questionnaire_kind = kind
@@ -381,11 +391,8 @@ class ConversationalAgent(BaseAgent):
 
     def _record_questionnaire_event(self, kind: str, **fields: Any) -> None:
         """
-        Append-only trace of the questionnaire. Exists because the interesting
-        failure modes here are conversational, not computational — a question
-        asked twice, a stop signal missed, a figure accepted from the LLM that
-        the rules had already refused — and none of them are visible in the
-        final answers dict alone. This is what makes a session replayable.
+        Append-only trace of the questionnaire. The failures here are conversational such as a question
+        asked twice or a stop signal missed.
         """
         self._questionnaire_events.append(
             {"turn": self._turn_count, "event": kind, **fields}
@@ -393,7 +400,9 @@ class ConversationalAgent(BaseAgent):
 
     def _detect_stop_intent(self, user_message: str) -> tuple[bool, str]:
         """
-        Hybrid stop detection. Returns (wants_to_stop, basis).
+        Decised whether the customer wants to stop the quesstionnaire. Rules runn first and 
+        cover the common phrasings: only a genuienly ambiguous message costs an LLM call.
+        Returns the decisin and which of the two produced it.
         """
         deterministic = detect_stop_intent(user_message)
         if deterministic is not None:
@@ -423,8 +432,9 @@ class ConversationalAgent(BaseAgent):
         self, user_message: str, question: QuestionnaireQuestion
     ) -> tuple[Any, str]:
         """
-        Parses an answer using the question's answer_type. Returns (value, basis); a value of
-        None means the answer was declined or inreadable.
+        Dispatches to a type-specific parser based on answer_type (defaults to "money"
+        - every existing budget question). Returns (value, basis), where value None means "not
+        obstained" - either declined or unreadable.
         """
         answer_type = getattr(question, "answer_type", "money")
         if answer_type == "text":
@@ -626,10 +636,8 @@ class ConversationalAgent(BaseAgent):
         question_text: str | None = None,
     ) -> dict[str, Any]:
         """
-        The turn payload in questionnaire mode. Shaped to satisfy
-        ConversationalAgent's existing payload contract (payloads.py) so this
-        mode isn't a second, differently-shaped kind of turn the Orchestrator
-        has to special-case.
+        Builds the turn payload in questionnaire mode, in the same shape as a normal turn so the
+        Orchestrator needs no special case.
         """
         state = self.questionnaire_state
         kind = self._questionnaire_kind
