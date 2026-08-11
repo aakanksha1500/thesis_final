@@ -45,18 +45,20 @@ class TestStoppingCriteria:
         assert is_sufficient({"income": 3000, "housing_cost": 1200}) is False
 
     def test_sufficient_once_mandatory_and_enough_optional_coverage(self):
-        """food(0.14) + utilities(0.07) + discretionary(0.06) = 0.27,
-        which is >= 70% of total optional weight (0.37 * 0.7 = 0.259) —
-        should stop here, without needing debt_repayments or
-        large_recurring_items."""
+        """food(0.14) + transport(0.13) + utilities(0.07) + discretionary(0.06)
+        = 0.40, which is >= 70% of total optional weight (0.55 * 0.7 = 0.385)
+        — should stop here, without needing healthcare_spend, debt_repayments,
+        or large_recurring_items."""
         answered = {
             "income": 3000, "housing_cost": 1200, "rough_monthly_leftover": 500,
-            "food_spend": 400, "utilities_spend": 150, "discretionary_spend": 200,
+            "food_spend": 400, "transport_spend": 250, "utilities_spend": 150,
+            "discretionary_spend": 200,
         }
         assert is_sufficient(answered) is True
 
     def test_not_sufficient_with_only_two_optional_answered(self):
-        """food + utilities alone = 0.21, short of the 0.259 threshold."""
+        """food + utilities alone = 0.21, short of the 0.385 threshold
+        (70% of the total optional weight of 0.55)."""
         answered = {
             "income": 3000, "housing_cost": 1200, "rough_monthly_leftover": 500,
             "food_spend": 400, "utilities_spend": 150,
@@ -74,9 +76,10 @@ class TestStoppingCriteria:
         assert is_sufficient({"income": 3000}, customer_wants_to_stop=True) is False
 
     def test_hard_cap_stops_it_even_below_coverage_threshold(self):
-        """All mandatory + 4 of 5 optional (everything except food, the
-        highest-weight one) = 7 questions, coverage = 0.23/0.37 = 0.62,
-        below the 70% threshold -- but the hard cap should still stop it."""
+        """All mandatory + 4 of 7 optional (everything except food,
+        transport, and healthcare — the three highest-weight ones) = 7
+        questions, coverage = 0.23/0.55 ≈ 0.42, below the 70% threshold
+        -- but the hard cap should still stop it."""
         answered = {
             "income": 3000, "housing_cost": 1200, "rough_monthly_leftover": 500,
             "utilities_spend": 150, "discretionary_spend": 200,
@@ -88,7 +91,8 @@ class TestStoppingCriteria:
     def test_next_question_returns_none_once_sufficient(self):
         answered = {
             "income": 3000, "housing_cost": 1200, "rough_monthly_leftover": 500,
-            "food_spend": 400, "utilities_spend": 150, "discretionary_spend": 200,
+            "food_spend": 400, "transport_spend": 250, "utilities_spend": 150,
+            "discretionary_spend": 200,
         }
         assert next_question(answered) is None
 

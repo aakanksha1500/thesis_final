@@ -60,8 +60,10 @@ from data.customer_store import CustomerStore  # noqa: E402
 from scripts.generate_transactions import (  # noqa: E402
     _discretionary,
     _food,
+    _healthcare,
     _housing,
     _insurance,
+    _transport,
     _utilities,
 )
 
@@ -74,10 +76,23 @@ EMPLOYMENT_CHOICES = ["employed", "self-employed", "unemployed", "retired", "stu
 EMPLOYMENT_WEIGHTS = [0.62, 0.12, 0.06, 0.15, 0.05]
 
 # (weight, months_to_keep_or_None, tier_label) — None means "all 12".
+#
+# minimal/low/medium_high were missing entirely until the coverage audit
+# flagged it: agents/data_sufficiency.py names six tiers (insufficient,
+# minimal, low, medium, medium_high, high) but this mix only ever produced
+# four of them, so two of six were structurally unreachable in the real
+# pipeline data regardless of population size — not under-sampled, actually
+# impossible to observe. months_to_keep values below are chosen so the
+# resulting calendar SPAN (not a count of months) lands each tier where
+# agents/data_sufficiency.py's _COVERAGE_TIERS staircase expects it:
+# {1}->span 1 (minimal), {1,2,3}->span 3 (low), {1..7}->span 7 (medium_high).
 _COVERAGE_MIX = [
-    (0.45, None, "high"),
-    (0.30, {1, 2, 3, 4, 5}, "medium"),
-    (0.15, {1, 6, 12}, "high coverage, low density"),
+    (0.30, None, "high"),
+    (0.20, {1, 2, 3, 4, 5}, "medium"),
+    (0.10, {1, 2, 3, 4, 5, 6, 7}, "medium_high"),
+    (0.10, {1, 6, 12}, "high coverage, low density"),
+    (0.10, {1}, "minimal"),
+    (0.10, {1, 2, 3}, "low"),
     (0.10, set(), "insufficient"),
 ]
 
@@ -137,6 +152,8 @@ def _sample_transactions(rng: np.random.Generator, monthly_income: float) -> tup
         + _utilities(monthly_income, rng, seasonal_amplitude=0.25)
         + _insurance(monthly_income, rng, annual_fraction=0.02, renewal_month=int(rng.integers(1, 13)))
         + _discretionary(monthly_income, rng, poisson_lambda=3.0, sigma=0.35, spike_probability=0.05)
+        + _transport(monthly_income, rng)
+        + _healthcare(monthly_income, rng)
     )
     full_year.sort(key=lambda t: t["date"])
     txns = (

@@ -313,7 +313,7 @@ class TestRealModeNarrativeContent:
         orch._session_state["monthly_income"] = 3000.0
         orch._session_state["questionnaire_answers"] = {
             "income": 3000.0, "housing_cost": 1200.0, "rough_monthly_leftover": 500.0,
-            "food_spend": 400.0, "utilities_spend": 150.0, "discretionary_spend": 200.0,
+            "food_spend": 400.0, "transport_spend": 250.0, "utilities_spend": 150.0, "discretionary_spend": 200.0,
         }
         result = orch.process_turn("What does my budget look like?")
         budget_text = _budget_result(result).payload["recommendations_text"]
@@ -426,7 +426,7 @@ class TestMultiTurnQuestionnaireSession:
         loop that technically closes and practically doesn't.
         """
         self._start(orch)
-        for reply in ["3000", "1200", "500", "400", "150", "200"]:
+        for reply in ["3000", "1200", "500", "400", "150", "200", "0"]:
             result = orch.process_turn(reply)
             if "BudgetAgent" in result.agents_invoked:
                 break
@@ -532,7 +532,7 @@ class TestMultiTurnQuestionnaireSession:
         without re-asking anything.
         """
         self._start(orch)
-        for reply in ["3000", "1200", "500", "400", "150", "200"]:
+        for reply in ["3000", "1200", "500", "400", "150", "200", "0"]:
             orch.process_turn(reply)
         later = orch.process_turn("remind me how my budget looks")
         assert "BudgetAgent" in later.agents_invoked

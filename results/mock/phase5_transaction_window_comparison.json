@@ -1,20 +1,14 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-08-09T22:29:28.769182+00:00",
-    "git_sha": "47dd8a3-dirty",
+    "generated_at_utc": "2026-08-11T21:30:26.443413+00:00",
+    "git_sha": "299a78e-dirty",
     "prompt_version": "v1.2",
     "llm_mode": "mock",
     "orchestrator_model": "llama-3.3-70b-versatile",
     "specialist_model": "llama3.1:8b",
     "judge_model": "llama-3.3-70b-versatile",
     "environment": "development",
-    "subsystem_modes": {
-      "embedder": "sentence-transformers",
-      "vector_store": "faiss",
-      "hallucination_detector": "hhem",
-      "product_data": "snapshot",
-      "market_data": "unavailable"
-    },
+    "subsystem_modes": {},
     "llm_cache": {
       "hits": 0,
       "misses": 0,
@@ -47,18 +41,24 @@
         "1": {
           "housing": 1176.0,
           "food": 533.77,
-          "entertainment": 240.62
+          "transport": 532.28,
+          "entertainment": 240.62,
+          "healthcare": 133.04
         },
         "3": {
           "housing": 1176.0,
           "entertainment": 352.32,
           "food": 521.92,
+          "transport": 555.67,
+          "healthcare": 150.91,
           "insurance": 924.0,
           "utilities": 245.0
         },
         "12": {
           "housing": 1176.0,
           "food": 537.14,
+          "transport": 521.63,
+          "healthcare": 223.91,
           "entertainment": 307.84,
           "utilities": 294.0,
           "insurance": 231.0
@@ -78,6 +78,20 @@
           "3m_estimate": 521.92,
           "3m_pct_error_vs_12m": 2.8,
           "12m_ground_truth": 537.14
+        },
+        "transport": {
+          "1m_estimate": 532.28,
+          "1m_pct_error_vs_12m": 2.0,
+          "3m_estimate": 555.67,
+          "3m_pct_error_vs_12m": 6.5,
+          "12m_ground_truth": 521.63
+        },
+        "healthcare": {
+          "1m_estimate": 133.04,
+          "1m_pct_error_vs_12m": 40.6,
+          "3m_estimate": 150.91,
+          "3m_pct_error_vs_12m": 32.6,
+          "12m_ground_truth": 223.91
         },
         "entertainment": {
           "1m_estimate": 240.62,
@@ -109,31 +123,51 @@
       "monthly_income": 4500.0,
       "windows": {
         "1": {
-          "food": 562.63,
+          "transport": 547.21,
           "housing": 1260.0,
-          "entertainment": 236.98
+          "food": 614.46,
+          "entertainment": 161.37,
+          "healthcare": 214.37
         },
         "3": {
-          "food": 579.16,
+          "food": 582.07,
+          "transport": 531.69,
           "housing": 1260.0,
-          "entertainment": 223.42,
+          "entertainment": 236.8,
+          "healthcare": 156.01,
           "utilities": 231.0
         },
         "12": {
-          "food": 574.5,
+          "food": 577.52,
+          "transport": 534.63,
+          "healthcare": 148.22,
           "housing": 1260.0,
-          "entertainment": 262.82,
+          "entertainment": 267.56,
           "utilities": 315.0,
           "insurance": 90.0
         }
       },
       "per_category_error": {
         "food": {
-          "1m_estimate": 562.63,
-          "1m_pct_error_vs_12m": 2.1,
-          "3m_estimate": 579.16,
+          "1m_estimate": 614.46,
+          "1m_pct_error_vs_12m": 6.4,
+          "3m_estimate": 582.07,
           "3m_pct_error_vs_12m": 0.8,
-          "12m_ground_truth": 574.5
+          "12m_ground_truth": 577.52
+        },
+        "transport": {
+          "1m_estimate": 547.21,
+          "1m_pct_error_vs_12m": 2.4,
+          "3m_estimate": 531.69,
+          "3m_pct_error_vs_12m": 0.5,
+          "12m_ground_truth": 534.63
+        },
+        "healthcare": {
+          "1m_estimate": 214.37,
+          "1m_pct_error_vs_12m": 44.6,
+          "3m_estimate": 156.01,
+          "3m_pct_error_vs_12m": 5.3,
+          "12m_ground_truth": 148.22
         },
         "housing": {
           "1m_estimate": 1260.0,
@@ -143,11 +177,11 @@
           "12m_ground_truth": 1260.0
         },
         "entertainment": {
-          "1m_estimate": 236.98,
-          "1m_pct_error_vs_12m": 9.8,
-          "3m_estimate": 223.42,
-          "3m_pct_error_vs_12m": 15.0,
-          "12m_ground_truth": 262.82
+          "1m_estimate": 161.37,
+          "1m_pct_error_vs_12m": 39.7,
+          "3m_estimate": 236.8,
+          "3m_pct_error_vs_12m": 11.5,
+          "12m_ground_truth": 267.56
         },
         "utilities": {
           "1m_estimate": 0.0,
@@ -172,31 +206,37 @@
       "monthly_income": 2800.0,
       "windows": {
         "1": {
-          "food": 295.56,
+          "food": 289.69,
+          "transport": 427.26,
           "housing": 1120.0,
-          "entertainment": 55.92
+          "healthcare": 167.53,
+          "entertainment": 45.11
         },
         "3": {
+          "food": 288.31,
           "housing": 1120.0,
-          "food": 266.15,
-          "utilities": 214.67,
-          "entertainment": 39.97
+          "transport": 430.14,
+          "entertainment": 50.68,
+          "healthcare": 158.09,
+          "utilities": 214.67
         },
         "12": {
-          "entertainment": 142.22,
+          "food": 407.46,
           "housing": 1120.0,
-          "food": 404.46,
+          "transport": 470.25,
+          "entertainment": 123.57,
           "utilities": 280.0,
-          "insurance": 100.0
+          "insurance": 100.0,
+          "healthcare": 96.24
         }
       },
       "per_category_error": {
-        "entertainment": {
-          "1m_estimate": 55.92,
-          "1m_pct_error_vs_12m": 60.7,
-          "3m_estimate": 39.97,
-          "3m_pct_error_vs_12m": 71.9,
-          "12m_ground_truth": 142.22
+        "food": {
+          "1m_estimate": 289.69,
+          "1m_pct_error_vs_12m": 28.9,
+          "3m_estimate": 288.31,
+          "3m_pct_error_vs_12m": 29.2,
+          "12m_ground_truth": 407.46
         },
         "housing": {
           "1m_estimate": 1120.0,
@@ -205,12 +245,19 @@
           "3m_pct_error_vs_12m": 0.0,
           "12m_ground_truth": 1120.0
         },
-        "food": {
-          "1m_estimate": 295.56,
-          "1m_pct_error_vs_12m": 26.9,
-          "3m_estimate": 266.15,
-          "3m_pct_error_vs_12m": 34.2,
-          "12m_ground_truth": 404.46
+        "transport": {
+          "1m_estimate": 427.26,
+          "1m_pct_error_vs_12m": 9.1,
+          "3m_estimate": 430.14,
+          "3m_pct_error_vs_12m": 8.5,
+          "12m_ground_truth": 470.25
+        },
+        "entertainment": {
+          "1m_estimate": 45.11,
+          "1m_pct_error_vs_12m": 63.5,
+          "3m_estimate": 50.68,
+          "3m_pct_error_vs_12m": 59.0,
+          "12m_ground_truth": 123.57
         },
         "utilities": {
           "1m_estimate": 0.0,
@@ -225,6 +272,13 @@
           "3m_estimate": 0.0,
           "3m_pct_error_vs_12m": 100.0,
           "12m_ground_truth": 100.0
+        },
+        "healthcare": {
+          "1m_estimate": 167.53,
+          "1m_pct_error_vs_12m": 74.1,
+          "3m_estimate": 158.09,
+          "3m_pct_error_vs_12m": 64.3,
+          "12m_ground_truth": 96.24
         }
       }
     },
@@ -236,31 +290,36 @@
       "windows": {
         "1": {
           "housing": 1210.0,
-          "food": 534.02,
-          "entertainment": 519.23
+          "food": 491.14,
+          "transport": 240.42,
+          "entertainment": 327.33
         },
         "3": {
           "housing": 1210.0,
-          "food": 474.2,
-          "entertainment": 336.6,
+          "food": 526.94,
+          "transport": 241.64,
+          "entertainment": 580.34,
+          "healthcare": 71.26,
           "insurance": 176.0,
           "utilities": 168.67
         },
         "12": {
-          "food": 469.24,
+          "food": 505.2,
           "housing": 1210.0,
-          "entertainment": 457.31,
+          "transport": 256.68,
+          "entertainment": 546.93,
           "utilities": 220.0,
+          "healthcare": 90.7,
           "insurance": 44.0
         }
       },
       "per_category_error": {
         "food": {
-          "1m_estimate": 534.02,
-          "1m_pct_error_vs_12m": 13.8,
-          "3m_estimate": 474.2,
-          "3m_pct_error_vs_12m": 1.1,
-          "12m_ground_truth": 469.24
+          "1m_estimate": 491.14,
+          "1m_pct_error_vs_12m": 2.8,
+          "3m_estimate": 526.94,
+          "3m_pct_error_vs_12m": 4.3,
+          "12m_ground_truth": 505.2
         },
         "housing": {
           "1m_estimate": 1210.0,
@@ -269,12 +328,19 @@
           "3m_pct_error_vs_12m": 0.0,
           "12m_ground_truth": 1210.0
         },
+        "transport": {
+          "1m_estimate": 240.42,
+          "1m_pct_error_vs_12m": 6.3,
+          "3m_estimate": 241.64,
+          "3m_pct_error_vs_12m": 5.9,
+          "12m_ground_truth": 256.68
+        },
         "entertainment": {
-          "1m_estimate": 519.23,
-          "1m_pct_error_vs_12m": 13.5,
-          "3m_estimate": 336.6,
-          "3m_pct_error_vs_12m": 26.4,
-          "12m_ground_truth": 457.31
+          "1m_estimate": 327.33,
+          "1m_pct_error_vs_12m": 40.2,
+          "3m_estimate": 580.34,
+          "3m_pct_error_vs_12m": 6.1,
+          "12m_ground_truth": 546.93
         },
         "utilities": {
           "1m_estimate": 0.0,
@@ -283,12 +349,1344 @@
           "3m_pct_error_vs_12m": 23.3,
           "12m_ground_truth": 220.0
         },
+        "healthcare": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 71.26,
+          "3m_pct_error_vs_12m": 21.4,
+          "12m_ground_truth": 90.7
+        },
         "insurance": {
           "1m_estimate": 0.0,
           "1m_pct_error_vs_12m": 100.0,
           "3m_estimate": 176.0,
           "3m_pct_error_vs_12m": 300.0,
           "12m_ground_truth": 44.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_LUMPY_2",
+      "scenario": "high_irregular_costs",
+      "narrative": "Variant of TXN_LUMPY at a different income level (EUR3100/month) and insurance renewal (month 3, 4.0% of annual income) \u2014 same lumpy-cost lesson, different profile, to check the 1-vs-12-month finding isn't an artefact of one specific customer.",
+      "monthly_income": 3100.0,
+      "windows": {
+        "1": {
+          "transport": 392.84,
+          "housing": 868.0,
+          "food": 305.56,
+          "entertainment": 181.43
+        },
+        "3": {
+          "food": 385.91,
+          "transport": 379.77,
+          "housing": 868.0,
+          "healthcare": 164.8,
+          "entertainment": 129.28,
+          "utilities": 173.6
+        },
+        "12": {
+          "housing": 868.0,
+          "food": 395.48,
+          "transport": 376.02,
+          "entertainment": 227.7,
+          "healthcare": 105.06,
+          "utilities": 217.0,
+          "insurance": 124.0
+        }
+      },
+      "per_category_error": {
+        "housing": {
+          "1m_estimate": 868.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 868.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 868.0
+        },
+        "food": {
+          "1m_estimate": 305.56,
+          "1m_pct_error_vs_12m": 22.7,
+          "3m_estimate": 385.91,
+          "3m_pct_error_vs_12m": 2.4,
+          "12m_ground_truth": 395.48
+        },
+        "transport": {
+          "1m_estimate": 392.84,
+          "1m_pct_error_vs_12m": 4.5,
+          "3m_estimate": 379.77,
+          "3m_pct_error_vs_12m": 1.0,
+          "12m_ground_truth": 376.02
+        },
+        "entertainment": {
+          "1m_estimate": 181.43,
+          "1m_pct_error_vs_12m": 20.3,
+          "3m_estimate": 129.28,
+          "3m_pct_error_vs_12m": 43.2,
+          "12m_ground_truth": 227.7
+        },
+        "healthcare": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 164.8,
+          "3m_pct_error_vs_12m": 56.9,
+          "12m_ground_truth": 105.06
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 173.6,
+          "3m_pct_error_vs_12m": 20.0,
+          "12m_ground_truth": 217.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 124.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_LUMPY_3",
+      "scenario": "high_irregular_costs",
+      "narrative": "Variant of TXN_LUMPY at a different income level (EUR5600/month) and insurance renewal (month 7, 7.0% of annual income) \u2014 same lumpy-cost lesson, different profile, to check the 1-vs-12-month finding isn't an artefact of one specific customer.",
+      "monthly_income": 5600.0,
+      "windows": {
+        "1": {
+          "transport": 638.02,
+          "housing": 1568.0,
+          "food": 741.69,
+          "entertainment": 292.69,
+          "healthcare": 500.72
+        },
+        "3": {
+          "entertainment": 441.33,
+          "transport": 634.62,
+          "food": 623.2,
+          "housing": 1568.0,
+          "healthcare": 305.71,
+          "utilities": 333.2
+        },
+        "12": {
+          "transport": 649.74,
+          "food": 667.03,
+          "housing": 1568.0,
+          "entertainment": 588.8,
+          "utilities": 392.0,
+          "healthcare": 247.2,
+          "insurance": 392.0
+        }
+      },
+      "per_category_error": {
+        "transport": {
+          "1m_estimate": 638.02,
+          "1m_pct_error_vs_12m": 1.8,
+          "3m_estimate": 634.62,
+          "3m_pct_error_vs_12m": 2.3,
+          "12m_ground_truth": 649.74
+        },
+        "food": {
+          "1m_estimate": 741.69,
+          "1m_pct_error_vs_12m": 11.2,
+          "3m_estimate": 623.2,
+          "3m_pct_error_vs_12m": 6.6,
+          "12m_ground_truth": 667.03
+        },
+        "housing": {
+          "1m_estimate": 1568.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1568.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1568.0
+        },
+        "entertainment": {
+          "1m_estimate": 292.69,
+          "1m_pct_error_vs_12m": 50.3,
+          "3m_estimate": 441.33,
+          "3m_pct_error_vs_12m": 25.0,
+          "12m_ground_truth": 588.8
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 333.2,
+          "3m_pct_error_vs_12m": 15.0,
+          "12m_ground_truth": 392.0
+        },
+        "healthcare": {
+          "1m_estimate": 500.72,
+          "1m_pct_error_vs_12m": 102.6,
+          "3m_estimate": 305.71,
+          "3m_pct_error_vs_12m": 23.7,
+          "12m_ground_truth": 247.2
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 392.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_LUMPY_4",
+      "scenario": "high_irregular_costs",
+      "narrative": "Variant of TXN_LUMPY at a different income level (EUR2650/month) and insurance renewal (month 1, 6.0% of annual income) \u2014 same lumpy-cost lesson, different profile, to check the 1-vs-12-month finding isn't an artefact of one specific customer.",
+      "monthly_income": 2650.0,
+      "windows": {
+        "1": {
+          "transport": 294.95,
+          "housing": 742.0,
+          "food": 299.07,
+          "entertainment": 556.56,
+          "healthcare": 68.22
+        },
+        "3": {
+          "transport": 319.2,
+          "housing": 742.0,
+          "food": 297.9,
+          "entertainment": 303.09,
+          "healthcare": 190.45,
+          "utilities": 151.49
+        },
+        "12": {
+          "insurance": 159.0,
+          "healthcare": 144.52,
+          "housing": 742.0,
+          "food": 312.25,
+          "transport": 310.66,
+          "entertainment": 257.1,
+          "utilities": 185.5
+        }
+      },
+      "per_category_error": {
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 159.0
+        },
+        "healthcare": {
+          "1m_estimate": 68.22,
+          "1m_pct_error_vs_12m": 52.8,
+          "3m_estimate": 190.45,
+          "3m_pct_error_vs_12m": 31.8,
+          "12m_ground_truth": 144.52
+        },
+        "housing": {
+          "1m_estimate": 742.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 742.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 742.0
+        },
+        "food": {
+          "1m_estimate": 299.07,
+          "1m_pct_error_vs_12m": 4.2,
+          "3m_estimate": 297.9,
+          "3m_pct_error_vs_12m": 4.6,
+          "12m_ground_truth": 312.25
+        },
+        "transport": {
+          "1m_estimate": 294.95,
+          "1m_pct_error_vs_12m": 5.1,
+          "3m_estimate": 319.2,
+          "3m_pct_error_vs_12m": 2.7,
+          "12m_ground_truth": 310.66
+        },
+        "entertainment": {
+          "1m_estimate": 556.56,
+          "1m_pct_error_vs_12m": 116.5,
+          "3m_estimate": 303.09,
+          "3m_pct_error_vs_12m": 17.9,
+          "12m_ground_truth": 257.1
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 151.49,
+          "3m_pct_error_vs_12m": 18.3,
+          "12m_ground_truth": 185.5
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_LUMPY_5",
+      "scenario": "high_irregular_costs",
+      "narrative": "Variant of TXN_LUMPY at a different income level (EUR6800/month) and insurance renewal (month 9, 4.8% of annual income) \u2014 same lumpy-cost lesson, different profile, to check the 1-vs-12-month finding isn't an artefact of one specific customer.",
+      "monthly_income": 6800.0,
+      "windows": {
+        "1": {
+          "housing": 1904.0,
+          "food": 728.56,
+          "transport": 773.22,
+          "entertainment": 1232.21,
+          "healthcare": 283.38
+        },
+        "3": {
+          "food": 816.09,
+          "transport": 797.74,
+          "housing": 1904.0,
+          "entertainment": 1230.99,
+          "healthcare": 381.34,
+          "utilities": 396.67
+        },
+        "12": {
+          "food": 820.35,
+          "housing": 1904.0,
+          "transport": 767.14,
+          "entertainment": 1105.98,
+          "utilities": 476.0,
+          "healthcare": 230.11,
+          "insurance": 326.4
+        }
+      },
+      "per_category_error": {
+        "food": {
+          "1m_estimate": 728.56,
+          "1m_pct_error_vs_12m": 11.2,
+          "3m_estimate": 816.09,
+          "3m_pct_error_vs_12m": 0.5,
+          "12m_ground_truth": 820.35
+        },
+        "housing": {
+          "1m_estimate": 1904.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1904.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1904.0
+        },
+        "transport": {
+          "1m_estimate": 773.22,
+          "1m_pct_error_vs_12m": 0.8,
+          "3m_estimate": 797.74,
+          "3m_pct_error_vs_12m": 4.0,
+          "12m_ground_truth": 767.14
+        },
+        "entertainment": {
+          "1m_estimate": 1232.21,
+          "1m_pct_error_vs_12m": 11.4,
+          "3m_estimate": 1230.99,
+          "3m_pct_error_vs_12m": 11.3,
+          "12m_ground_truth": 1105.98
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 396.67,
+          "3m_pct_error_vs_12m": 16.7,
+          "12m_ground_truth": 476.0
+        },
+        "healthcare": {
+          "1m_estimate": 283.38,
+          "1m_pct_error_vs_12m": 23.1,
+          "3m_estimate": 381.34,
+          "3m_pct_error_vs_12m": 65.7,
+          "12m_ground_truth": 230.11
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 326.4
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_BENCHMARK_2",
+      "scenario": "entirely_within_benchmark",
+      "narrative": "Variant of TXN_BENCHMARK at EUR3000/month \u2014 still low-variance, still tracking HBS fractions, different income level.",
+      "monthly_income": 3000.0,
+      "windows": {
+        "1": {
+          "housing": 840.0,
+          "transport": 352.08,
+          "food": 349.42,
+          "entertainment": 149.95
+        },
+        "3": {
+          "housing": 840.0,
+          "food": 379.23,
+          "transport": 357.89,
+          "healthcare": 100.99,
+          "entertainment": 171.81,
+          "utilities": 150.5
+        },
+        "12": {
+          "housing": 840.0,
+          "food": 395.84,
+          "transport": 354.46,
+          "healthcare": 133.83,
+          "entertainment": 183.07,
+          "utilities": 210.0,
+          "insurance": 54.0
+        }
+      },
+      "per_category_error": {
+        "housing": {
+          "1m_estimate": 840.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 840.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 840.0
+        },
+        "food": {
+          "1m_estimate": 349.42,
+          "1m_pct_error_vs_12m": 11.7,
+          "3m_estimate": 379.23,
+          "3m_pct_error_vs_12m": 4.2,
+          "12m_ground_truth": 395.84
+        },
+        "transport": {
+          "1m_estimate": 352.08,
+          "1m_pct_error_vs_12m": 0.7,
+          "3m_estimate": 357.89,
+          "3m_pct_error_vs_12m": 1.0,
+          "12m_ground_truth": 354.46
+        },
+        "healthcare": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 100.99,
+          "3m_pct_error_vs_12m": 24.5,
+          "12m_ground_truth": 133.83
+        },
+        "entertainment": {
+          "1m_estimate": 149.95,
+          "1m_pct_error_vs_12m": 18.1,
+          "3m_estimate": 171.81,
+          "3m_pct_error_vs_12m": 6.2,
+          "12m_ground_truth": 183.07
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 150.5,
+          "3m_pct_error_vs_12m": 28.3,
+          "12m_ground_truth": 210.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 54.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_BENCHMARK_3",
+      "scenario": "entirely_within_benchmark",
+      "narrative": "Variant of TXN_BENCHMARK at EUR5200/month \u2014 still low-variance, still tracking HBS fractions, different income level.",
+      "monthly_income": 5200.0,
+      "windows": {
+        "1": {
+          "food": 644.3,
+          "housing": 1456.0,
+          "entertainment": 260.5,
+          "transport": 649.84,
+          "healthcare": 225.66
+        },
+        "3": {
+          "food": 615.05,
+          "entertainment": 356.17,
+          "housing": 1456.0,
+          "transport": 634.22,
+          "healthcare": 247.93,
+          "utilities": 273.0
+        },
+        "12": {
+          "food": 674.62,
+          "entertainment": 313.75,
+          "housing": 1456.0,
+          "transport": 635.9,
+          "utilities": 364.0,
+          "healthcare": 168.42,
+          "insurance": 114.4
+        }
+      },
+      "per_category_error": {
+        "food": {
+          "1m_estimate": 644.3,
+          "1m_pct_error_vs_12m": 4.5,
+          "3m_estimate": 615.05,
+          "3m_pct_error_vs_12m": 8.8,
+          "12m_ground_truth": 674.62
+        },
+        "entertainment": {
+          "1m_estimate": 260.5,
+          "1m_pct_error_vs_12m": 17.0,
+          "3m_estimate": 356.17,
+          "3m_pct_error_vs_12m": 13.5,
+          "12m_ground_truth": 313.75
+        },
+        "housing": {
+          "1m_estimate": 1456.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1456.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1456.0
+        },
+        "transport": {
+          "1m_estimate": 649.84,
+          "1m_pct_error_vs_12m": 2.2,
+          "3m_estimate": 634.22,
+          "3m_pct_error_vs_12m": 0.3,
+          "12m_ground_truth": 635.9
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 273.0,
+          "3m_pct_error_vs_12m": 25.0,
+          "12m_ground_truth": 364.0
+        },
+        "healthcare": {
+          "1m_estimate": 225.66,
+          "1m_pct_error_vs_12m": 34.0,
+          "3m_estimate": 247.93,
+          "3m_pct_error_vs_12m": 47.2,
+          "12m_ground_truth": 168.42
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 114.4
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_BENCHMARK_4",
+      "scenario": "entirely_within_benchmark",
+      "narrative": "Variant of TXN_BENCHMARK at EUR2400/month \u2014 still low-variance, still tracking HBS fractions, different income level.",
+      "monthly_income": 2400.0,
+      "windows": {
+        "1": {
+          "housing": 672.0,
+          "food": 254.9,
+          "transport": 263.82,
+          "healthcare": 109.91,
+          "entertainment": 228.4
+        },
+        "3": {
+          "food": 300.66,
+          "housing": 672.0,
+          "entertainment": 166.19,
+          "transport": 273.58,
+          "healthcare": 125.36,
+          "utilities": 122.08
+        },
+        "12": {
+          "food": 305.38,
+          "insurance": 48.0,
+          "housing": 672.0,
+          "entertainment": 148.02,
+          "transport": 276.78,
+          "healthcare": 93.17,
+          "utilities": 168.0
+        }
+      },
+      "per_category_error": {
+        "food": {
+          "1m_estimate": 254.9,
+          "1m_pct_error_vs_12m": 16.5,
+          "3m_estimate": 300.66,
+          "3m_pct_error_vs_12m": 1.5,
+          "12m_ground_truth": 305.38
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 48.0
+        },
+        "housing": {
+          "1m_estimate": 672.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 672.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 672.0
+        },
+        "entertainment": {
+          "1m_estimate": 228.4,
+          "1m_pct_error_vs_12m": 54.3,
+          "3m_estimate": 166.19,
+          "3m_pct_error_vs_12m": 12.3,
+          "12m_ground_truth": 148.02
+        },
+        "transport": {
+          "1m_estimate": 263.82,
+          "1m_pct_error_vs_12m": 4.7,
+          "3m_estimate": 273.58,
+          "3m_pct_error_vs_12m": 1.2,
+          "12m_ground_truth": 276.78
+        },
+        "healthcare": {
+          "1m_estimate": 109.91,
+          "1m_pct_error_vs_12m": 18.0,
+          "3m_estimate": 125.36,
+          "3m_pct_error_vs_12m": 34.5,
+          "12m_ground_truth": 93.17
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 122.08,
+          "3m_pct_error_vs_12m": 27.3,
+          "12m_ground_truth": 168.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_BENCHMARK_5",
+      "scenario": "entirely_within_benchmark",
+      "narrative": "Variant of TXN_BENCHMARK at EUR6000/month \u2014 still low-variance, still tracking HBS fractions, different income level.",
+      "monthly_income": 6000.0,
+      "windows": {
+        "1": {
+          "insurance": 1800.0,
+          "housing": 1680.0,
+          "transport": 674.86,
+          "food": 747.19,
+          "entertainment": 254.6,
+          "healthcare": 201.67
+        },
+        "3": {
+          "food": 774.85,
+          "housing": 1680.0,
+          "entertainment": 347.15,
+          "transport": 719.34,
+          "healthcare": 239.76,
+          "utilities": 310.8,
+          "insurance": 600.0
+        },
+        "12": {
+          "housing": 1680.0,
+          "food": 778.89,
+          "transport": 719.27,
+          "entertainment": 311.51,
+          "healthcare": 226.51,
+          "utilities": 420.0,
+          "insurance": 150.0
+        }
+      },
+      "per_category_error": {
+        "housing": {
+          "1m_estimate": 1680.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1680.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1680.0
+        },
+        "food": {
+          "1m_estimate": 747.19,
+          "1m_pct_error_vs_12m": 4.1,
+          "3m_estimate": 774.85,
+          "3m_pct_error_vs_12m": 0.5,
+          "12m_ground_truth": 778.89
+        },
+        "transport": {
+          "1m_estimate": 674.86,
+          "1m_pct_error_vs_12m": 6.2,
+          "3m_estimate": 719.34,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 719.27
+        },
+        "entertainment": {
+          "1m_estimate": 254.6,
+          "1m_pct_error_vs_12m": 18.3,
+          "3m_estimate": 347.15,
+          "3m_pct_error_vs_12m": 11.4,
+          "12m_ground_truth": 311.51
+        },
+        "healthcare": {
+          "1m_estimate": 201.67,
+          "1m_pct_error_vs_12m": 11.0,
+          "3m_estimate": 239.76,
+          "3m_pct_error_vs_12m": 5.8,
+          "12m_ground_truth": 226.51
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 310.8,
+          "3m_pct_error_vs_12m": 26.0,
+          "12m_ground_truth": 420.0
+        },
+        "insurance": {
+          "1m_estimate": 1800.0,
+          "1m_pct_error_vs_12m": 1100.0,
+          "3m_estimate": 600.0,
+          "3m_pct_error_vs_12m": 300.0,
+          "12m_ground_truth": 150.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_INCOME_CHANGE_2",
+      "scenario": "mid_year_income_change",
+      "narrative": "Variant of TXN_INCOME_CHANGE: a pay cut in month 4 (EUR3500 -> EUR2500/month). Food and discretionary spending move with it; housing/utilities/insurance/transport/healthcare don't. Same window-size lesson as the original (shorter window more accurate here), tested against a different magnitude/direction/timing of change.",
+      "monthly_income": 2500.0,
+      "windows": {
+        "1": {
+          "healthcare": 147.59,
+          "entertainment": 90.02,
+          "transport": 442.94,
+          "housing": 980.0,
+          "food": 222.17
+        },
+        "3": {
+          "food": 229.84,
+          "housing": 980.0,
+          "transport": 442.38,
+          "entertainment": 84.54,
+          "healthcare": 147.93,
+          "utilities": 187.83
+        },
+        "12": {
+          "food": 305.0,
+          "transport": 427.06,
+          "housing": 980.0,
+          "healthcare": 136.5,
+          "utilities": 245.0,
+          "insurance": 87.5,
+          "entertainment": 81.92
+        }
+      },
+      "per_category_error": {
+        "food": {
+          "1m_estimate": 222.17,
+          "1m_pct_error_vs_12m": 27.2,
+          "3m_estimate": 229.84,
+          "3m_pct_error_vs_12m": 24.6,
+          "12m_ground_truth": 305.0
+        },
+        "transport": {
+          "1m_estimate": 442.94,
+          "1m_pct_error_vs_12m": 3.7,
+          "3m_estimate": 442.38,
+          "3m_pct_error_vs_12m": 3.6,
+          "12m_ground_truth": 427.06
+        },
+        "housing": {
+          "1m_estimate": 980.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 980.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 980.0
+        },
+        "healthcare": {
+          "1m_estimate": 147.59,
+          "1m_pct_error_vs_12m": 8.1,
+          "3m_estimate": 147.93,
+          "3m_pct_error_vs_12m": 8.4,
+          "12m_ground_truth": 136.5
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 187.83,
+          "3m_pct_error_vs_12m": 23.3,
+          "12m_ground_truth": 245.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 87.5
+        },
+        "entertainment": {
+          "1m_estimate": 90.02,
+          "1m_pct_error_vs_12m": 9.9,
+          "3m_estimate": 84.54,
+          "3m_pct_error_vs_12m": 3.2,
+          "12m_ground_truth": 81.92
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_INCOME_CHANGE_3",
+      "scenario": "mid_year_income_change",
+      "narrative": "Variant of TXN_INCOME_CHANGE: a pay cut in month 9 (EUR5000 -> EUR4200/month). Food and discretionary spending move with it; housing/utilities/insurance/transport/healthcare don't. Same window-size lesson as the original (shorter window more accurate here), tested against a different magnitude/direction/timing of change.",
+      "monthly_income": 4200.0,
+      "windows": {
+        "1": {
+          "food": 381.18,
+          "entertainment": 214.52,
+          "transport": 553.68,
+          "housing": 1400.0,
+          "healthcare": 168.24
+        },
+        "3": {
+          "housing": 1400.0,
+          "transport": 572.95,
+          "food": 425.74,
+          "entertainment": 356.79,
+          "utilities": 268.33,
+          "healthcare": 56.08
+        },
+        "12": {
+          "housing": 1400.0,
+          "food": 586.94,
+          "entertainment": 329.54,
+          "transport": 602.44,
+          "utilities": 350.0,
+          "insurance": 125.0,
+          "healthcare": 182.43
+        }
+      },
+      "per_category_error": {
+        "housing": {
+          "1m_estimate": 1400.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1400.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1400.0
+        },
+        "food": {
+          "1m_estimate": 381.18,
+          "1m_pct_error_vs_12m": 35.1,
+          "3m_estimate": 425.74,
+          "3m_pct_error_vs_12m": 27.5,
+          "12m_ground_truth": 586.94
+        },
+        "entertainment": {
+          "1m_estimate": 214.52,
+          "1m_pct_error_vs_12m": 34.9,
+          "3m_estimate": 356.79,
+          "3m_pct_error_vs_12m": 8.3,
+          "12m_ground_truth": 329.54
+        },
+        "transport": {
+          "1m_estimate": 553.68,
+          "1m_pct_error_vs_12m": 8.1,
+          "3m_estimate": 572.95,
+          "3m_pct_error_vs_12m": 4.9,
+          "12m_ground_truth": 602.44
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 268.33,
+          "3m_pct_error_vs_12m": 23.3,
+          "12m_ground_truth": 350.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 125.0
+        },
+        "healthcare": {
+          "1m_estimate": 168.24,
+          "1m_pct_error_vs_12m": 7.8,
+          "3m_estimate": 56.08,
+          "3m_pct_error_vs_12m": 69.3,
+          "12m_ground_truth": 182.43
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_INCOME_CHANGE_4",
+      "scenario": "mid_year_income_change",
+      "narrative": "Variant of TXN_INCOME_CHANGE: a pay cut in month 5 (EUR2800 -> EUR1900/month). Food and discretionary spending move with it; housing/utilities/insurance/transport/healthcare don't. Same window-size lesson as the original (shorter window more accurate here), tested against a different magnitude/direction/timing of change.",
+      "monthly_income": 1900.0,
+      "windows": {
+        "1": {
+          "housing": 784.0,
+          "food": 147.29,
+          "transport": 396.98,
+          "entertainment": 92.01
+        },
+        "3": {
+          "transport": 326.74,
+          "housing": 784.0,
+          "food": 156.22,
+          "entertainment": 56.23,
+          "utilities": 150.27
+        },
+        "12": {
+          "housing": 784.0,
+          "food": 227.72,
+          "transport": 333.24,
+          "healthcare": 74.01,
+          "utilities": 196.0,
+          "insurance": 70.0,
+          "entertainment": 78.04
+        }
+      },
+      "per_category_error": {
+        "housing": {
+          "1m_estimate": 784.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 784.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 784.0
+        },
+        "food": {
+          "1m_estimate": 147.29,
+          "1m_pct_error_vs_12m": 35.3,
+          "3m_estimate": 156.22,
+          "3m_pct_error_vs_12m": 31.4,
+          "12m_ground_truth": 227.72
+        },
+        "transport": {
+          "1m_estimate": 396.98,
+          "1m_pct_error_vs_12m": 19.1,
+          "3m_estimate": 326.74,
+          "3m_pct_error_vs_12m": 2.0,
+          "12m_ground_truth": 333.24
+        },
+        "healthcare": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 74.01
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 150.27,
+          "3m_pct_error_vs_12m": 23.3,
+          "12m_ground_truth": 196.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 70.0
+        },
+        "entertainment": {
+          "1m_estimate": 92.01,
+          "1m_pct_error_vs_12m": 17.9,
+          "3m_estimate": 56.23,
+          "3m_pct_error_vs_12m": 27.9,
+          "12m_ground_truth": 78.04
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_INCOME_CHANGE_5",
+      "scenario": "mid_year_income_change",
+      "narrative": "Variant of TXN_INCOME_CHANGE: a raise in month 6 (EUR3200 -> EUR4400/month). Food and discretionary spending move with it; housing/utilities/insurance/transport/healthcare don't. Same window-size lesson as the original (shorter window more accurate here), tested against a different magnitude/direction/timing of change.",
+      "monthly_income": 4400.0,
+      "windows": {
+        "1": {
+          "housing": 896.0,
+          "food": 700.66,
+          "transport": 396.96,
+          "healthcare": 79.89,
+          "entertainment": 272.08
+        },
+        "3": {
+          "housing": 896.0,
+          "food": 783.16,
+          "transport": 380.09,
+          "entertainment": 238.6,
+          "utilities": 171.73,
+          "healthcare": 26.63
+        },
+        "12": {
+          "housing": 896.0,
+          "transport": 380.12,
+          "food": 606.31,
+          "healthcare": 84.0,
+          "entertainment": 224.25,
+          "utilities": 224.0,
+          "insurance": 80.0
+        }
+      },
+      "per_category_error": {
+        "housing": {
+          "1m_estimate": 896.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 896.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 896.0
+        },
+        "transport": {
+          "1m_estimate": 396.96,
+          "1m_pct_error_vs_12m": 4.4,
+          "3m_estimate": 380.09,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 380.12
+        },
+        "food": {
+          "1m_estimate": 700.66,
+          "1m_pct_error_vs_12m": 15.6,
+          "3m_estimate": 783.16,
+          "3m_pct_error_vs_12m": 29.2,
+          "12m_ground_truth": 606.31
+        },
+        "healthcare": {
+          "1m_estimate": 79.89,
+          "1m_pct_error_vs_12m": 4.9,
+          "3m_estimate": 26.63,
+          "3m_pct_error_vs_12m": 68.3,
+          "12m_ground_truth": 84.0
+        },
+        "entertainment": {
+          "1m_estimate": 272.08,
+          "1m_pct_error_vs_12m": 21.3,
+          "3m_estimate": 238.6,
+          "3m_pct_error_vs_12m": 6.4,
+          "12m_ground_truth": 224.25
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 171.73,
+          "3m_pct_error_vs_12m": 23.3,
+          "12m_ground_truth": 224.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 80.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_NEGATIVE_2",
+      "scenario": "negative_disposable_income",
+      "narrative": "Variant of TXN_NEGATIVE at EUR2600/month \u2014 total expense fractions sum to ~1.37 of income by construction (housing 30%, food 35%, discretionary 40%), a different overspend profile than the housing-dominated original, to check the savings_rate_flag finding isn't specific to one dominant driver.",
+      "monthly_income": 2600.0,
+      "windows": {
+        "1": {
+          "food": 800.26,
+          "transport": 348.2,
+          "housing": 780.0,
+          "entertainment": 1523.74,
+          "healthcare": 121.37
+        },
+        "3": {
+          "housing": 780.0,
+          "food": 837.85,
+          "transport": 337.25,
+          "entertainment": 1124.02,
+          "healthcare": 49.56,
+          "utilities": 239.2
+        },
+        "12": {
+          "food": 828.58,
+          "transport": 310.06,
+          "housing": 780.0,
+          "healthcare": 78.07,
+          "entertainment": 966.57,
+          "utilities": 312.0,
+          "insurance": 52.0
+        }
+      },
+      "per_category_error": {
+        "food": {
+          "1m_estimate": 800.26,
+          "1m_pct_error_vs_12m": 3.4,
+          "3m_estimate": 837.85,
+          "3m_pct_error_vs_12m": 1.1,
+          "12m_ground_truth": 828.58
+        },
+        "transport": {
+          "1m_estimate": 348.2,
+          "1m_pct_error_vs_12m": 12.3,
+          "3m_estimate": 337.25,
+          "3m_pct_error_vs_12m": 8.8,
+          "12m_ground_truth": 310.06
+        },
+        "housing": {
+          "1m_estimate": 780.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 780.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 780.0
+        },
+        "healthcare": {
+          "1m_estimate": 121.37,
+          "1m_pct_error_vs_12m": 55.5,
+          "3m_estimate": 49.56,
+          "3m_pct_error_vs_12m": 36.5,
+          "12m_ground_truth": 78.07
+        },
+        "entertainment": {
+          "1m_estimate": 1523.74,
+          "1m_pct_error_vs_12m": 57.6,
+          "3m_estimate": 1124.02,
+          "3m_pct_error_vs_12m": 16.3,
+          "12m_ground_truth": 966.57
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 239.2,
+          "3m_pct_error_vs_12m": 23.3,
+          "12m_ground_truth": 312.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 52.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_NEGATIVE_3",
+      "scenario": "negative_disposable_income",
+      "narrative": "Variant of TXN_NEGATIVE at EUR3000/month \u2014 total expense fractions sum to ~1.22 of income by construction (housing 35%, food 20%, discretionary 35%), a different overspend profile than the housing-dominated original, to check the savings_rate_flag finding isn't specific to one dominant driver.",
+      "monthly_income": 3000.0,
+      "windows": {
+        "1": {
+          "housing": 1050.0,
+          "transport": 333.81,
+          "food": 562.79,
+          "entertainment": 1506.48,
+          "healthcare": 250.37
+        },
+        "3": {
+          "housing": 1050.0,
+          "food": 514.16,
+          "transport": 338.64,
+          "healthcare": 177.95,
+          "entertainment": 1285.75,
+          "utilities": 276.0
+        },
+        "12": {
+          "housing": 1050.0,
+          "transport": 361.35,
+          "food": 558.65,
+          "entertainment": 968.02,
+          "healthcare": 110.26,
+          "utilities": 360.0,
+          "insurance": 60.0
+        }
+      },
+      "per_category_error": {
+        "housing": {
+          "1m_estimate": 1050.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1050.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1050.0
+        },
+        "transport": {
+          "1m_estimate": 333.81,
+          "1m_pct_error_vs_12m": 7.6,
+          "3m_estimate": 338.64,
+          "3m_pct_error_vs_12m": 6.3,
+          "12m_ground_truth": 361.35
+        },
+        "food": {
+          "1m_estimate": 562.79,
+          "1m_pct_error_vs_12m": 0.7,
+          "3m_estimate": 514.16,
+          "3m_pct_error_vs_12m": 8.0,
+          "12m_ground_truth": 558.65
+        },
+        "entertainment": {
+          "1m_estimate": 1506.48,
+          "1m_pct_error_vs_12m": 55.6,
+          "3m_estimate": 1285.75,
+          "3m_pct_error_vs_12m": 32.8,
+          "12m_ground_truth": 968.02
+        },
+        "healthcare": {
+          "1m_estimate": 250.37,
+          "1m_pct_error_vs_12m": 127.1,
+          "3m_estimate": 177.95,
+          "3m_pct_error_vs_12m": 61.4,
+          "12m_ground_truth": 110.26
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 276.0,
+          "3m_pct_error_vs_12m": 23.3,
+          "12m_ground_truth": 360.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 60.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_NEGATIVE_4",
+      "scenario": "negative_disposable_income",
+      "narrative": "Variant of TXN_NEGATIVE at EUR1800/month \u2014 total expense fractions sum to ~1.40 of income by construction (housing 65%, food 22%, discretionary 22%), a different overspend profile than the housing-dominated original, to check the savings_rate_flag finding isn't specific to one dominant driver.",
+      "monthly_income": 1800.0,
+      "windows": {
+        "1": {
+          "housing": 1170.0,
+          "food": 384.56,
+          "entertainment": 330.39,
+          "transport": 227.98
+        },
+        "3": {
+          "food": 386.92,
+          "housing": 1170.0,
+          "transport": 215.19,
+          "entertainment": 395.16,
+          "utilities": 151.8
+        },
+        "12": {
+          "housing": 1170.0,
+          "food": 369.71,
+          "transport": 212.56,
+          "utilities": 198.0,
+          "entertainment": 399.22,
+          "healthcare": 58.95,
+          "insurance": 36.0
+        }
+      },
+      "per_category_error": {
+        "housing": {
+          "1m_estimate": 1170.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1170.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1170.0
+        },
+        "food": {
+          "1m_estimate": 384.56,
+          "1m_pct_error_vs_12m": 4.0,
+          "3m_estimate": 386.92,
+          "3m_pct_error_vs_12m": 4.7,
+          "12m_ground_truth": 369.71
+        },
+        "transport": {
+          "1m_estimate": 227.98,
+          "1m_pct_error_vs_12m": 7.3,
+          "3m_estimate": 215.19,
+          "3m_pct_error_vs_12m": 1.2,
+          "12m_ground_truth": 212.56
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 151.8,
+          "3m_pct_error_vs_12m": 23.3,
+          "12m_ground_truth": 198.0
+        },
+        "entertainment": {
+          "1m_estimate": 330.39,
+          "1m_pct_error_vs_12m": 17.2,
+          "3m_estimate": 395.16,
+          "3m_pct_error_vs_12m": 1.0,
+          "12m_ground_truth": 399.22
+        },
+        "healthcare": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 58.95
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 0.0,
+          "3m_pct_error_vs_12m": 100.0,
+          "12m_ground_truth": 36.0
+        }
+      }
+    },
+    {
+      "customer_id": "TXN_NEGATIVE_5",
+      "scenario": "negative_disposable_income",
+      "narrative": "Variant of TXN_NEGATIVE at EUR3500/month \u2014 total expense fractions sum to ~1.06 of income by construction (housing 42%, food 20%, discretionary 14%), a different overspend profile than the housing-dominated original, to check the savings_rate_flag finding isn't specific to one dominant driver.",
+      "monthly_income": 3500.0,
+      "windows": {
+        "1": {
+          "housing": 1470.0,
+          "entertainment": 538.02,
+          "food": 548.32,
+          "transport": 410.86,
+          "healthcare": 417.58
+        },
+        "3": {
+          "housing": 1470.0,
+          "food": 662.35,
+          "insurance": 280.0,
+          "transport": 424.93,
+          "entertainment": 374.73,
+          "healthcare": 207.64,
+          "utilities": 268.33
+        },
+        "12": {
+          "housing": 1470.0,
+          "food": 677.47,
+          "transport": 416.46,
+          "entertainment": 422.68,
+          "healthcare": 149.29,
+          "utilities": 350.0,
+          "insurance": 70.0
+        }
+      },
+      "per_category_error": {
+        "housing": {
+          "1m_estimate": 1470.0,
+          "1m_pct_error_vs_12m": 0.0,
+          "3m_estimate": 1470.0,
+          "3m_pct_error_vs_12m": 0.0,
+          "12m_ground_truth": 1470.0
+        },
+        "food": {
+          "1m_estimate": 548.32,
+          "1m_pct_error_vs_12m": 19.1,
+          "3m_estimate": 662.35,
+          "3m_pct_error_vs_12m": 2.2,
+          "12m_ground_truth": 677.47
+        },
+        "transport": {
+          "1m_estimate": 410.86,
+          "1m_pct_error_vs_12m": 1.3,
+          "3m_estimate": 424.93,
+          "3m_pct_error_vs_12m": 2.0,
+          "12m_ground_truth": 416.46
+        },
+        "entertainment": {
+          "1m_estimate": 538.02,
+          "1m_pct_error_vs_12m": 27.3,
+          "3m_estimate": 374.73,
+          "3m_pct_error_vs_12m": 11.3,
+          "12m_ground_truth": 422.68
+        },
+        "healthcare": {
+          "1m_estimate": 417.58,
+          "1m_pct_error_vs_12m": 179.7,
+          "3m_estimate": 207.64,
+          "3m_pct_error_vs_12m": 39.1,
+          "12m_ground_truth": 149.29
+        },
+        "utilities": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 268.33,
+          "3m_pct_error_vs_12m": 23.3,
+          "12m_ground_truth": 350.0
+        },
+        "insurance": {
+          "1m_estimate": 0.0,
+          "1m_pct_error_vs_12m": 100.0,
+          "3m_estimate": 280.0,
+          "3m_pct_error_vs_12m": 300.0,
+          "12m_ground_truth": 70.0
         }
       }
     }

@@ -106,8 +106,20 @@ QUESTIONNAIRE_SCHEMA: list[QuestionnaireQuestion] = [
         mandatory=False, weight=_HBS["food"], expense_category="food",
     ),
     QuestionnaireQuestion(
+         "transport_spend",
+        "Roughly how much do you spend on transport per month — car costs, "
+        "fuel, or public transport?",
+        mandatory=False, weight=_HBS["transport"], expense_category="transport",
+    ),
+    QuestionnaireQuestion(
         "utilities_spend", "Roughly how much do your utility bills (electricity, gas, water) come to per month?",
         mandatory=False, weight=_HBS["utilities"], expense_category="utilities",
+    ),
+    QuestionnaireQuestion(
+        "healthcare_spend",
+        "Roughly how much do you spend on healthcare per month — GP visits, "
+        "pharmacy, or health insurance?",
+        mandatory=False, weight=_HBS["healthcare"], expense_category="healthcare",
     ),
     QuestionnaireQuestion(
         "discretionary_spend",

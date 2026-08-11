@@ -885,7 +885,8 @@ class TestDataSufficiencyIntegration:
 
 _SUFFICIENT_QUESTIONNAIRE = {
     "income": 3000.0, "housing_cost": 1200.0, "rough_monthly_leftover": 500.0,
-    "food_spend": 400.0, "utilities_spend": 150.0, "discretionary_spend": 200.0,
+    "food_spend": 400.0, "transport_spend": 250.0, "utilities_spend": 150.0,
+    "discretionary_spend": 200.0,
 }
 _PARTIAL_QUESTIONNAIRE = {"income": 3000.0, "housing_cost": 1200.0}
 
@@ -1096,7 +1097,7 @@ class TestTransactionWindowEvaluation:
         print(f"\n[Transaction window] Results written to {results_path}")
 
         # Structural + qualitative assertions
-        assert len(customer_results) == 4
+        assert len(customer_results) == 20  # 4 scenario types x 5 variants each
 
         lumpy = next(c for c in customer_results if c["customer_id"] == "TXN_LUMPY")
         assert "insurance" not in lumpy["windows"][1], (
