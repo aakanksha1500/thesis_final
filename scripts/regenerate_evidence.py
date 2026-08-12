@@ -218,6 +218,21 @@ STAGES: list[Stage] = [
               "Check full_advisory is not stealing from investment_advice.",
     ),
     Stage(
+        key="core_intent",
+        label="Core advisory intent baseline (the 5 buckets Banking77 can't reach)",
+        command=PYTEST + ["tests/unit/test_core_intent_evaluation.py::TestCoreIntentBucketEvaluation"],
+        produces=["phase2c_core_intent_baseline.json"],
+        est_tokens=4_000,
+        rq="RQ4 (supporting)",
+        notes="Distinct from 'intent' above — Banking77 has zero ground "
+              "truth for risk_profiling/investment_advice/budget_analysis/"
+              "full_advisory/out_of_scope by construction (see data/"
+              "banking77_bucket_map.json), so 'intent' can only ever "
+              "measure the other 3 buckets. This is the corpus that was "
+              "missing for the 5 that actually matter to the system's core "
+              "purpose — see the coverage audit, Part 7.",
+    ),
+    Stage(
         key="budget",
         label="Budget benchmark baseline (Ireland HBS [D11])",
         command=PYTEST + ["tests/unit/test_budget_agent.py::TestBudgetAgentRun"],

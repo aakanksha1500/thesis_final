@@ -107,9 +107,15 @@ _CLASS_TO_BUCKET: dict[str, str] = {
 INTENT_BUCKET_GUIDE: dict[str, str] = {
     "general_query": (
         "generic banking questions not needing a specialist — balance, "
-        "spending limits, exchange rates, card status. "
+        "spending limits, exchange rates, card status, AND status/why "
+        "questions about your own account or a transaction, even when "
+        "phrased with 'why' or 'explain' — a pending payment, a charge "
+        "you don't recognise, a declined transaction. The 'why' is about "
+        "the transaction/account, not about anything this assistant said. "
         'e.g. "what\'s my balance", "is my card about to expire", '
-        '"what\'s the exchange rate"'
+        '"what\'s the exchange rate", "why is my transfer still '
+        'pending", "why was I charged for that", "how come my payment '
+        'was declined"'
     ),
     "risk_profiling": (
         "wants their own risk tolerance or investor profile assessed. "
@@ -132,14 +138,25 @@ INTENT_BUCKET_GUIDE: dict[str, str] = {
         'payment"'
     ),
     "product_suggestion": (
-        "wants a specific banking product — a card, cheque book, account "
-        'type. e.g. "I need a new card", "order me a cheque book", '
-        '"what card types do you offer"'
+        "wants to REQUEST or ORDER a specific banking product that's NEW "
+        "to them — a card, cheque book, account type. NOT a status, "
+        "rule, or problem question about a card/account they ALREADY "
+        "have (that's general_query even though it mentions a card — "
+        '"is my card about to expire" or "why was my card payment '
+        'declined" are general_query, not this). '
+        'e.g. "I need a new card", "order me a cheque book", '
+        '"what card types do you offer", "can I get a virtual card"'
     ),
     "explanation_request": (
-        "wants to understand WHY a previous answer or recommendation was "
-        'given. e.g. "why did you recommend that", "explain that", '
-        '"how did you work that out"'
+        "wants to understand WHY a previous answer or recommendation "
+        "from THIS ASSISTANT, in THIS conversation, was given — never a "
+        "general 'why is this happening' question about an account or "
+        "transaction, even when it uses the words 'why' or 'explain' "
+        "(that's general_query — see its own examples). This bucket "
+        "needs a prior recommendation to be pointing back at. "
+        'e.g. "why did you recommend that", "explain that", '
+        '"how did you work that out", "why do you think I\'m moderate '
+        'risk"'
     ),
     "full_advisory": (
         "wants a complete financial review with no specific question — "

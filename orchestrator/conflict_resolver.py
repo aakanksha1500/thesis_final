@@ -80,6 +80,27 @@ class ConflictResolver:
                 )
 
         # Check 2: Risk-product compatibility
+        if risk_result and risk_result.success:
+            confidence = risk_result.payload.get("confidence", 1.0)
+            risk_class = risk_result.payload.get("risk_class", "moderate")
+            if (confidence < settings.risk.min_confidence and
+                    risk_class in ("moderately_aggressive", "aggressive")):
+                conflict = {
+                    "type": "LOW_CONFIDENCE_AGGRESSIVE",
+                    "description": (
+                        f"Risk class '{risk_class}' assigned with low confidence "
+                        f"({confidence:.0%} < {settings.risk.min_confidence:.0%}). "
+                        f"Downgrading to 'moderate' for investment routing."
+                    ),
+                    "resolution": "Risk class downgraded to 'moderate' for this turn.",
+                }
+                risk_result.payload["risk_class_original"] = risk_class
+                risk_result.payload["risk_class"] = "moderate"
+                conflicts.append(conflict)
+                logger.warning(
+                    f"[ConflictResolver] LOW_CONFIDENCE_AGGRESSIVE: "
+                    f"downgraded {risk_class} → moderate (conf={confidence:.2f})"
+                )
         if (risk_result and risk_result.success and
                 inv_result and inv_result.success and
                 inv_result.payload.get("deliverable", True)):
@@ -116,28 +137,7 @@ class ConflictResolver:
                 inv_result.payload["shortlist"] = cleaned_shortlist
                 inv_result.payload["shortlist_cleaned"] = True
 
-        # Check 3: Low confidence + aggressive routing
-        if risk_result and risk_result.success:
-            confidence = risk_result.payload.get("confidence", 1.0)
-            risk_class = risk_result.payload.get("risk_class", "moderate")
-            if (confidence < settings.risk.min_confidence and
-                    risk_class in ("moderately_aggressive", "aggressive")):
-                conflict = {
-                    "type": "LOW_CONFIDENCE_AGGRESSIVE",
-                    "description": (
-                        f"Risk class '{risk_class}' assigned with low confidence "
-                        f"({confidence:.0%} < {settings.risk.min_confidence:.0%}). "
-                        f"Downgrading to 'moderate' for investment routing."
-                    ),
-                    "resolution": "Risk class downgraded to 'moderate' for this turn.",
-                }
-                risk_result.payload["risk_class_original"] = risk_class
-                risk_result.payload["risk_class"] = "moderate"
-                conflicts.append(conflict)
-                logger.warning(
-                    f"[ConflictResolver] LOW_CONFIDENCE_AGGRESSIVE: "
-                    f"downgraded {risk_class} → moderate (conf={confidence:.2f})"
-                )
+        
         for c in conflicts:
             trace.emit("⚠ CONFLICT", c["type"], resolution=c["resolution"])
         return agent_results, conflicts

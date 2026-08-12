@@ -81,3 +81,51 @@ class TestClassifierPromptUsesNaturalLanguage:
         prompt = self._captured_prompt("hello")
         for description in INTENT_BUCKET_GUIDE.values():
             assert description in prompt
+
+
+class TestExplanationRequestVsGeneralQueryDisambiguation:
+    """
+    Regression test for the second prompt-diagnosis fix, grounded directly
+    in data/processed/banking77_eval_checkpoint.json's real failures (see
+    the coverage audit, Part 7): 53 of 110 general_query utterances were
+    misrouted to explanation_request, and 21 more to product_suggestion,
+    almost all of them "why is my transfer/payment/card doing X" questions
+    that lexically resemble explanation_request's own examples ("why did
+    you recommend that") or mention a card, without being either.
+
+    This does NOT re-test classification accuracy end-to-end — same
+    limitation as TestClassifierPromptUsesNaturalLanguage above, real
+    verification needs a live LLM run (see
+    scripts/regenerate_evidence.py --only intent). What it guards is that
+    the disambiguating language actually reaches the prompt, and that a
+    future edit can't quietly narrow it back to the version that produced
+    the 34.8% accuracy figure.
+    """
+
+    def _captured_prompt(self, user_message: str) -> str:
+        agent = ConversationalAgent(MagicMock())
+        captured = {}
+
+        def fake_call_llm(prompt, temperature=0.0, system_override=None):
+            captured["prompt"] = prompt
+            return '{"intent": "general_query", "confidence": 0.9}', 10
+
+        agent._call_llm = fake_call_llm
+        agent._classify_intent(user_message)
+        return captured["prompt"]
+
+    def test_explanation_request_excludes_general_why_questions(self):
+        prompt = self._captured_prompt("why is my transfer still pending")
+        guide = INTENT_BUCKET_GUIDE["explanation_request"]
+        assert "never a general" in guide.lower() or "not a general" in guide.lower()
+        assert "this assistant" in guide.lower()
+        assert guide in prompt
+
+    def test_general_query_explicitly_covers_why_phrased_status_questions(self):
+        guide = INTENT_BUCKET_GUIDE["general_query"]
+        assert "why" in guide.lower()
+        assert "why is my transfer still pending" in guide.lower()
+
+    def test_product_suggestion_excludes_existing_card_status_questions(self):
+        guide = INTENT_BUCKET_GUIDE["product_suggestion"]
+        assert "new to them" in guide.lower() or "already have" in guide.lower()

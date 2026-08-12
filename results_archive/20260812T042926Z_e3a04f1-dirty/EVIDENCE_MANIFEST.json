@@ -1,0 +1,53 @@
+{
+  "generated_at_utc": "2026-08-11T20:17:09.419978+00:00",
+  "git_sha": "47dd8a3",
+  "git_dirty": true,
+  "llm_cache_mode": "record",
+  "llm_cache_stats": {
+    "hits": 0,
+    "misses": 0,
+    "writes": 0,
+    "errors": 0,
+    "mode": "record",
+    "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+    "hit_rate": null,
+    "clean_replay": false
+  },
+  "wall_clock_s": 22.6,
+  "archived_to": "results_archive/20260811T201646Z_47dd8a3-dirty",
+  "stages": [
+    {
+      "key": "recalibrate",
+      "label": "Recalibrate percentile grid (age-neutral, own population)",
+      "rq": "RQ1",
+      "status": "ok",
+      "returncode": 0,
+      "duration_s": 19.3,
+      "produced": [],
+      "est_tokens": 0
+    },
+    {
+      "key": "rq1",
+      "label": "RQ1 \u2014 risk classification (hybrid vs rule-only)",
+      "rq": "RQ1",
+      "status": "ok",
+      "returncode": 0,
+      "duration_s": 3.3,
+      "produced": [
+        "phase3_risk_baseline.json",
+        "mock/phase3_risk_baseline.json",
+        "groq/phase3_risk_baseline.json"
+      ],
+      "est_tokens": 2000
+    }
+  ],
+  "metric_changes": [
+    {
+      "file": "groq/phase3_risk_baseline.json",
+      "metric": "\u2014",
+      "old": null,
+      "new": null,
+      "status": "NEW FILE"
+    }
+  ]
+}

@@ -278,6 +278,34 @@ class TestConflictResolver:
         types = [c["type"] for c in conflicts]
         assert "LOW_CONFIDENCE_AGGRESSIVE" not in types
 
+    def test_low_confidence_downgrade_also_filters_the_shortlist(self):
+        """
+        The ordering bug this guards: a low-confidence moderately_aggressive
+        classification downgrades risk_class to "moderate" (Check 2), but a
+        shortlist built for moderately_aggressive can contain categories
+        (etf_sector, equity_fund) that "moderate" doesn't allow. If the
+        compatibility check (Check 3) ran against the ORIGINAL risk_class
+        instead of the downgraded one, a still-incompatible product would
+        survive under a risk_class the turn's own output now calls
+        "moderate" — this is exactly that combination in one turn.
+        """
+        resolver = ConflictResolver()
+        risk = _make_risk_result("moderately_aggressive", confidence=0.4)
+        inv = _make_investment_result([
+            {"name": "Technology Sector ETF", "category": "etf_sector",
+             "expected_return_pct": 9.0, "score": 0.8},
+        ])
+        results, conflicts = resolver.resolve([risk, inv])
+        types = [c["type"] for c in conflicts]
+        assert "LOW_CONFIDENCE_AGGRESSIVE" in types
+        assert "RISK_PRODUCT_MISMATCH" in types
+
+        risk_result = next(r for r in results if r.agent_name == "RiskProfilingAgent")
+        assert risk_result.payload["risk_class"] == "moderate"
+
+        inv_result = next(r for r in results if r.agent_name == "InvestmentAgent")
+        assert inv_result.payload["shortlist"] == []
+
     def test_empty_results_returns_empty_conflicts(self):
         resolver = ConflictResolver()
         _, conflicts = resolver.resolve([])
@@ -353,6 +381,40 @@ class TestFailureHandler:
         synthesis = result["recovered_payload"]["synthesis"]
         assert "not regulated financial advice" in synthesis.lower() or \
                "consult a qualified advisor" in synthesis.lower()
+
+    def test_investment_recovery_product_matches_every_risk_tier(self):
+        """
+        A single fixed fallback product can't be compatible with every risk
+        tier — RISK_PRODUCT_ALLOW has no category valid across all five by
+        design. The fallback product's own category must therefore be
+        different per tier, and — the actual bug this guards — must
+        survive ConflictResolver afterward rather than being silently
+        stripped back to an empty shortlist.
+        """
+        from config.constraints import FinancialConstraints
+        from orchestrator.conflict_resolver import ConflictResolver
+
+        handler = FailureHandler()
+        resolver = ConflictResolver()
+        for tier in FinancialConstraints.RISK_PRODUCT_ALLOW:
+            recovery = handler.attempt_recovery(
+                "InvestmentAgent", Exception("error"),
+                {"risk_agent_payload": {"risk_class": tier}},
+            )
+            product = recovery["recovered_payload"]["shortlist"][0]
+            assert product["category"] in FinancialConstraints.RISK_PRODUCT_ALLOW[tier], (
+                f"fallback category '{product['category']}' not allowed for {tier}"
+            )
+
+            risk = _make_risk_result(tier)
+            inv = AgentResult(
+                agent_name="InvestmentAgent", success=True,
+                payload=recovery["recovered_payload"],
+            )
+            results, conflicts = resolver.resolve([risk, inv])
+            inv_final = next(r for r in results if r.agent_name == "InvestmentAgent")
+            assert "RISK_PRODUCT_MISMATCH" not in [c["type"] for c in conflicts]
+            assert len(inv_final.payload["shortlist"]) == 1
 
     def test_budget_recovery_is_skip(self):
         handler = FailureHandler()

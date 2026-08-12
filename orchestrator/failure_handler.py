@@ -39,6 +39,15 @@ class FailureHandler:
     Returns a recovery payload that substitutes for the failed agent's output.
     """
 
+    # One safe fallback product per risk tier, not a single universal one —
+    # RISK_PRODUCT_ALLOW has no category valid across all five tiers by
+    # design (conservative's safe categories are explicitly excluded from
+    # moderately_aggressive/aggressive, and vice versa), so a single fixed
+    # fallback can only ever be compatible with a subset of tiers. Using
+    # just the conservative one meant ConflictResolver silently stripped it
+    # back to an empty shortlist for "moderate" and above — now the most
+    # common real tier — defeating the fallback's whole purpose without
+    # raising or logging anything at the point it happened.
     CONSERVATIVE_FALLBACK_PRODUCT = {
         "product_id": "SAV001_FALLBACK",
         "name": "An Post Savings Bond (fallback)",
@@ -47,6 +56,38 @@ class FailureHandler:
         "expense_ratio_pct": 0.0,
         "score": 0.0,
         "fallback": True,
+    }
+
+    _FALLBACK_PRODUCT_BY_TIER: dict[str, dict] = {
+        "conservative": CONSERVATIVE_FALLBACK_PRODUCT,
+        "moderately_conservative": CONSERVATIVE_FALLBACK_PRODUCT,
+        "moderate": {
+            "product_id": "GOV001_FALLBACK",
+            "name": "Irish Government Bond (fallback)",
+            "category": "government_bond",
+            "expected_return_pct": 3.2,
+            "expense_ratio_pct": 0.1,
+            "score": 0.0,
+            "fallback": True,
+        },
+        "moderately_aggressive": {
+            "product_id": "CB001_FALLBACK",
+            "name": "Broad Corporate Bond Fund (fallback)",
+            "category": "corporate_bond",
+            "expected_return_pct": 5.0,
+            "expense_ratio_pct": 0.4,
+            "score": 0.0,
+            "fallback": True,
+        },
+        "aggressive": {
+            "product_id": "EQF001_FALLBACK",
+            "name": "Active Global Equity Fund (fallback)",
+            "category": "equity_fund",
+            "expected_return_pct": 8.0,
+            "expense_ratio_pct": 0.9,
+            "score": 0.0,
+            "fallback": True,
+        },
     }
 
     def attempt_recovery(
@@ -120,10 +161,16 @@ class FailureHandler:
 
     def _recover_investment(self, context: dict, error: str) -> dict:
         """
-        Static shortlist fallback — safest product for context risk class.
+        Static shortlist fallback — safest AVAILABLE product for the
+        context's risk class specifically, not a single fixed one (see
+        _FALLBACK_PRODUCT_BY_TIER's comment for why a single product can't
+        be compatible with every tier).
         """
         risk_class = (
             (context.get("risk_agent_payload") or {}).get("risk_class", "conservative")
+        )
+        product = self._FALLBACK_PRODUCT_BY_TIER.get(
+            risk_class, self.CONSERVATIVE_FALLBACK_PRODUCT
         )
         return {
             "strategy": "static_shortlist",
@@ -131,14 +178,14 @@ class FailureHandler:
             "recovered_payload": {
                 "status": "complete",
                 "risk_class": risk_class,
-                "shortlist": [self.CONSERVATIVE_FALLBACK_PRODUCT],
+                "shortlist": [product],
                 "synthesis": (
                     "Investment recommendation service encountered an error. "
-                    "A conservative savings option has been shown as a fallback. "
-                    "This is not a personalised recommendation — please retry. "
-                    "This is not regulated financial advice. "
-                    "Consult a qualified advisor. "
-                    "Past performance is not indicative of future results."
+                    "A conservative option suited to your risk profile has been "
+                    "shown as a fallback. This is not a personalised "
+                    "recommendation — please retry. This is not regulated "
+                    "financial advice. Consult a qualified advisor. Past "
+                    "performance is not indicative of future results."
                 ),
                 "recovered": True,
             },
@@ -215,4 +262,3 @@ class FailureHandler:
                 "recovered": False,
             },
         }
-

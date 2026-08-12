@@ -1,8 +1,8 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-08-12T04:32:43.722165+00:00",
-    "git_sha": "e3a04f1-dirty",
-    "prompt_version": "v1.2",
+    "generated_at_utc": "2026-07-30T00:26:05.254890+00:00",
+    "git_sha": "bad36f0-dirty",
+    "prompt_version": "v1.0",
     "llm_mode": "groq",
     "orchestrator_model": "llama-3.3-70b-versatile",
     "specialist_model": "llama3.1:8b",
@@ -12,9 +12,9 @@
     "llm_cache": {
       "hits": 0,
       "misses": 0,
-      "writes": 60,
+      "writes": 0,
       "errors": 0,
-      "mode": "record",
+      "mode": "off",
       "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
       "hit_rate": null,
       "clean_replay": false
@@ -22,7 +22,7 @@
     "product_catalogue_mode": "synthetic",
     "explainability_ablation": {
       "use_shap": true,
-      "use_rag_citation": true,
+      "use_rag_citation": false,
       "use_counterfactual": true
     }
   },
@@ -31,13 +31,13 @@
   "dataset": "Banking77_fixture_20queries",
   "llm_mode": "groq",
   "metric": "intent_accuracy",
-  "value": 0.9,
+  "value": 0.75,
   "details": {
     "n": 20,
-    "correct": 18,
+    "correct": 15,
     "per_bucket_accuracy": {
-      "general_query": 1.0,
-      "investment_advice": 0.8,
+      "general_query": 0.667,
+      "investment_advice": 0.4,
       "risk_profiling": 0.667,
       "budget_analysis": 1.0,
       "product_suggestion": 1.0,
@@ -89,7 +89,7 @@
     {
       "message": "Help me plan for retirement.",
       "gold": "investment_advice",
-      "pred": "investment_advice"
+      "pred": "risk_profiling"
     },
     {
       "message": "How much risk can I take?",
@@ -114,12 +114,12 @@
     {
       "message": "Can you recommend an ETF?",
       "gold": "investment_advice",
-      "pred": "investment_advice"
+      "pred": "product_suggestion"
     },
     {
       "message": "My card is about to expire.",
       "gold": "general_query",
-      "pred": "general_query"
+      "pred": "product_suggestion"
     },
     {
       "message": "What are my investment options?",
