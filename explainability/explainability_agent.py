@@ -28,6 +28,7 @@ import time
 from typing import Any
 
 from agents.base_agent import AgentResult, BaseAgent
+from agents.payloads import PARTIAL_STATUSES
 from config.prompts import (
     EXPLAINABILITY_CALIBRATION_PROMPT,
     EXPLAINABILITY_COUNTERFACTUAL_PROMPT,
@@ -39,6 +40,9 @@ from utils.llm_client import LLMClient
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+INCOMPLETE_STATUSES: frozenset[str] = frozenset(PARTIAL_STATUSES)
+
 
 class ExplainabilityAgent(BaseAgent):
     """
@@ -530,8 +534,14 @@ class ExplainabilityAgent(BaseAgent):
             )
 
         shap_summary: dict = risk_payload.get("feature_importance", {})
-        risk_class: str = risk_payload.get("risk_class", "moderate")
-        confidence: float = float(risk_payload.get("confidence", 0.7))
+        risk_status = risk_payload.get("status")
+        risk_incomplete = risk_status in INCOMPLETE_STATUSES
+        if risk_incomplete:
+            risk_class: str = ""
+            confidence: float = 0.0
+        else:
+            risk_class: str = risk_payload.get("risk_class", "moderate")
+            confidence: float = float(risk_payload.get("confidence", 0.7))
         # budget_payload: dict = context.get("budget_agent_payload") or {}
 
         shortlist: list = investment_payload.get("shortlist", [])
@@ -651,6 +661,7 @@ class ExplainabilityAgent(BaseAgent):
             "hallucination_flagged": hallucination_flagged,
             "full_explanation": full_explanation,
             "risk_class": risk_class,
+            "risk_class_unavailable_reason": risk_status if risk_incomplete else None,
             "top_product": top_product_name,
         }
 

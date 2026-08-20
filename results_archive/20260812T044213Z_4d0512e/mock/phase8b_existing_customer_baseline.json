@@ -1,0 +1,85 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-09T22:29:25.836040+00:00",
+    "git_sha": "47dd8a3-dirty",
+    "prompt_version": "v1.2",
+    "llm_mode": "mock",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {
+      "embedder": "sentence-transformers",
+      "vector_store": "faiss",
+      "hallucination_detector": "hhem",
+      "product_data": "snapshot",
+      "market_data": "unavailable"
+    },
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": true,
+      "use_counterfactual": true
+    }
+  },
+  "phase": "8b",
+  "component": "existing_customer_pipeline",
+  "dataset": "demo_customers.json (3 profiles)",
+  "metrics": {
+    "predicted_vs_ground_truth_agreement": 0.3333333333333333,
+    "risk_alignment_rate": {
+      "metric": "risk_alignment_rate",
+      "value": 1.0,
+      "details": {
+        "n": 3,
+        "aligned": 3,
+        "per_tier_alignment": {
+          "moderate": 1.0,
+          "moderately_aggressive": 1.0,
+          "conservative": 1.0
+        }
+      }
+    },
+    "n_correct": 1,
+    "n_total": 3
+  },
+  "per_profile": [
+    {
+      "customer_id": "DEMO_GC_042",
+      "predicted_risk_class": "moderately_conservative",
+      "ground_truth_risk_class": "moderate",
+      "correct": false,
+      "confidence": 0.04,
+      "low_confidence": true,
+      "status": "complete"
+    },
+    {
+      "customer_id": "DEMO_GC_107",
+      "predicted_risk_class": "moderate",
+      "ground_truth_risk_class": "moderately_aggressive",
+      "correct": false,
+      "confidence": 0.53,
+      "low_confidence": true,
+      "status": "complete"
+    },
+    {
+      "customer_id": "DEMO_GMSC_318",
+      "predicted_risk_class": "conservative",
+      "ground_truth_risk_class": "conservative",
+      "correct": true,
+      "confidence": 0.29,
+      "low_confidence": true,
+      "status": "complete"
+    }
+  ]
+}

@@ -116,11 +116,34 @@ class TestMLScore:
 
         assert agent._ml_score(young) > agent._ml_score(old)
 
-    def test_trained_model_age_effect_is_empirical_not_assumed(self):
+    def test_age_neutral_capacity_is_invariant_to_age(self):
+        """
+        After scripts/recalibrate_risk_model_age_neutral.py, capacity must
+        NOT move with age alone.
+
+        REPLACES test_trained_model_age_effect_is_empirical_not_assumed,
+        which asserted the opposite and had been failing since the
+        recalibration landed. That test encoded the PRE-recalibration
+        design — it checked the model's age effect was empirical rather
+        than hand-coded. The recalibration exists precisely to remove
+        that effect from the capacity component: age carries 0.48 feature
+        importance in the GMSC distress model, and letting a protected
+        characteristic drive nearly half of a suitability assessment is
+        not defensible under EU AI Act / CBI model-risk expectations.
+        The old assertion and the recalibration cannot both hold; the
+        recalibration is the deliberate design, so the assertion moved.
+
+        Measured behaviour: raw P(distress) is 0.5572 at age 25 and
+        0.2288 at age 65; after the age SHAP contribution is removed both
+        land at ~0.444, i.e. a 0.33 gap collapses to 0.002.
+        """
         agent = make_agent()
 
         if not isinstance(agent._ml_model, dict):
             pytest.skip("no trained model — run scripts/train_risk_model.py")
+        if agent._ml_model.get("percentile_grid_age_neutral") is None:
+            pytest.skip("model not age-recalibrated — run "
+                        "scripts/recalibrate_risk_model_age_neutral.py")
 
         young = {**FULL_FEATURES, "age": 25}
         old = {**FULL_FEATURES, "age": 65}
@@ -128,9 +151,44 @@ class TestMLScore:
         cap_young = agent._capacity_score(young, agent._ml_model)
         cap_old = agent._capacity_score(old, agent._ml_model)
 
+        assert abs(cap_old - cap_young) <= 0.05, (
+            f"age-neutral capacity still moves with age: "
+            f"young={cap_young:.3f} old={cap_old:.3f} — the "
+            f"recalibration is not suppressing the age signal"
+        )
+
+    def test_raw_capacity_path_still_shows_the_empirical_age_effect(self):
+        """
+        The neutralisation must be a CALIBRATION step, not a change to the
+        underlying model. With the age-neutral grid removed,
+        _capacity_score falls back to raw P(distress), and the empirical
+        age effect must reappear — otherwise the model itself has changed
+        and the age-neutral grid would be masking that rather than
+        correcting for it.
+
+        This preserves what the replaced test was actually protecting.
+        """
+        agent = make_agent()
+
+        if not isinstance(agent._ml_model, dict):
+            pytest.skip("no trained model — run scripts/train_risk_model.py")
+
+        raw_bundle = {
+            k: v for k, v in agent._ml_model.items()
+            if k != "percentile_grid_age_neutral"
+        }
+
+        young = {**FULL_FEATURES, "age": 25}
+        old = {**FULL_FEATURES, "age": 65}
+
+        cap_young = agent._capacity_score(young, raw_bundle)
+        cap_old = agent._capacity_score(old, raw_bundle)
+
         assert cap_old > cap_young, (
-            f"capacity young={cap_young:.3f} "
-            f"old={cap_old:.3f}"
+            f"raw (age-inclusive) capacity shows no age effect: "
+            f"young={cap_young:.3f} old={cap_old:.3f} — the trained "
+            f"model's age signal has disappeared, which the age-neutral "
+            f"grid would then be hiding rather than correcting"
         )
 
     def test_score_clips_to_zero_minimum(self):
@@ -628,17 +686,30 @@ class TestRQ1Evaluation:
 
         # Write results for dissertation evidence
         RESULTS_DIR.mkdir(exist_ok=True)
+        circularity_warning = (
+            "SUPERSEDED — this 15-item fixture (RQ1_FIXTURE) and its "
+            "scoring were authored by the same person, so a high score "
+            "here is not independent validation. Cite "
+            "rq1_gold_risk_evaluation.json (n=200, independently "
+            "rubric-labelled) instead; this file is retained only for "
+            "continuity with earlier, smaller-n results."
+        )
+        metrics_block = {
+            "risk_alignment_rate": rar_result.to_dict(),
+            "f1_macro": f1_result.to_dict(),
+            "auc_roc": auc_result.to_dict(),
+            "hybrid_vs_rule_only_delta": delta_result.to_dict(),
+        }
+        for metric_dict in metrics_block.values():
+            metric_dict["circularity_warning"] = circularity_warning
+
         results_payload = {
             "phase": 3,
             "agent": "RiskProfilingAgent",
             "dataset": "hand_labelled_fixture_15_profiles",
+            "circularity_and_supersession_warning": circularity_warning,
             "model_mode": "heuristic_proxy" if agent._ml_model is None else "trained_model",
-            "metrics": {
-                "risk_alignment_rate": rar_result.to_dict(),
-                "f1_macro": f1_result.to_dict(),
-                "auc_roc": auc_result.to_dict(),
-                "hybrid_vs_rule_only_delta": delta_result.to_dict(),
-            },
+            "metrics": metrics_block,
             "per_profile": [
                 {
                     "features": item["features"],
@@ -652,6 +723,10 @@ class TestRQ1Evaluation:
             ],
         }
         results_path = write_results(results_payload, "phase3_risk_baseline.json")
+
+        print(f"\n  !! SUPERSEDED by rq1_gold_risk_evaluation.json (n=200, "
+              f"independently labelled) — same-author fixture + "
+              f"same-author scoring here, do not cite this run alone.")
 
         print(f"\n[Phase 3 RQ1] Risk Alignment Rate: {rar_result.value:.3f}")
         print(f"[Phase 3 RQ1] Macro F1:            {f1_result.value:.3f}")

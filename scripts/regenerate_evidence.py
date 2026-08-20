@@ -156,6 +156,57 @@ STAGES: list[Stage] = [
               "what depends_on enforces here, not just documents.",
     ),
     Stage(
+        key="datasets",
+        label="Rebuild the Layer-2 stress and Layer-3 gold datasets",
+        command=[sys.executable, "scripts/build_gold_risk_dataset.py"],
+        produces=[],
+        est_tokens=0,
+        rq="—",
+        notes="Deterministic and seeded; no LLM. Must precede rq1_gold, "
+              "which evaluates against the file it writes. The rubric that "
+              "labels it (evaluation/risk_rubric.py) imports nothing from "
+              "agents/ — see that module's docstring for why.",
+    ),
+    Stage(
+        key="stressdata",
+        label="Rebuild the Layer-2 stress population (1,000 profiles)",
+        command=[sys.executable, "scripts/build_stress_customer_base.py"],
+        produces=[],
+        est_tokens=0,
+        rq="—",
+        notes="Writes data/evaluation/stress_customers.json and its "
+              "transaction histories. Never touches data/processed/"
+              "customers.csv — the operational Layer-1 population is left "
+              "exactly as it is.",
+    ),
+    Stage(
+        key="rq1_gold",
+        label="RQ1 — gold-standard evaluation (200 labelled profiles + CIs)",
+        command=[sys.executable, "scripts/eval_rq1_gold.py"],
+        produces=["rq1_gold_risk_evaluation.json"],
+        est_tokens=0,
+        rq="RQ1",
+        depends_on=["riskmodel", "recalibrate", "datasets"],
+        notes="The headline RQ1 result. Deterministic — no LLM, so it "
+              "reproduces without an API key. Supersedes the n=15 "
+              "phase3_risk_baseline.json below, which is kept for "
+              "comparability.",
+    ),
+    Stage(
+        key="robustness",
+        label="Layer-1 + Layer-2 robustness (no accuracy, no labels)",
+        command=[sys.executable, "scripts/eval_robustness_layers.py"],
+        produces=["rq1_robustness_layers.json"],
+        est_tokens=0,
+        rq="RQ1 (supporting)",
+        depends_on=["riskmodel", "recalibrate", "stressdata"],
+        notes="Completion/crash rate, prediction and confidence "
+              "distributions, coverage-tier behaviour and subgroup "
+              "stability over 1,254 unlabelled profiles. Computes no "
+              "accuracy metric and cannot: evaluation/datasets.py raises "
+              "if labels are requested from either layer.",
+    ),
+    Stage(
         key="rq1",
         label="RQ1 — risk classification (hybrid vs rule-only)",
         command=PYTEST + ["tests/unit/test_risk_profiling_agent.py::TestRQ1Evaluation"],
@@ -197,6 +248,35 @@ STAGES: list[Stage] = [
         notes="The expensive one, and the one four separate patches moved: "
               "R5 judge dimensions, R10 model tiers, R24 disclaimer scoping, "
               "R7 the eighth intent bucket.",
+    ),
+    Stage(
+        key="rq5_verified",
+        label="RQ5 — FinQA Verified, all 91 items, 3 grounding conditions",
+        command=[sys.executable, "scripts/eval_rq5_finqa_verified.py"],
+        produces=["rq5_finqa_verified_no_rag.json",
+                  "rq5_finqa_verified_rag_retrieved.json",
+                  "rq5_finqa_verified_rag_oracle.json"],
+        est_tokens=90_000,
+        rq="RQ5",
+        depends_on=["index"],
+        notes="The real RQ5. 91 verified test items, the same questions in "
+              "every condition, answered by the actual model. Replaces the "
+              "10-item synthetic fixture below, whose two conditions were "
+              "hand-written simulator functions rather than model calls — "
+              "that stage is kept only so its numbers stay auditable.",
+    ),
+    Stage(
+        key="intent_stratified",
+        label="Banking77 — stratified n=500 bucket classification",
+        command=[sys.executable, "scripts/eval_banking77_stratified.py",
+                 "--n", "500"],
+        produces=["phase2_banking77_stratified.json"],
+        est_tokens=15_000,
+        rq="RQ4 (supporting)",
+        notes="2.5x the previous n=200, stratified across all 77 intents "
+              "with a fixed seed, with bootstrap CIs and advisory-bucket "
+              "leakage. Checkpoints every 25 items so a rate-limit does "
+              "not cost the whole run.",
     ),
     Stage(
         key="rq5",
@@ -773,9 +853,6 @@ def main() -> int:
               + ("  ← CLEAN REPLAY" if cache.get("clean_replay") else ""))
     print("       manifest → results/EVIDENCE_MANIFEST.json")
     print(BAR)
-    print("\n Next: commit results/ AND data/llm_cache/ together. The cache is\n"
-          " what lets anyone (including an examiner) reproduce these exact\n"
-          " numbers offline:  python scripts/regenerate_evidence.py --replay\n")
 
     return 0 if all(r["status"] == "ok" for r in records) else 1
 

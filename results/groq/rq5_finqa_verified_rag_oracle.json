@@ -1,0 +1,1200 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-19T20:36:33.865943+00:00",
+    "git_sha": "4d0512e-dirty",
+    "git_dirty_files": [
+      "README.md",
+      "agents/budget_questionnaire.py",
+      "agents/conversational_agent.py",
+      "agents/payloads.py",
+      "agents/risk_profiling_agent.py",
+      "agents/risk_questionnaire.py",
+      "config/settings.py",
+      "evaluation/agent_judge.py",
+      "evaluation/metrics.py",
+      "evaluation/results_io.py",
+      "explainability/explainability_agent.py",
+      "logs/audit/session_baseline-DEMO_GC_042.jsonl",
+      "logs/audit/session_baseline-DEMO_GC_107.jsonl",
+      "logs/audit/session_baseline-DEMO_GMSC_318.jsonl",
+      "logs/audit/session_baseline-push-PUSH_001.jsonl",
+      "logs/audit/session_baseline-push-PUSH_002.jsonl",
+      "logs/audit/session_baseline-push-PUSH_003.jsonl",
+      "orchestrator/orchestrator.py",
+      "results/EVIDENCE_MANIFEST.json",
+      "results/groq/phase3_risk_baseline.json",
+      "results/groq/phase3_risk_comparison.json",
+      "results/groq/phase8b_existing_customer_baseline.json",
+      "results/groq/phase8b_push_mode_baseline.json",
+      "results/groq/rq1_risk_model_training.json",
+      "results/groq/rq3_full_stack.json",
+      "results/groq/rq3_shap_only.json",
+      "results/groq/rq3_shap_rag.json",
+      "results/groq/rq4_mas_coherence.json",
+      "results/mock/phase2_conversational_baseline.json",
+      "results/mock/phase3_risk_baseline.json",
+      "results/mock/phase5_budget_baseline.json",
+      "results/mock/phase5_transaction_window_comparison.json",
+      "results/mock/phase8b_existing_customer_baseline.json",
+      "results/mock/phase8b_push_mode_baseline.json",
+      "results/mock/rq3_full_stack.json",
+      "results/mock/rq3_shap_only.json",
+      "results/mock/rq3_shap_rag.json",
+      "results/mock/rq4_mas_coherence.json",
+      "results/mock/rq5_finqa_no_rag.json",
+      "results/mock/rq5_finqa_with_rag.json",
+      "scripts/compare_risk_model_variants.py",
+      "scripts/recalibrate_risk_model_age_neutral.py",
+      "scripts/regenerate_evidence.py",
+      "scripts/train_risk_model.py",
+      "tests/integration/test_orchestrator_pipeline.py",
+      "tests/unit/test_banking77_evaluation.py",
+      "tests/unit/test_explainability_agent.py",
+      "tests/unit/test_risk_profiling_agent.py",
+      "tests/unit/test_rq5_finqa_evaluation.py",
+      "utils/llm_client.py",
+      "agents/transaction_contract.py",
+      "data/evaluation/",
+      "evaluation/banking77_data.py",
+      "evaluation/bootstrap.py",
+      "evaluation/datasets.py",
+      "evaluation/finqa_data.py",
+      "evaluation/risk_rubric.py",
+      "orchestrator/routing_policy.py",
+      "results/_dirty_diffs/",
+      "results/groq/phase2_banking77_stratified.json",
+      "results/groq/phase2c_core_intent_baseline.json",
+      "results/groq/rq1_confidence_calibration.json",
+      "results/groq/rq1_confidence_recalibration.json",
+      "results/groq/rq1_gold_risk_evaluation.json",
+      "results/groq/rq1_robustness_layers.json",
+      "results/groq/rq5_finqa_verified_no_rag.json",
+      "results/groq/rq5_finqa_verified_rag_oracle.json",
+      "results/groq/rq5_finqa_verified_rag_retrieved.json",
+      "results/mock/rq4_multi_agent_coordination.json",
+      "results_archive/20260812T044213Z_4d0512e/",
+      "results_archive/20260812T045101Z_4d0512e-dirty/",
+      "results_archive/20260812T045202Z_4d0512e-dirty/",
+      "results_archive/20260819T153425Z_4d0512e-dirty/",
+      "results_archive/20260819T173403Z_4d0512e-dirty/",
+      "results_archive/20260819T190352Z_4d0512e-dirty/",
+      "results_archive/20260819T191147Z_4d0512e-dirty/",
+      "results_archive/20260819T194850Z_4d0512e-dirty/",
+      "results_archive/20260819T200736Z_4d0512e-dirty/",
+      "results_archive/20260819T201444Z_4d0512e-dirty/",
+      "results_day2.zip",
+      "revert_audit_fixes.sh",
+      "rough_work",
+      "scripts/build_gold_risk_dataset.py",
+      "scripts/build_stress_customer_base.py",
+      "scripts/calibrate_risk_confidence.py",
+      "scripts/eval_banking77_stratified.py",
+      "scripts/eval_confidence_calibration.py",
+      "scripts/eval_robustness_layers.py",
+      "scripts/eval_rq1_gold.py",
+      "scripts/eval_rq5_finqa_verified.py",
+      "scripts/measure_planner_determinism.py",
+      "scripts/verify_audit_fixes.py",
+      "tests/unit/test_audit_regressions.py",
+      "tests/unit/test_evaluation_layers.py"
+    ],
+    "git_diff_patch_path": "results/_dirty_diffs/4d0512e-a6d8ffd27277.patch",
+    "prompt_version": "v1.2",
+    "llm_mode": "groq",
+    "orchestrator_model": "openai/gpt-oss-120b",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "qwen/qwen3.6-27b",
+    "environment": "development",
+    "subsystem_modes": {
+      "hallucination_detector": "hhem"
+    },
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 111,
+      "errors": 0,
+      "mode": "record",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": true,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 8,
+  "research_question": "RQ5",
+  "condition": "rag_oracle",
+  "is_placeholder": false,
+  "placeholder_reason": null,
+  "dataset": {
+    "dataset_name": "FinQA Verified [D1]",
+    "hf_dataset_name": "finqa-verified",
+    "split": "test",
+    "is_verified_split": true,
+    "n_items": 91,
+    "n_items_used": 91,
+    "sampling": "none \u2014 the complete split is evaluated",
+    "source_path": "data/raw/finqa_verified/data-00000-of-00001.arrow",
+    "fields": [
+      "question",
+      "context",
+      "answer"
+    ],
+    "citation": "Chen et al. (2021), FinQA: A Dataset of Numerical Reasoning over Financial Data. Verified subset.",
+    "train_split_present_in_repo_but_unused": {
+      "path": "data/raw/finqa_original_train.json",
+      "exists": true,
+      "note": "FinQA Original TRAIN split (6,251 items) is present in the repository for RAG corpus construction. It is NOT loaded by this module and contributes no items to RQ5."
+    },
+    "train_contamination_check": {
+      "checked": true,
+      "n_train_questions": 6131,
+      "n_eval_items": 91,
+      "n_overlapping_question_strings": 2,
+      "overlapping_item_ids": [
+        "finqa-verified-007",
+        "finqa-verified-018"
+      ],
+      "train_items_used_in_evaluation": 0,
+      "note": "No train item is evaluated. This check reports how many verified-split QUESTION STRINGS also occur in the train split, which is expected to be non-zero because FinQA Verified re-annotates original FinQA data. The evaluation uses verified-split items and verified answers exclusively."
+    },
+    "answer_leakage_check": {
+      "n_items": 91,
+      "n_answers_appearing_verbatim_in_own_context": 2,
+      "proportion": 0.022,
+      "item_ids": [
+        "finqa-verified-084",
+        "finqa-verified-086"
+      ],
+      "interpretation": "Upper bound on how much of a grounded condition's exact-match score could be achieved by copying a value out of the context rather than reasoning over it. No item was removed on the basis of this check."
+    },
+    "conditions_share_identical_items": true,
+    "condition_item_order": "file order, identical across conditions"
+  },
+  "evaluation_configuration": {
+    "answering_model": "openai/gpt-oss-120b",
+    "llm_mode": "groq",
+    "temperature": 0.0,
+    "grounding": "the item's own gold context",
+    "exact_match_tolerance": 0.01,
+    "hallucination_threshold": 0.5
+  },
+  "statistical_power": {
+    "n": 91,
+    "baseline_rate_assumed": 0.5,
+    "standard_error": 0.0524,
+    "minimum_detectable_difference": 0.1468,
+    "alpha": 0.05,
+    "power": 0.8,
+    "interpretation": "With n=91, a two-sided test at alpha=0.05 with 80% power can detect a difference of about 14.7 percentage points against a 50% baseline. Smaller true differences are likely to be missed."
+  },
+  "n_items": 91,
+  "n_items_completed": 91,
+  "rate_limited": false,
+  "metrics": {
+    "finqa_exact_match": {
+      "metric": "finqa_exact_match",
+      "value": 0.6593,
+      "details": {
+        "n": 91,
+        "correct": 60,
+        "unparsable": 2,
+        "tolerance": 0.01
+      }
+    },
+    "hallucination_rate": {
+      "metric": "hallucination_rate",
+      "value": 0.8043,
+      "details": {
+        "n_responses": 91,
+        "total_claims": 184,
+        "total_flagged": 148,
+        "response_level_hallucination_rate": 0.9451,
+        "detector_modes_seen": [
+          "hhem"
+        ]
+      }
+    }
+  },
+  "confidence_intervals": {
+    "finqa_exact_match": {
+      "point_estimate": 0.6593,
+      "ci_low": 0.5604,
+      "ci_high": 0.7582,
+      "ci_width": 0.1978,
+      "confidence": 0.95,
+      "method": "percentile bootstrap",
+      "n_resamples": 1000,
+      "n_items": 91,
+      "seed": 42,
+      "n_degenerate_resamples": 0
+    }
+  },
+  "call_failures": {
+    "n": 0,
+    "item_ids": [],
+    "note": "No calls failed \u2014 TokenBudgetThrottle kept every request under Groq's rate limit for the full run."
+  },
+  "per_item": [
+    {
+      "item_id": "finqa-verified-000",
+      "question": "what is the net change in net revenue during 2015 for entergy corporation?",
+      "gold_answer": "94.0",
+      "predicted_answer": "$94\u202fmillion",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3607
+    },
+    {
+      "item_id": "finqa-verified-001",
+      "question": "what percentage of total facilities as measured in square feet are leased?",
+      "gold_answer": "14.46",
+      "predicted_answer": "14.5%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 2883
+    },
+    {
+      "item_id": "finqa-verified-002",
+      "question": "what is the percentage change in cash flow hedges in 2011 compare to the 2010?",
+      "gold_answer": "9.86",
+      "predicted_answer": "9.86%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5005
+    },
+    {
+      "item_id": "finqa-verified-003",
+      "question": "what decimal proportion of total purchase price is related to stock awards?",
+      "gold_answer": "0.03",
+      "predicted_answer": "0.0290",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3119
+    },
+    {
+      "item_id": "finqa-verified-004",
+      "question": "what was the difference in percentage cumulative total shareholder return on masco common stock versus the s&p 500 index for the five year period ended 2017?",
+      "gold_answer": "111.97",
+      "predicted_answer": "111.97%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 1411
+    },
+    {
+      "item_id": "finqa-verified-005",
+      "question": "what was the percentage change in total rental expense under operating leases from july 2 , 2005 to july 1 , 2006?",
+      "gold_answer": "8.61",
+      "predicted_answer": "8.6%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4630
+    },
+    {
+      "item_id": "finqa-verified-006",
+      "question": "what percent of total recourse debt is current?",
+      "gold_answer": "10.04",
+      "predicted_answer": "10.0%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3108
+    },
+    {
+      "item_id": "finqa-verified-007",
+      "question": "what percentage of future minimum rental payments are due in 2018?",
+      "gold_answer": "11.69",
+      "predicted_answer": "11.7%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4748
+    },
+    {
+      "item_id": "finqa-verified-008",
+      "question": "what was the change in unrecognized tax benefits from the end of 2014 to the end of 2015?",
+      "gold_answer": "-35.0",
+      "predicted_answer": "-35\u202fmillion",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3916
+    },
+    {
+      "item_id": "finqa-verified-009",
+      "question": "what is the growth rate in the balance of standby letters of credit from 2006 to 2007?",
+      "gold_answer": "-4.36",
+      "predicted_answer": "-4.36%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4022
+    },
+    {
+      "item_id": "finqa-verified-010",
+      "question": "what is the debt-to-asset ratio?",
+      "gold_answer": "0.22",
+      "predicted_answer": "22.4%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 896
+    },
+    {
+      "item_id": "finqa-verified-011",
+      "question": "what decimal proportion of the total noncancelable future lease commitments are due in fiscal year of 2019?",
+      "gold_answer": "24.56",
+      "predicted_answer": "0.246",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3505
+    },
+    {
+      "item_id": "finqa-verified-012",
+      "question": "what was the percentage change in deferred tax assets and regulatory assets from 2013 to 2014",
+      "gold_answer": "1.71",
+      "predicted_answer": "N/A",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3769
+    },
+    {
+      "item_id": "finqa-verified-013",
+      "question": "what was the average net annual change in discounted future net cash flows ( in millions ) for the years 2011 , 2010 , and 2009?",
+      "gold_answer": "3297.67",
+      "predicted_answer": "3297.67",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 1112
+    },
+    {
+      "item_id": "finqa-verified-014",
+      "question": "assuming each continent has the same number of destinations , approximately how many destinations does each continent have?",
+      "gold_answer": "65.0",
+      "predicted_answer": "65",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5098
+    },
+    {
+      "item_id": "finqa-verified-015",
+      "question": "what was the average net revenue between 2016 and 2017 in millions",
+      "gold_answer": "704.25",
+      "predicted_answer": "704.25",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 1942
+    },
+    {
+      "item_id": "finqa-verified-016",
+      "question": "the combined amount of accrued interest and penalties related to tax positions taken on our tax returns and included in non-current income taxes payable was what percent of the total ending balance as of november 28 2008?",
+      "gold_answer": "10.96",
+      "predicted_answer": "10.96%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4093
+    },
+    {
+      "item_id": "finqa-verified-017",
+      "question": "in 2010 and 2009 , what was the total fair value in billions of assets segregated for the benefit of securities and futures brokerage customers?",
+      "gold_answer": "68.9",
+      "predicted_answer": "34.7\u202fbn (2010), 34.2\u202fbn (2009)",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5146
+    },
+    {
+      "item_id": "finqa-verified-018",
+      "question": "what was the difference in percentage cumulative 5-year total shareholder return on common stock fidelity national information services , inc . compared to the s&p 500 for the period ending 12/16?",
+      "gold_answer": "113.63",
+      "predicted_answer": "113.63%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 1258
+    },
+    {
+      "item_id": "finqa-verified-019",
+      "question": "for the quarter ended march 312015 what was the percentage change in the share price from the highest to the lowest",
+      "gold_answer": "8.51",
+      "predicted_answer": "8.51%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 2735
+    },
+    {
+      "item_id": "finqa-verified-020",
+      "question": "of the total contractual obligations and off-balance sheet arrangements contractual obligations what percentage is due to capital lease obligations?",
+      "gold_answer": "1.74",
+      "predicted_answer": "1.74%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4302
+    },
+    {
+      "item_id": "finqa-verified-021",
+      "question": "what is the decimal proportion of the total flight attendants to total maintenance personnel",
+      "gold_answer": "1.59",
+      "predicted_answer": "1.59",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4037
+    },
+    {
+      "item_id": "finqa-verified-022",
+      "question": "as of december 2007 what was the decimal proportion of the square footage in alpharetta georgia to charlotte north carolina",
+      "gold_answer": "2.64",
+      "predicted_answer": "2.63855",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4242
+    },
+    {
+      "item_id": "finqa-verified-023",
+      "question": "in 2010 what was the percent of the income tax benefit to the stock based compensation cost",
+      "gold_answer": "34.81",
+      "predicted_answer": "34.81%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3710
+    },
+    {
+      "item_id": "finqa-verified-024",
+      "question": "what is the percentage change in the the gross liability for unrecognized tax benefits during 2008 compare to 2007?",
+      "gold_answer": "-30.85",
+      "predicted_answer": "-30.9%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4093
+    },
+    {
+      "item_id": "finqa-verified-025",
+      "question": "what is the borrowing under the term loan facility as a percentage of the total contractual maturities of long-term debt obligations due subsequent to december 31 , 2016?",
+      "gold_answer": "60.47",
+      "predicted_answer": "60.5%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5046
+    },
+    {
+      "item_id": "finqa-verified-026",
+      "question": "in 2015 what was the percent of the total operating revenues associated with agriculture products",
+      "gold_answer": "16.42",
+      "predicted_answer": "16.43%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3653
+    },
+    {
+      "item_id": "finqa-verified-027",
+      "question": "what percent of net interest revenue where total operating expenses in 2009?",
+      "gold_answer": "28.24",
+      "predicted_answer": "28.3%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4910
+    },
+    {
+      "item_id": "finqa-verified-028",
+      "question": "what was the greatest provision for income taxes , in millions?",
+      "gold_answer": "829.0",
+      "predicted_answer": "829",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 2601
+    },
+    {
+      "item_id": "finqa-verified-029",
+      "question": "in 2018 what was the percent of the cib markets net interest income as part of the managed interest income",
+      "gold_answer": "5.54",
+      "predicted_answer": "5.54%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 6000
+    },
+    {
+      "item_id": "finqa-verified-030",
+      "question": "what would the fair value of total securities available for sale be without the fair value of securities classified as corporate stocks as of december 31 , 2012?",
+      "gold_answer": "50685.0",
+      "predicted_answer": "$50,685\u202fmillion",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5176
+    },
+    {
+      "item_id": "finqa-verified-031",
+      "question": "assuming the same level of settlements as in fiscal 2007 , what would be the ending balance at march 31 2008 in millions for unrecognized tax benefits?\\\\n",
+      "gold_answer": "0.17",
+      "predicted_answer": "0.168 million",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4694
+    },
+    {
+      "item_id": "finqa-verified-032",
+      "question": "as of december 2012 what is the percent of the square footage not leased to the total square footage in alpharetta , georgia",
+      "gold_answer": "64.96",
+      "predicted_answer": "64.96%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3299
+    },
+    {
+      "item_id": "finqa-verified-033",
+      "question": "as of december 2007 what was the percent of the square footage in alpharetta georgia not yet leased",
+      "gold_answer": "75.8",
+      "predicted_answer": "75.8%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4242
+    },
+    {
+      "item_id": "finqa-verified-034",
+      "question": "what is the total amount of stock options cancelled in millions during 2017 , 2016 and 2015?",
+      "gold_answer": "2606.0",
+      "predicted_answer": "12.1",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5219
+    },
+    {
+      "item_id": "finqa-verified-035",
+      "question": "in 2004 and 2003 , what were the total shares of common stock that were issued to employees?",
+      "gold_answer": "3876875.0",
+      "predicted_answer": "2004 \u2013 1,939,734 shares; 2003 \u2013 1,937,141 shares.",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3873
+    },
+    {
+      "item_id": "finqa-verified-036",
+      "question": "what is the net change in net revenue for entergy wholesale commodities during 2012?",
+      "gold_answer": "-191.0",
+      "predicted_answer": "-191",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3051
+    },
+    {
+      "item_id": "finqa-verified-037",
+      "question": "what was the difference in percentage cumulative total return for goldman sachs group inc . and the s&p 500 index for the five year period ending 12/31/13?",
+      "gold_answer": "12.16",
+      "predicted_answer": "12.16%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 1692
+    },
+    {
+      "item_id": "finqa-verified-038",
+      "question": "as of december 31 , 2017 what was the value of the granted share awards",
+      "gold_answer": "9294571.92",
+      "predicted_answer": "$9,294,571.92",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3577
+    },
+    {
+      "item_id": "finqa-verified-039",
+      "question": "what percent of total contractual obligations is categorized as long term debt?",
+      "gold_answer": "45.1",
+      "predicted_answer": "45.1%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 6000
+    },
+    {
+      "item_id": "finqa-verified-040",
+      "question": "what was the average cash flow from 2004 to 2006",
+      "gold_answer": "892.3",
+      "predicted_answer": "$892.3\u202fmillion",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5620
+    },
+    {
+      "item_id": "finqa-verified-041",
+      "question": "what is the total value of securities issued and approved by security holders , ( in millions ) ?",
+      "gold_answer": "31.32",
+      "predicted_answer": "31.32",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 2692
+    },
+    {
+      "item_id": "finqa-verified-042",
+      "question": "what is the percentage change in revenue generated from non-us currencies from 2015 to 2016?",
+      "gold_answer": "42.89",
+      "predicted_answer": "42.88%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4127
+    },
+    {
+      "item_id": "finqa-verified-043",
+      "question": "what was the percentage decrease in cash flows from operations from 2009 to 2010?",
+      "gold_answer": "7.95",
+      "predicted_answer": "7.9%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3874
+    },
+    {
+      "item_id": "finqa-verified-044",
+      "question": "what percentage of the total carrying amount of investment securities is the securities held to maturity?",
+      "gold_answer": "19.8",
+      "predicted_answer": "16.9%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5176
+    },
+    {
+      "item_id": "finqa-verified-045",
+      "question": "for the quarter ended 12/29/2018 what was the percent of the total shares bought after 11/25/2018",
+      "gold_answer": "32.54",
+      "predicted_answer": "32.54%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4002
+    },
+    {
+      "item_id": "finqa-verified-046",
+      "question": "what was the percentage change in cash flows from operations from 2014 to 2015?",
+      "gold_answer": "-2.92",
+      "predicted_answer": "-2.9%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4394
+    },
+    {
+      "item_id": "finqa-verified-047",
+      "question": "as of december 31 , 2010 , what was the decimal proportion of collateral pledged to the bank by its derivatives counterparties to overnight and other short-term borrowings",
+      "gold_answer": "38.6",
+      "predicted_answer": "0.0415",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4144
+    },
+    {
+      "item_id": "finqa-verified-048",
+      "question": "what is the total value , in dollars , of the shares purchasable under the warrant?",
+      "gold_answer": "299999990.4",
+      "predicted_answer": "$299,999,990.40",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4288
+    },
+    {
+      "item_id": "finqa-verified-049",
+      "question": "during 2008 what was the share price of the warrants exercised\\\\n",
+      "gold_answer": "7.48",
+      "predicted_answer": "$7.48 per warrant",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3341
+    },
+    {
+      "item_id": "finqa-verified-050",
+      "question": "what is the growth rate in net revenue for entergy mississippi , inc . in 2003?",
+      "gold_answer": "12.2",
+      "predicted_answer": "12.2%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 2618
+    },
+    {
+      "item_id": "finqa-verified-051",
+      "question": "what decimal proportion of the estimated purchase price is derived by the net tangible assets?",
+      "gold_answer": "38.25",
+      "predicted_answer": "0.0383",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3531
+    },
+    {
+      "item_id": "finqa-verified-052",
+      "question": "in november 2005 what was the percent of the stock issue costs to the company proceeds",
+      "gold_answer": "9.56",
+      "predicted_answer": "8.7%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3335
+    },
+    {
+      "item_id": "finqa-verified-053",
+      "question": "what was the percentage change in the impact of the euro on earnings from 2010 to 2011?",
+      "gold_answer": "41.94",
+      "predicted_answer": "41.9%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 1443
+    },
+    {
+      "item_id": "finqa-verified-054",
+      "question": "what was the percentage change in receivables from brokers with in other current assets from 2009 to 2010?",
+      "gold_answer": "27.27",
+      "predicted_answer": "27.3%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3532
+    },
+    {
+      "item_id": "finqa-verified-055",
+      "question": "in the adoption of the prospective method what was the decimal proportion of the other comprehensive income to the net income reclassifying certain separate accounts to general account",
+      "gold_answer": "9.8",
+      "predicted_answer": "N/A",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 6000
+    },
+    {
+      "item_id": "finqa-verified-056",
+      "question": "assuming all options in the compensation plans approved by security holders were exercised , what would be the deemed proceeds to the company?",
+      "gold_answer": "373153158.3",
+      "predicted_answer": "$373,153,158.30",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 2416
+    },
+    {
+      "item_id": "finqa-verified-057",
+      "question": "what is the net change in aon 2019s unpaid restructuring liabilities during 2006?",
+      "gold_answer": "18.0",
+      "predicted_answer": "18",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 787
+    },
+    {
+      "item_id": "finqa-verified-058",
+      "question": "what are the nuclear realized price changes as a percentage of the decrease in net revenue from 2011 to 2012?",
+      "gold_answer": "101.57",
+      "predicted_answer": "101.6%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3051
+    },
+    {
+      "item_id": "finqa-verified-059",
+      "question": "what percentage of the intangible assets is related to the license of the realtor.com ae trademark?",
+      "gold_answer": "53.7",
+      "predicted_answer": "53.7%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3125
+    },
+    {
+      "item_id": "finqa-verified-060",
+      "question": "in 2012 what was the percent of the total amortized assets that was made of total securities available for sale",
+      "gold_answer": "82.7",
+      "predicted_answer": "82.7%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5176
+    },
+    {
+      "item_id": "finqa-verified-061",
+      "question": "what is the annual interest cost savings by the company redeeming the 8.75% ( 8.75 % ) second priority senior secured notes?",
+      "gold_answer": "60.38",
+      "predicted_answer": "$60.375\u202fmillion",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3108
+    },
+    {
+      "item_id": "finqa-verified-062",
+      "question": "commercial mortgage loans held for sale designated at fair value at december 31 , 2011 were what percent of total loans held for sale at december 31 , 2011?",
+      "gold_answer": "28.71",
+      "predicted_answer": "28.7%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5539
+    },
+    {
+      "item_id": "finqa-verified-063",
+      "question": "what is the percentage change in the pre-tax pension and postretirement expense from 2017 to 2018?",
+      "gold_answer": "-17.59",
+      "predicted_answer": "-17.6%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 6000
+    },
+    {
+      "item_id": "finqa-verified-064",
+      "question": "what percentage of the outstanding options were from plans approved by security holders?",
+      "gold_answer": "99.51",
+      "predicted_answer": "99.51%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 2416
+    },
+    {
+      "item_id": "finqa-verified-065",
+      "question": "what was the percent of the change in the stock price performance for hum from 2010 to 2011",
+      "gold_answer": "60.8",
+      "predicted_answer": "60.8%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 824
+    },
+    {
+      "item_id": "finqa-verified-066",
+      "question": "what was the five year change in the vornado realty trust index?",
+      "gold_answer": "101.0",
+      "predicted_answer": "101%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 856
+    },
+    {
+      "item_id": "finqa-verified-067",
+      "question": "what was the percentage change in the weighted-average estimated fair value of employee stock options granted during from 2013 to 2014",
+      "gold_answer": "15.76",
+      "predicted_answer": "15.8%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5752
+    },
+    {
+      "item_id": "finqa-verified-068",
+      "question": "what was total miles of private crude oil pipelines and private refined products pipelines?",
+      "gold_answer": "1026.0",
+      "predicted_answer": "1026 miles",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3974
+    },
+    {
+      "item_id": "finqa-verified-069",
+      "question": "what is the change in fair value of financial market instruments as part of the hedging strategy during 2010?",
+      "gold_answer": "-26.0",
+      "predicted_answer": "-$26\u202fmillion",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4521
+    },
+    {
+      "item_id": "finqa-verified-070",
+      "question": "in millions for the fourth quarters of 2017 and 2016 , what was the total tier 1 capital?",
+      "gold_answer": "160035.0",
+      "predicted_answer": "78,227 (2017), 81,808 (2016)",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4597
+    },
+    {
+      "item_id": "finqa-verified-071",
+      "question": "the five year total return for the period ending 12/31/2012 on ball corporation stock was how much greater than the same return on the s&p 500?",
+      "gold_answer": "110.49",
+      "predicted_answer": "110.49",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 947
+    },
+    {
+      "item_id": "finqa-verified-072",
+      "question": "the five year total return for the period ending 12/31/2012 on ball corporation stock was how much greater than the same return on the dj us containers & packaging index?",
+      "gold_answer": "99.86",
+      "predicted_answer": "99.86",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 947
+    },
+    {
+      "item_id": "finqa-verified-073",
+      "question": "what was the decimal proportion of the purchase in december 2012 to the purchase in january 2013",
+      "gold_answer": "6.49",
+      "predicted_answer": "6.485",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 2636
+    },
+    {
+      "item_id": "finqa-verified-074",
+      "question": "what percentage of the company's gross liabilities are classified as other long-term liabilities in the accompanying consolidated balance sheets in 2012?",
+      "gold_answer": "41.08",
+      "predicted_answer": "41.1%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3143
+    },
+    {
+      "item_id": "finqa-verified-075",
+      "question": "what was the percentage change in the cash dividends paid per common share from 2006 to 2007",
+      "gold_answer": "2.78",
+      "predicted_answer": "2.78%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4919
+    },
+    {
+      "item_id": "finqa-verified-076",
+      "question": "what is the roi of an investment in ups from 2008 to 2009?",
+      "gold_answer": "7.76",
+      "predicted_answer": "7.76%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 1328
+    },
+    {
+      "item_id": "finqa-verified-077",
+      "question": "what is the average share price for the shares issued to employees in 2015 in u.k.?",
+      "gold_answer": "719.68",
+      "predicted_answer": "$719.5 per share",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3524
+    },
+    {
+      "item_id": "finqa-verified-078",
+      "question": "by how much more is the net gains from sales of available-for-sale securities in 2009 compare to 2008?",
+      "gold_answer": "300.0",
+      "predicted_answer": "$300\u202fmillion",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4288
+    },
+    {
+      "item_id": "finqa-verified-079",
+      "question": "as of december 31 , 2018 what was the percentage decline in the allowance for doubtful accounts",
+      "gold_answer": "-11.83",
+      "predicted_answer": "11.8%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3742
+    },
+    {
+      "item_id": "finqa-verified-080",
+      "question": "what percentage of total number of shares purchased were repurchased in open-market transactions?",
+      "gold_answer": "93.57",
+      "predicted_answer": "93.57%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3758
+    },
+    {
+      "item_id": "finqa-verified-081",
+      "question": "brazilian paper sales represented what percentage of printing papers in 2006?",
+      "gold_answer": "7.16",
+      "predicted_answer": "7.16%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 5392
+    },
+    {
+      "item_id": "finqa-verified-082",
+      "question": "considering the years 2014-2016 , what is the average operating income?",
+      "gold_answer": "822.07",
+      "predicted_answer": "822.07",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3368
+    },
+    {
+      "item_id": "finqa-verified-083",
+      "question": "what is the net effect of the cumulative effect adjustments , net of income tax effects , to beginning retained earnings for new accounting standards adopted by cadence on the retained earnings balance as adjusted for december 30 , 2017 , in thousands?",
+      "gold_answer": "85929.0",
+      "predicted_answer": "85,929",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 3563
+    },
+    {
+      "item_id": "finqa-verified-084",
+      "question": "what is the rate of return in cadence design systems inc . of an investment from 2010 to 2011?",
+      "gold_answer": "37.9",
+      "predicted_answer": "37.9%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 1482
+    },
+    {
+      "item_id": "finqa-verified-085",
+      "question": "counting indirect shares , how many shares would arthur d . levinson own in total?",
+      "gold_answer": "364400.0",
+      "predicted_answer": "364,400",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 2839
+    },
+    {
+      "item_id": "finqa-verified-086",
+      "question": "what is the return on investment for s&p500 from 2004 to 2006?",
+      "gold_answer": "21.48",
+      "predicted_answer": "21.48%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 1800
+    },
+    {
+      "item_id": "finqa-verified-087",
+      "question": "what is the percentage decrease in receivables from the money pool from 2010 to 2011?",
+      "gold_answer": "62.55",
+      "predicted_answer": "62.6%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4504
+    },
+    {
+      "item_id": "finqa-verified-088",
+      "question": "what was the percentage cumulative total shareholder return on disca common stock for the five year period ended december 31 , 2014?",
+      "gold_answer": "124.65",
+      "predicted_answer": "124.65%",
+      "correct": true,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 2940
+    },
+    {
+      "item_id": "finqa-verified-089",
+      "question": "what percent of net interest revenue where total operating expenses in 2008?",
+      "gold_answer": "29.65",
+      "predicted_answer": "29.7%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 4910
+    },
+    {
+      "item_id": "finqa-verified-090",
+      "question": "what percentage of lease payments will be paid out in the first year?",
+      "gold_answer": "19.37",
+      "predicted_answer": "19.36%",
+      "correct": false,
+      "call_failed": false,
+      "retrieved_own_document": null,
+      "context_chars_used": 2836
+    }
+  ],
+  "wall_clock_s": 1108.4,
+  "condition_comparisons": {
+    "rag_oracle_minus_no_rag": {
+      "point_estimate": 0.6593,
+      "ci_low": 0.5604,
+      "ci_high": 0.7582,
+      "ci_width": 0.1978,
+      "confidence": 0.95,
+      "method": "percentile bootstrap",
+      "n_resamples": 1000,
+      "n_items": 91,
+      "seed": 42,
+      "n_degenerate_resamples": 0,
+      "significant_at_95pct": true,
+      "pairing": "paired \u2014 identical items in both conditions"
+    },
+    "rag_retrieved_minus_no_rag": {
+      "point_estimate": 0.3407,
+      "ci_low": 0.2527,
+      "ci_high": 0.4396,
+      "ci_width": 0.1868,
+      "confidence": 0.95,
+      "method": "percentile bootstrap",
+      "n_resamples": 1000,
+      "n_items": 91,
+      "seed": 42,
+      "n_degenerate_resamples": 0,
+      "significant_at_95pct": true,
+      "pairing": "paired \u2014 identical items in both conditions"
+    },
+    "rag_oracle_minus_rag_retrieved": {
+      "point_estimate": 0.3187,
+      "ci_low": 0.2088,
+      "ci_high": 0.4286,
+      "ci_width": 0.2198,
+      "confidence": 0.95,
+      "method": "percentile bootstrap",
+      "n_resamples": 1000,
+      "n_items": 91,
+      "seed": 42,
+      "n_degenerate_resamples": 0,
+      "significant_at_95pct": true,
+      "pairing": "paired \u2014 identical items in both conditions"
+    }
+  },
+  "supersedes": "rq5_finqa_no_rag.json / rq5_finqa_with_rag.json \u2014 10-item synthetic fixture answered by hand-written simulator functions, not by the model"
+}

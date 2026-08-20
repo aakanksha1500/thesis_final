@@ -36,7 +36,13 @@ logger = get_logger(__name__)
 
 FALLBACK_SCORE = 3.0   # neutral placeholder — NEVER a measurement
 SCORE_DIMENSIONS = [name for name, _ in JUDGE_DIMENSIONS]
-JUDGE_MAX_TOKENS = 1024
+# Raised from 1024 and, more importantly, now actually APPLIED (see
+# __init__). Reasoning-capable judge models emit a preamble before the
+# score object; at 1024 the reply is truncated mid-JSON, _extract_json
+# returns None, and the turn is recorded as mode="error" — which is
+# indistinguishable from a rate-limit failure in judge_coverage, and was
+# a plausible second cause of RQ4's coverage 0.0 alongside the 429.
+JUDGE_MAX_TOKENS = 2048
 
 class AgentJudge:
     """
@@ -48,6 +54,13 @@ class AgentJudge:
     def __init__(self, llm_client: LLMClient):
         self.llm = llm_client
         self._eval_count = 0
+        # LLMClient.chat() takes no per-call max_tokens, so JUDGE_MAX_TOKENS
+        # was declared at module level and never reached the API — the judge
+        # silently inherited DEFAULT_MAX_TOKENS (1024). Widen the client the
+        # judge holds, and only ever upward, so a caller that deliberately
+        # passed a larger budget is not narrowed by this.
+        if getattr(self.llm, "max_tokens", 0) < JUDGE_MAX_TOKENS:
+            self.llm.max_tokens = JUDGE_MAX_TOKENS
 
     def evaluate(
         self,

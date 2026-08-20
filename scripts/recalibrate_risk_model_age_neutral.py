@@ -172,6 +172,8 @@ def main() -> int:
         "fallback path when `shap` is not installed."
     )
 
+    new_bundle["sklearn_version"] = __import__("sklearn").__version__
+
     if not args.no_save:
         joblib.dump(new_bundle, MODEL_PATH)
         print(f"\n  Saved -> {MODEL_PATH}")

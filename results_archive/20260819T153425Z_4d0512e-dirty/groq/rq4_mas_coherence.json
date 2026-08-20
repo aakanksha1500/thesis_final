@@ -1,0 +1,539 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-16T23:10:15.284516+00:00",
+    "git_sha": "4d0512e-dirty",
+    "prompt_version": "v1.2",
+    "llm_mode": "groq",
+    "orchestrator_model": "openai/gpt-oss-120b",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "qwen/qwen3.6-27b",
+    "environment": "development",
+    "subsystem_modes": {
+      "embedder": "sentence-transformers",
+      "vector_store": "faiss",
+      "market_data": "unavailable"
+    },
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": true,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 7,
+  "agent": "Orchestrator",
+  "llm_mode": "groq",
+  "n_scenarios": 10,
+  "note": "routing_accuracy=0.0 in mock mode (expected \u2014 intent classifier requires real LLM). All other metrics are meaningful in both modes.",
+  "metrics": {
+    "routing_accuracy": {
+      "metric": "routing_accuracy",
+      "value": 1.0,
+      "details": {
+        "n": 10,
+        "correct": 10,
+        "per_routing_accuracy": {
+          "conversational_only": 1.0,
+          "risk_profiling": 1.0,
+          "investment": 1.0,
+          "budget": 1.0,
+          "explanation_request": 1.0
+        }
+      }
+    },
+    "step_progress_rate": {
+      "metric": "step_progress_rate",
+      "value": 0.5556,
+      "details": {
+        "total_steps": 18,
+        "completed_steps": 10,
+        "per_agent_rate": {
+          "ConversationalAgent": 1.0,
+          "RiskProfilingAgent": 0.0,
+          "ExplainabilityAgent": 1.0,
+          "InvestmentAgent": 0.0,
+          "BudgetAgent": 0.0
+        },
+        "bottleneck_agent": "RiskProfilingAgent"
+      }
+    },
+    "component_synergy_score": {
+      "metric": "component_synergy_score",
+      "value": 1.0,
+      "details": {
+        "total_agent_calls": 1,
+        "successful_calls": 1,
+        "conflicts": 0,
+        "failures": 0,
+        "raw_css": 1.0
+      }
+    },
+    "tool_utilisation_efficacy": {
+      "metric": "tool_utilisation_efficacy",
+      "value": 1.0,
+      "details": {
+        "total_calls": 1,
+        "redundant_calls": 0,
+        "turns_analysed": 1
+      }
+    },
+    "agent_judge": {
+      "metric": "agent_judge_overall",
+      "value": 4.88,
+      "judge_mode": "real",
+      "judge_model": "qwen/qwen3.6-27b",
+      "judge_coverage": 1.0,
+      "n_measured": 10,
+      "n_scenarios": 10,
+      "mode_distribution": {
+        "real": 10
+      },
+      "failures": {},
+      "verdict_distribution": {
+        "pass": 10
+      },
+      "interpretation": "value is the mean over MEASURED turns only. judge_coverage < 1.0 means some turns were not judged; coverage 0.0 means the 5-dimension trajectory score was NOT measured in this run and must not be reported as a finding."
+    }
+  },
+  "scenarios": [
+    {
+      "scenario_id": "S01",
+      "description": "Simple general query \u2014 no specialist needed",
+      "message": "What is my account balance?",
+      "expected_routing": "conversational_only",
+      "actual_routing": "conversational_only",
+      "routing_correct": true,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 11751.928791869432,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 5,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 5.0,
+        "verdict": "pass",
+        "reasoning": "The system correctly routed the account inquiry to the conversational agent, perfectly aligning with the ground truth. The response safely acknowledges system limitations regarding account access and directs the user to official banking channels without hallucinating data or overpromising capabilities.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "qwen/qwen3.6-27b",
+        "judge_tokens": 1847
+      },
+      "turn_id": "d1ea548f",
+      "classify_intent_diagnostics": {
+        "classification_skipped_questionnaire_shortcircuit": false,
+        "last_classification_error": null,
+        "last_classification_error_http_status": null,
+        "note": "classification_skipped_questionnaire_shortcircuit reflects questionnaire_active BEFORE this turn, not whether _classify_intent() ran THIS turn \u2014 those are no longer the same thing now that pivot-through exists (an off_topic reply mid-questionnaire still calls _classify_intent()). See inferred_questionnaire_pivot_through below, filled in once the audit log has been read, for the turn-specific answer.",
+        "logged_intent": "general_query",
+        "logged_confidence": 0.99,
+        "logged_rationale": "Banking77 intent classification \u2192 general_query (0.99)",
+        "inferred_questionnaire_pivot_through": false
+      }
+    },
+    {
+      "scenario_id": "S02",
+      "description": "Direct risk profiling request",
+      "message": "Can you assess my financial risk profile?",
+      "expected_routing": "risk_profiling",
+      "actual_routing": "risk_profiling",
+      "routing_correct": true,
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 17956.57129213214,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 5,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 5.0,
+        "verdict": "pass",
+        "reasoning": "The system correctly routed to risk profiling and gracefully handled missing input features by failing the profiling agent. The explainability layer appropriately calibrated confidence to 0% and the final response correctly initiated a data-gathering conversation without hallucinating advice or violating constraints.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "qwen/qwen3.6-27b",
+        "judge_tokens": 2698
+      },
+      "turn_id": "7ce5944a",
+      "classify_intent_diagnostics": {
+        "classification_skipped_questionnaire_shortcircuit": false,
+        "last_classification_error": null,
+        "last_classification_error_http_status": null,
+        "note": "classification_skipped_questionnaire_shortcircuit reflects questionnaire_active BEFORE this turn, not whether _classify_intent() ran THIS turn \u2014 those are no longer the same thing now that pivot-through exists (an off_topic reply mid-questionnaire still calls _classify_intent()). See inferred_questionnaire_pivot_through below, filled in once the audit log has been read, for the turn-specific answer.",
+        "logged_intent": "risk_profiling",
+        "logged_confidence": 0.99,
+        "logged_rationale": "Banking77 intent classification \u2192 risk_profiling (0.99)",
+        "inferred_questionnaire_pivot_through": false
+      }
+    },
+    {
+      "scenario_id": "S03",
+      "description": "Investment query \u2014 requires risk first",
+      "message": "I want to invest my savings for retirement.",
+      "expected_routing": "investment",
+      "actual_routing": "investment",
+      "routing_correct": true,
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 6441.197166917846,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 4,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 4.8,
+        "verdict": "pass",
+        "reasoning": "The orchestrator correctly routed the query and gracefully handled missing input by halting the recommendation pipeline and requesting necessary risk profiling data. The explanation is transparent about the 0% confidence and regulatory grounding, with appropriate disclaimers. A minor deduction for factual accuracy reflects fragmented RAG citations in the payload, though no financial claims were fabricated.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "qwen/qwen3.6-27b",
+        "judge_tokens": 3354
+      },
+      "turn_id": "54d7d565",
+      "classify_intent_diagnostics": {
+        "classification_skipped_questionnaire_shortcircuit": true,
+        "last_classification_error": null,
+        "last_classification_error_http_status": null,
+        "note": "classification_skipped_questionnaire_shortcircuit reflects questionnaire_active BEFORE this turn, not whether _classify_intent() ran THIS turn \u2014 those are no longer the same thing now that pivot-through exists (an off_topic reply mid-questionnaire still calls _classify_intent()). See inferred_questionnaire_pivot_through below, filled in once the audit log has been read, for the turn-specific answer.",
+        "logged_intent": "investment_advice",
+        "logged_confidence": 0.97,
+        "logged_rationale": "Banking77 intent classification \u2192 investment_advice (0.97)",
+        "inferred_questionnaire_pivot_through": true
+      }
+    },
+    {
+      "scenario_id": "S04",
+      "description": "Budget analysis request",
+      "message": "Help me understand my monthly spending.",
+      "expected_routing": "budget",
+      "actual_routing": "budget",
+      "routing_correct": true,
+      "agents_invoked": [
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 21674.834999954328,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 5,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 5.0,
+        "verdict": "pass",
+        "reasoning": "The system correctly routed to the budget agent and gracefully handled the missing monthly_income by falling back to grounded regulatory guidance. The confidence score of 0.0 accurately reflects the lack of personalized data, and the explanation clearly outlines the required next steps without hallucinating figures.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "qwen/qwen3.6-27b",
+        "judge_tokens": 3241
+      },
+      "turn_id": "dc3be6c0",
+      "classify_intent_diagnostics": {
+        "classification_skipped_questionnaire_shortcircuit": true,
+        "last_classification_error": null,
+        "last_classification_error_http_status": null,
+        "note": "classification_skipped_questionnaire_shortcircuit reflects questionnaire_active BEFORE this turn, not whether _classify_intent() ran THIS turn \u2014 those are no longer the same thing now that pivot-through exists (an off_topic reply mid-questionnaire still calls _classify_intent()). See inferred_questionnaire_pivot_through below, filled in once the audit log has been read, for the turn-specific answer.",
+        "logged_intent": "budget_analysis",
+        "logged_confidence": 0.97,
+        "logged_rationale": "Banking77 intent classification \u2192 budget_analysis (0.97)",
+        "inferred_questionnaire_pivot_through": true
+      }
+    },
+    {
+      "scenario_id": "S05",
+      "description": "Explanation request for prior recommendation",
+      "message": "Why did you recommend that ETF?",
+      "expected_routing": "explanation_request",
+      "actual_routing": "explanation_request",
+      "routing_correct": true,
+      "agents_invoked": [
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 21529.8773329705,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 4,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 4.8,
+        "verdict": "pass",
+        "reasoning": "The routing correctly matched the ground truth and invoked the appropriate single agent for an explanation request. The explanation is well-grounded in regulatory citations, clearly ties the product recommendation to the user's moderate risk profile, and includes a properly calibrated confidence score and mandatory CBI disclaimer. The 20% income threshold is presented as a conditional review trigger rather than a hard regulatory fact, keeping factual accuracy high.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "qwen/qwen3.6-27b",
+        "judge_tokens": 2962
+      },
+      "turn_id": "782546c9",
+      "classify_intent_diagnostics": {
+        "classification_skipped_questionnaire_shortcircuit": true,
+        "last_classification_error": null,
+        "last_classification_error_http_status": null,
+        "note": "classification_skipped_questionnaire_shortcircuit reflects questionnaire_active BEFORE this turn, not whether _classify_intent() ran THIS turn \u2014 those are no longer the same thing now that pivot-through exists (an off_topic reply mid-questionnaire still calls _classify_intent()). See inferred_questionnaire_pivot_through below, filled in once the audit log has been read, for the turn-specific answer.",
+        "logged_intent": "explanation_request",
+        "logged_confidence": 0.97,
+        "logged_rationale": "Banking77 intent classification \u2192 explanation_request (0.97)",
+        "inferred_questionnaire_pivot_through": true
+      }
+    },
+    {
+      "scenario_id": "S06",
+      "description": "Out-of-scope query (FX rate not in advisory scope)",
+      "message": "What is the current exchange rate?",
+      "expected_routing": "conversational_only",
+      "actual_routing": "conversational_only",
+      "routing_correct": true,
+      "agents_invoked": [
+        "ConversationalAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 22163.719250122085,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 5,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 5.0,
+        "verdict": "pass",
+        "reasoning": "The routing decision perfectly aligns with the ground truth, correctly invoking only the ConversationalAgent for a risk profiling turn. The agent successfully handles a missing input, maintains session context, and asks a relevant follow-up question without hallucination or constraint violations.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "qwen/qwen3.6-27b",
+        "judge_tokens": 2058
+      },
+      "turn_id": "fe3a5c9d",
+      "classify_intent_diagnostics": {
+        "classification_skipped_questionnaire_shortcircuit": true,
+        "last_classification_error": null,
+        "last_classification_error_http_status": null,
+        "note": "classification_skipped_questionnaire_shortcircuit reflects questionnaire_active BEFORE this turn, not whether _classify_intent() ran THIS turn \u2014 those are no longer the same thing now that pivot-through exists (an off_topic reply mid-questionnaire still calls _classify_intent()). See inferred_questionnaire_pivot_through below, filled in once the audit log has been read, for the turn-specific answer.",
+        "logged_intent": "general_query",
+        "logged_confidence": 0.99,
+        "logged_rationale": "Banking77 intent classification \u2192 general_query (0.99)",
+        "inferred_questionnaire_pivot_through": true
+      }
+    },
+    {
+      "scenario_id": "S07",
+      "description": "Product suggestion \u2192 investment routing",
+      "message": "Can you recommend a low-risk investment product?",
+      "expected_routing": "investment",
+      "actual_routing": "investment",
+      "routing_correct": true,
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 21200.965957948938,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 4,
+        "factual_accuracy": 5,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 4.8,
+        "verdict": "pass",
+        "reasoning": "The system correctly routed the query and appropriately refused to generate a recommendation due to missing client data, maintaining strict regulatory compliance and accurate trust calibration. The only minor inefficiency was invoking the downstream InvestmentAgent despite the upstream profiling failure, though the final synthesis handled this gracefully without hallucination.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "qwen/qwen3.6-27b",
+        "judge_tokens": 3319
+      },
+      "turn_id": "d5f9deb7",
+      "classify_intent_diagnostics": {
+        "classification_skipped_questionnaire_shortcircuit": true,
+        "last_classification_error": null,
+        "last_classification_error_http_status": null,
+        "note": "classification_skipped_questionnaire_shortcircuit reflects questionnaire_active BEFORE this turn, not whether _classify_intent() ran THIS turn \u2014 those are no longer the same thing now that pivot-through exists (an off_topic reply mid-questionnaire still calls _classify_intent()). See inferred_questionnaire_pivot_through below, filled in once the audit log has been read, for the turn-specific answer.",
+        "logged_intent": "investment_advice",
+        "logged_confidence": 0.97,
+        "logged_rationale": "Banking77 intent classification \u2192 investment_advice (0.97)",
+        "inferred_questionnaire_pivot_through": true
+      }
+    },
+    {
+      "scenario_id": "S08",
+      "description": "Risk capacity question \u2192 risk profiling",
+      "message": "How much risk can I afford to take?",
+      "expected_routing": "risk_profiling",
+      "actual_routing": "risk_profiling",
+      "routing_correct": true,
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 18324.154790956527,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 5,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 5.0,
+        "verdict": "pass",
+        "reasoning": "The orchestrator correctly routed to risk profiling and the agents handled missing inputs gracefully. The final response accurately reflects the lack of data, maintains appropriate zero confidence, includes required disclaimers, and avoids hallucination.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "qwen/qwen3.6-27b",
+        "judge_tokens": 3209
+      },
+      "turn_id": "095eb7dc",
+      "classify_intent_diagnostics": {
+        "classification_skipped_questionnaire_shortcircuit": true,
+        "last_classification_error": null,
+        "last_classification_error_http_status": null,
+        "note": "classification_skipped_questionnaire_shortcircuit reflects questionnaire_active BEFORE this turn, not whether _classify_intent() ran THIS turn \u2014 those are no longer the same thing now that pivot-through exists (an off_topic reply mid-questionnaire still calls _classify_intent()). See inferred_questionnaire_pivot_through below, filled in once the audit log has been read, for the turn-specific answer.",
+        "logged_intent": "risk_profiling",
+        "logged_confidence": 0.97,
+        "logged_rationale": "Banking77 intent classification \u2192 risk_profiling (0.97)",
+        "inferred_questionnaire_pivot_through": true
+      }
+    },
+    {
+      "scenario_id": "S09",
+      "description": "HBS benchmark query \u2192 budget agent",
+      "message": "Where am I spending more than average in Ireland?",
+      "expected_routing": "budget",
+      "actual_routing": "budget",
+      "routing_correct": true,
+      "agents_invoked": [
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 20889.945874921978,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 4,
+        "factual_accuracy": 5,
+        "explanation_quality": 4,
+        "trust_calibration": 5,
+        "overall_score": 4.6,
+        "verdict": "pass",
+        "reasoning": "The system correctly routed to the budget agent and gracefully handled the missing monthly_income parameter without hallucinating financial data. While the ExplainabilityAgent produced a slightly generic placeholder explanation due to the upstream failure, the final synthesized response effectively communicated the missing requirement and maintained appropriate zero-confidence calibration.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "qwen/qwen3.6-27b",
+        "judge_tokens": 2513
+      },
+      "turn_id": "9a2266ec",
+      "classify_intent_diagnostics": {
+        "classification_skipped_questionnaire_shortcircuit": true,
+        "last_classification_error": null,
+        "last_classification_error_http_status": null,
+        "note": "classification_skipped_questionnaire_shortcircuit reflects questionnaire_active BEFORE this turn, not whether _classify_intent() ran THIS turn \u2014 those are no longer the same thing now that pivot-through exists (an off_topic reply mid-questionnaire still calls _classify_intent()). See inferred_questionnaire_pivot_through below, filled in once the audit log has been read, for the turn-specific answer.",
+        "logged_intent": "budget_analysis",
+        "logged_confidence": 0.97,
+        "logged_rationale": "Banking77 intent classification \u2192 budget_analysis (0.97)",
+        "inferred_questionnaire_pivot_through": true
+      }
+    },
+    {
+      "scenario_id": "S10",
+      "description": "Explanation of classification",
+      "message": "How did you decide my risk class?",
+      "expected_routing": "explanation_request",
+      "actual_routing": "explanation_request",
+      "routing_correct": true,
+      "agents_invoked": [
+        "ExplainabilityAgent"
+      ],
+      "conflicts": [],
+      "constraint_violations": [],
+      "recovered_agents": [],
+      "duration_ms": 19148.3877080027,
+      "judge_score": {
+        "routing_accuracy": 5,
+        "agent_coordination": 5,
+        "factual_accuracy": 4,
+        "explanation_quality": 5,
+        "trust_calibration": 5,
+        "overall_score": 4.8,
+        "verdict": "pass",
+        "reasoning": "Routing correctly matched the ground truth and invoked the appropriate single agent. The explanation effectively translates regulatory citations into clear, user-facing rationale while maintaining appropriate uncertainty and including the mandatory CBI disclaimer. No hallucinations or constraint violations were detected.",
+        "hallucination_detected": false,
+        "hallucination_detail": null,
+        "judge_mode": "real",
+        "judge_model": "qwen/qwen3.6-27b",
+        "judge_tokens": 2980
+      },
+      "turn_id": "0bc1da5a",
+      "classify_intent_diagnostics": {
+        "classification_skipped_questionnaire_shortcircuit": true,
+        "last_classification_error": null,
+        "last_classification_error_http_status": null,
+        "note": "classification_skipped_questionnaire_shortcircuit reflects questionnaire_active BEFORE this turn, not whether _classify_intent() ran THIS turn \u2014 those are no longer the same thing now that pivot-through exists (an off_topic reply mid-questionnaire still calls _classify_intent()). See inferred_questionnaire_pivot_through below, filled in once the audit log has been read, for the turn-specific answer.",
+        "logged_intent": "explanation_request",
+        "logged_confidence": 0.97,
+        "logged_rationale": "Banking77 intent classification \u2192 explanation_request (0.97)",
+        "inferred_questionnaire_pivot_through": true
+      }
+    }
+  ],
+  "classify_intent_diagnostics_summary": {
+    "n_scenarios": 10,
+    "n_questionnaire_absorbed": 0,
+    "n_questionnaire_pivoted_through": 8,
+    "n_silent_classification_failure": 0,
+    "n_low_confidence_override": 0,
+    "n_confident_general_query": 1,
+    "n_unclassified": 1,
+    "interpretation": "n_questionnaire_absorbed counts turns whose logged routing matches the orchestrator's hardcoded questionnaire short-circuit tuple exactly (confidence==1.0, intent in ['budget_analysis', 'risk_profiling']) \u2014 inferred from the audit log, not read directly off Orchestrator's internal questionnaire_absorbs_this_turn flag; see the loop above for why that's a reliable proxy. n_questionnaire_pivoted_through counts turns where questionnaire_active was true beforehand but the logged routing does NOT match that tuple \u2014 classify_questionnaire_reply() found the turn off_topic and it went through real classification instead. n_silent_classification_failure counts turns where _classify_intent() ran but the LLM call or JSON parse failed, silently producing (general_query, 0.5) \u2014 indistinguishable from a genuine general_query classification anywhere else in this file before this instrumentation was added. n_low_confidence_override counts turns where a different, non-conversational intent WAS found but discarded for falling below routing_confidence_threshold (0.65). n_unclassified covers cases this rollup's rules don't cleanly bucket (e.g. a genuinely low-confidence general_query) \u2014 inspect classify_intent_diagnostics on the individual scenario for those."
+  },
+  "audit_log_path": "/private/var/folders/vc/qwj0gcpn741fw_lh0plr1_b40000gn/T/pytest-of-aakankshadeshpande/pytest-126/test_rq4_pipeline_evaluation_a0/session_rq4-eval-001.jsonl"
+}

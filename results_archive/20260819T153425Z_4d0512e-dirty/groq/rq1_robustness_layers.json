@@ -1,0 +1,673 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-13T12:27:08.250387+00:00",
+    "git_sha": "4d0512e-dirty",
+    "prompt_version": "v1.2",
+    "llm_mode": "groq",
+    "orchestrator_model": "openai/gpt-oss-120b",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "qwen/qwen3.6-27b",
+    "environment": "development",
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": true,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 3,
+  "research_question": "RQ1 (supporting) \u2014 robustness, not accuracy",
+  "agent": "RiskProfilingAgent",
+  "requires_llm": false,
+  "what_this_file_is_not": "Not an accuracy result. Layers 1 and 2 have no independent ground truth. Every metric here is label-free by construction, and evaluation/datasets.py raises GroundTruthUnavailable if labels are requested from either layer \u2014 see the ground_truth_guard block in each result.",
+  "three_layer_inventory": {
+    "layers": {
+      "layer1_real": {
+        "name": "Real / operational customers",
+        "n": 254,
+        "layer": "layer1_real",
+        "purpose": "robustness, coverage, edge cases, real-data behaviour",
+        "has_independent_ground_truth": false,
+        "permitted_metrics": [
+          "completion_rate",
+          "crash_rate",
+          "confidence_distribution",
+          "coverage_tier_distribution",
+          "missing_feature_handling",
+          "prediction_distribution"
+        ],
+        "forbidden_metrics": [
+          "accuracy",
+          "precision",
+          "recall",
+          "f1",
+          "auc_roc"
+        ]
+      },
+      "layer2_stress": {
+        "name": "Synthetic stress-test population",
+        "n": 1000,
+        "layer": "layer2_stress",
+        "purpose": "robustness and stress testing across the full feature space",
+        "has_independent_ground_truth": false,
+        "permitted_metrics": [
+          "completion_rate",
+          "crash_rate",
+          "confidence_distribution",
+          "coverage_tier_distribution",
+          "missing_feature_handling",
+          "prediction_distribution",
+          "subgroup_stability"
+        ],
+        "forbidden_metrics": [
+          "accuracy",
+          "precision",
+          "recall",
+          "f1",
+          "auc_roc"
+        ]
+      },
+      "layer3_gold": {
+        "name": "Gold-standard independently-labelled evaluation set",
+        "n": 215,
+        "layer": "layer3_gold",
+        "purpose": "accuracy, precision, recall, F1, confusion matrix, CIs",
+        "has_independent_ground_truth": true,
+        "permitted_metrics": [
+          "accuracy",
+          "precision",
+          "recall",
+          "f1",
+          "auc_roc",
+          "risk_alignment_rate",
+          "confusion_matrix",
+          "bootstrap_ci"
+        ],
+        "forbidden_metrics": []
+      }
+    }
+  },
+  "results": {
+    "layer1_real": {
+      "layer_dataset": {
+        "dataset_name": "operational_customer_store",
+        "n_records": 254,
+        "source_path": "data/processed/customers.csv",
+        "layer": "layer1_real",
+        "name": "Real / operational customers",
+        "purpose": "robustness, coverage, edge cases, real-data behaviour",
+        "has_independent_ground_truth": false,
+        "permitted_metrics": [
+          "completion_rate",
+          "crash_rate",
+          "confidence_distribution",
+          "coverage_tier_distribution",
+          "missing_feature_handling",
+          "prediction_distribution"
+        ],
+        "forbidden_metrics": [
+          "accuracy",
+          "precision",
+          "recall",
+          "f1",
+          "auc_roc"
+        ],
+        "provenance": {
+          "source": "data/processed/customers.csv",
+          "n_records": 254,
+          "n_with_any_demo_label": 3,
+          "n_without_label": 251,
+          "source_dataset_counts": {
+            "german_credit_demo": 2,
+            "give_me_some_credit_demo": 1,
+            "session_update": 1,
+            "synthetic_load_test": 250
+          },
+          "note": "Operational population. 251 of 254 records have no risk label of any kind. No labels were invented for them. Used for robustness and coverage only."
+        }
+      },
+      "n_records": 254,
+      "completion": {
+        "n_completed": 254,
+        "n_crashed": 0,
+        "completion_rate": 1.0,
+        "crash_rate": 0.0,
+        "crashes": []
+      },
+      "feature_completeness": {
+        "n_complete_profiles": 254,
+        "n_with_missing_required_features": 0,
+        "required_features": [
+          "age",
+          "income",
+          "employment_status",
+          "dependents",
+          "existing_debt",
+          "investment_horizon",
+          "loss_tolerance",
+          "financial_knowledge_score"
+        ],
+        "note": "Profiles with missing required features are scored here via _hybrid_score's own defaulting. In production RiskProfilingAgent.run() routes them to elicitation instead \u2014 this pass measures whether the scoring path survives them, not whether the routing is correct."
+      },
+      "prediction_distribution": {
+        "moderate": 152,
+        "moderately_aggressive": 42,
+        "conservative": 2,
+        "moderately_conservative": 58
+      },
+      "prediction_distribution_pct": {
+        "moderate": 0.5984,
+        "moderately_aggressive": 0.1654,
+        "conservative": 0.0079,
+        "moderately_conservative": 0.2283
+      },
+      "n_distinct_classes_predicted": 4,
+      "confidence_distribution": {
+        "mean": 0.4378,
+        "std": 0.2831,
+        "min": 0.0,
+        "max": 1.0,
+        "p25": 0.19,
+        "median": 0.39,
+        "p75": 0.6475,
+        "below_min_confidence_threshold": 176,
+        "min_confidence_threshold": 0.6
+      },
+      "subgroup_prediction_distribution": {
+        "by_employment_status": {
+          "employed": {
+            "moderate": 98,
+            "moderately_aggressive": 36,
+            "moderately_conservative": 30
+          },
+          "retired": {
+            "conservative": 2,
+            "moderate": 20,
+            "moderately_conservative": 20,
+            "moderately_aggressive": 1
+          },
+          "self-employed": {
+            "moderate": 19,
+            "moderately_conservative": 3,
+            "moderately_aggressive": 3
+          },
+          "student": {
+            "moderate": 9,
+            "moderately_aggressive": 1,
+            "moderately_conservative": 1
+          },
+          "unemployed": {
+            "moderately_conservative": 4,
+            "moderate": 6,
+            "moderately_aggressive": 1
+          }
+        },
+        "by_age_band": {
+          "18-24": {
+            "moderate": 21,
+            "moderately_conservative": 7,
+            "moderately_aggressive": 4
+          },
+          "25-34": {
+            "moderately_aggressive": 9,
+            "moderately_conservative": 12,
+            "moderate": 26
+          },
+          "35-44": {
+            "moderate": 38,
+            "moderately_conservative": 18,
+            "moderately_aggressive": 14,
+            "conservative": 1
+          },
+          "45-54": {
+            "moderate": 52,
+            "moderately_conservative": 8,
+            "moderately_aggressive": 10
+          },
+          "55-64": {
+            "conservative": 1,
+            "moderately_conservative": 8,
+            "moderately_aggressive": 5,
+            "moderate": 11
+          },
+          "65+": {
+            "moderately_conservative": 5,
+            "moderate": 4
+          }
+        },
+        "by_debt_to_income_band": {
+          "0.10-0.25": {
+            "moderate": 76,
+            "moderately_conservative": 33,
+            "moderately_aggressive": 12,
+            "conservative": 1
+          },
+          "0.25-0.50": {
+            "moderate": 43,
+            "moderately_conservative": 14,
+            "moderately_aggressive": 13
+          },
+          "0.50-1.00": {
+            "conservative": 1,
+            "moderate": 1
+          },
+          "<0.10": {
+            "moderately_aggressive": 17,
+            "moderate": 32,
+            "moderately_conservative": 10
+          },
+          ">=1.00": {
+            "moderately_conservative": 1
+          }
+        },
+        "by_coverage_tier": {},
+        "by_edge_case_kind": {}
+      },
+      "wall_clock_s": 6.73,
+      "ground_truth_guard": {
+        "status": "enforced",
+        "message": "ground-truth extraction requested for dataset 'operational_customer_store' (layer=layer1_real)",
+        "note": "evaluation/datasets.py refused to return labels for this layer. No accuracy metric can be computed from this file."
+      }
+    },
+    "layer2_stress": {
+      "layer_dataset": {
+        "dataset_name": "stress_customers_v1",
+        "n_records": 1000,
+        "source_path": "data/evaluation/stress_customers.json",
+        "layer": "layer2_stress",
+        "name": "Synthetic stress-test population",
+        "purpose": "robustness and stress testing across the full feature space",
+        "has_independent_ground_truth": false,
+        "permitted_metrics": [
+          "completion_rate",
+          "crash_rate",
+          "confidence_distribution",
+          "coverage_tier_distribution",
+          "missing_feature_handling",
+          "prediction_distribution",
+          "subgroup_stability"
+        ],
+        "forbidden_metrics": [
+          "accuracy",
+          "precision",
+          "recall",
+          "f1",
+          "auc_roc"
+        ],
+        "provenance": {
+          "generated_at_utc": "2026-08-13T07:42:06.713756+00:00",
+          "git_sha": "4d0512e",
+          "generator": "scripts/build_stress_customer_base.py",
+          "seed": 20260812,
+          "design": "Full factorial: 5 construction target classes x 6 data-sufficiency coverage tiers, 30 profiles per stratum, plus 100 tagged edge cases.",
+          "usage_restriction": "ROBUSTNESS AND STRESS TESTING ONLY. construction_target_class records which rubric cell each profile was sampled to fill and is NOT ground truth. evaluation/datasets.py refuses to expose it as such. Any accuracy, precision, recall or F1 number computed from this file would be measuring the sampler, not the model.",
+          "statistics": {
+            "per_stratum": 30,
+            "n_strata": 30,
+            "target_class_misses": 0,
+            "coverage_tier_counts": {
+              "insufficient": 167,
+              "minimal": 167,
+              "low": 167,
+              "medium": 167,
+              "medium_high": 166,
+              "high": 166
+            },
+            "employment_counts": {
+              "retired": 104,
+              "employed": 231,
+              "unemployed": 73,
+              "student": 36,
+              "part_time": 116,
+              "self-employed": 180,
+              "self_employed": 160
+            },
+            "construction_class_counts": {
+              "conservative": 180,
+              "moderately_conservative": 180,
+              "moderate": 180,
+              "moderately_aggressive": 180,
+              "aggressive": 180
+            },
+            "n_edge_cases": 100,
+            "edge_case_kinds": [
+              "zero_income",
+              "debt_exceeds_income",
+              "zero_debt",
+              "minimum_age",
+              "maximum_age",
+              "very_high_income",
+              "many_dependents",
+              "shortest_horizon",
+              "longest_horizon",
+              "extreme_tolerance_low",
+              "extreme_tolerance_high",
+              "contradictory_low_capacity_high_tolerance",
+              "missing_loss_tolerance",
+              "missing_income",
+              "missing_two_features"
+            ],
+            "n_total": 1000
+          }
+        }
+      },
+      "n_records": 1000,
+      "completion": {
+        "n_completed": 1000,
+        "n_crashed": 0,
+        "completion_rate": 1.0,
+        "crash_rate": 0.0,
+        "crashes": []
+      },
+      "feature_completeness": {
+        "n_complete_profiles": 982,
+        "n_with_missing_required_features": 18,
+        "required_features": [
+          "age",
+          "income",
+          "employment_status",
+          "dependents",
+          "existing_debt",
+          "investment_horizon",
+          "loss_tolerance",
+          "financial_knowledge_score"
+        ],
+        "note": "Profiles with missing required features are scored here via _hybrid_score's own defaulting. In production RiskProfilingAgent.run() routes them to elicitation instead \u2014 this pass measures whether the scoring path survives them, not whether the routing is correct."
+      },
+      "prediction_distribution": {
+        "moderately_conservative": 349,
+        "moderate": 270,
+        "conservative": 80,
+        "moderately_aggressive": 296,
+        "aggressive": 5
+      },
+      "prediction_distribution_pct": {
+        "moderately_conservative": 0.349,
+        "moderate": 0.27,
+        "conservative": 0.08,
+        "moderately_aggressive": 0.296,
+        "aggressive": 0.005
+      },
+      "n_distinct_classes_predicted": 5,
+      "confidence_distribution": {
+        "mean": 0.5167,
+        "std": 0.2927,
+        "min": 0.0,
+        "max": 1.0,
+        "p25": 0.2575,
+        "median": 0.535,
+        "p75": 0.78,
+        "below_min_confidence_threshold": 559,
+        "min_confidence_threshold": 0.6
+      },
+      "subgroup_prediction_distribution": {
+        "by_employment_status": {
+          "employed": {
+            "moderate": 64,
+            "moderately_conservative": 45,
+            "conservative": 1,
+            "moderately_aggressive": 124,
+            "aggressive": 5
+          },
+          "part_time": {
+            "moderately_conservative": 57,
+            "conservative": 4,
+            "moderate": 60,
+            "moderately_aggressive": 8
+          },
+          "retired": {
+            "moderately_conservative": 60,
+            "conservative": 45,
+            "moderate": 26,
+            "moderately_aggressive": 1
+          },
+          "self-employed": {
+            "conservative": 5,
+            "moderately_conservative": 56,
+            "moderate": 44,
+            "moderately_aggressive": 86
+          },
+          "self_employed": {
+            "moderately_conservative": 47,
+            "conservative": 8,
+            "moderate": 48,
+            "moderately_aggressive": 75
+          },
+          "student": {
+            "conservative": 3,
+            "moderate": 19,
+            "moderately_conservative": 24,
+            "moderately_aggressive": 2
+          },
+          "unemployed": {
+            "conservative": 14,
+            "moderately_conservative": 60,
+            "moderate": 9
+          }
+        },
+        "by_age_band": {
+          "18-24": {
+            "moderate": 34,
+            "moderately_conservative": 37,
+            "conservative": 5,
+            "moderately_aggressive": 27
+          },
+          "25-34": {
+            "conservative": 5,
+            "moderately_conservative": 65,
+            "moderate": 56,
+            "moderately_aggressive": 58,
+            "aggressive": 3
+          },
+          "35-44": {
+            "moderately_conservative": 52,
+            "conservative": 2,
+            "moderate": 43,
+            "moderately_aggressive": 63
+          },
+          "45-54": {
+            "moderate": 47,
+            "conservative": 6,
+            "moderately_conservative": 64,
+            "moderately_aggressive": 71,
+            "aggressive": 2
+          },
+          "55-64": {
+            "moderately_conservative": 67,
+            "conservative": 10,
+            "moderate": 41,
+            "moderately_aggressive": 57
+          },
+          "65+": {
+            "conservative": 52,
+            "moderately_conservative": 64,
+            "moderate": 49,
+            "moderately_aggressive": 20
+          }
+        },
+        "by_debt_to_income_band": {
+          "0.10-0.25": {
+            "conservative": 6,
+            "moderately_conservative": 43,
+            "moderate": 53,
+            "moderately_aggressive": 99
+          },
+          "0.25-0.50": {
+            "moderately_conservative": 67,
+            "moderate": 81,
+            "conservative": 10,
+            "moderately_aggressive": 86
+          },
+          "0.50-1.00": {
+            "conservative": 62,
+            "moderately_conservative": 204,
+            "moderate": 71,
+            "moderately_aggressive": 6
+          },
+          "<0.10": {
+            "moderately_conservative": 24,
+            "moderate": 54,
+            "moderately_aggressive": 102,
+            "aggressive": 5,
+            "conservative": 1
+          },
+          ">=1.00": {
+            "moderately_conservative": 10,
+            "conservative": 1,
+            "moderate": 2
+          },
+          "no_income": {
+            "moderate": 9,
+            "moderately_aggressive": 3,
+            "moderately_conservative": 1
+          }
+        },
+        "by_coverage_tier": {
+          "high": {
+            "moderately_conservative": 65,
+            "conservative": 11,
+            "moderate": 47,
+            "moderately_aggressive": 43
+          },
+          "insufficient": {
+            "moderately_conservative": 58,
+            "moderate": 43,
+            "conservative": 13,
+            "moderately_aggressive": 52,
+            "aggressive": 1
+          },
+          "low": {
+            "conservative": 12,
+            "moderately_conservative": 57,
+            "moderate": 47,
+            "moderately_aggressive": 49,
+            "aggressive": 2
+          },
+          "medium": {
+            "moderately_conservative": 57,
+            "moderate": 40,
+            "conservative": 15,
+            "moderately_aggressive": 54,
+            "aggressive": 1
+          },
+          "medium_high": {
+            "conservative": 15,
+            "moderately_conservative": 60,
+            "moderate": 51,
+            "moderately_aggressive": 39,
+            "aggressive": 1
+          },
+          "minimal": {
+            "moderately_conservative": 52,
+            "conservative": 14,
+            "moderate": 42,
+            "moderately_aggressive": 59
+          }
+        },
+        "by_edge_case_kind": {
+          "contradictory_low_capacity_high_tolerance": {
+            "moderately_conservative": 6
+          },
+          "debt_exceeds_income": {
+            "moderately_conservative": 7
+          },
+          "extreme_tolerance_high": {
+            "moderately_conservative": 3,
+            "moderately_aggressive": 3
+          },
+          "extreme_tolerance_low": {
+            "conservative": 4,
+            "moderately_conservative": 3
+          },
+          "longest_horizon": {
+            "moderate": 3,
+            "moderately_aggressive": 2,
+            "moderately_conservative": 2
+          },
+          "many_dependents": {
+            "moderately_aggressive": 1,
+            "conservative": 4,
+            "moderately_conservative": 1,
+            "moderate": 1
+          },
+          "maximum_age": {
+            "conservative": 4,
+            "moderate": 2,
+            "moderately_conservative": 1
+          },
+          "minimum_age": {
+            "moderately_conservative": 4,
+            "conservative": 1,
+            "moderate": 2
+          },
+          "missing_income": {
+            "moderate": 3,
+            "moderately_aggressive": 2,
+            "moderately_conservative": 1
+          },
+          "missing_loss_tolerance": {
+            "moderate": 4,
+            "moderately_aggressive": 2
+          },
+          "missing_two_features": {
+            "moderate": 3,
+            "moderately_aggressive": 1,
+            "conservative": 1,
+            "moderately_conservative": 1
+          },
+          "shortest_horizon": {
+            "moderately_conservative": 2,
+            "moderate": 3,
+            "conservative": 2
+          },
+          "very_high_income": {
+            "moderate": 4,
+            "moderately_aggressive": 3
+          },
+          "zero_debt": {
+            "moderately_conservative": 2,
+            "moderate": 4,
+            "conservative": 1
+          },
+          "zero_income": {
+            "moderate": 6,
+            "moderately_aggressive": 1
+          }
+        }
+      },
+      "wall_clock_s": 22.67,
+      "coverage_tier_verification": {
+        "n_checked": 1000,
+        "n_matching_intended_tier": 1000,
+        "tier_construction_accuracy": 1.0,
+        "observed_tier_distribution": {
+          "insufficient": 167,
+          "minimal": 167,
+          "low": 167,
+          "medium": 167,
+          "medium_high": 166,
+          "high": 166
+        },
+        "mismatches_sample": [],
+        "note": "Validates the STRESS GENERATOR against agents/data_sufficiency.py \u2014 it confirms the stress set really does exercise all six tiers. It is not a model accuracy metric."
+      },
+      "ground_truth_guard": {
+        "status": "enforced",
+        "message": "ground-truth extraction requested for dataset 'stress_customers_v1' (layer=layer2_stress)",
+        "note": "evaluation/datasets.py refused to return labels for this layer. No accuracy metric can be computed from this file."
+      }
+    }
+  }
+}

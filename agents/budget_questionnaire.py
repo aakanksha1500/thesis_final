@@ -436,6 +436,14 @@ def is_plausible(slot_name: str, value: float) -> bool:
     low, high = SLOT_PLAUSIBLE_RANGE.get(slot_name, (-1e9, 1e9))
     return low <= value <= high
 
+def text_vocab(slot_name: str) -> set[str] | None:
+    """No text-type slots in the budget schema — always None, so
+    ConversationalAgent._parse_text_answer() falls back to its pre-existing
+    accept-any-non-empty-string behaviour for this kind. Exists only to
+    keep _QUESTIONNAIRE_KINDS' two entries symmetric; see
+    risk_questionnaire.text_vocab() for the kind that actually uses this."""
+    return None
+
 def blend_expenses(
     self_reported: dict[str, float],
     transaction_derived: dict[str, float],

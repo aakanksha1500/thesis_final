@@ -1,0 +1,48 @@
+{
+  "phase": "8b",
+  "component": "push_mode_and_disclosure",
+  "commits_covered": [
+    45,
+    46,
+    47
+  ],
+  "dataset": "synthetic push-mode fixtures (3 profiles)",
+  "metrics": {
+    "n_total": 3,
+    "n_proxy_fired": 2,
+    "n_disclosure_fired": 2,
+    "proxy_disclosure_consistency": true
+  },
+  "per_fixture": [
+    {
+      "label": "young_long_horizon_no_dependents",
+      "customer_id": "PUSH_001",
+      "proxy_fired": true,
+      "proxy_value": 5,
+      "proxy_confidence": "medium",
+      "disclosure_fired": true,
+      "risk_status": "incomplete",
+      "risk_class": null
+    },
+    {
+      "label": "older_short_horizon_dependents",
+      "customer_id": "PUSH_002",
+      "proxy_fired": true,
+      "proxy_value": 1,
+      "proxy_confidence": "medium",
+      "disclosure_fired": true,
+      "risk_status": "incomplete",
+      "risk_class": null
+    },
+    {
+      "label": "mid_profile_all_fields_supplied",
+      "customer_id": "PUSH_003",
+      "proxy_fired": false,
+      "proxy_value": null,
+      "proxy_confidence": null,
+      "disclosure_fired": false,
+      "risk_status": "incomplete",
+      "risk_class": null
+    }
+  ]
+}

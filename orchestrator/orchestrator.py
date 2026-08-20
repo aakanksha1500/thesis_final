@@ -687,6 +687,15 @@ class Orchestrator:
                            ok=result.success,
                            ms=round(result.duration_ms),
                            tokens=result.tokens_used)
+                self.audit_log.record_agent_call(
+                    turn_id=context.get("_turn_id", "unknown"),
+                    agent_name=agent_name,
+                    success=result.success,
+                    duration_ms=result.duration_ms,
+                    tokens_used=result.tokens_used,
+                    step_id="primary" if attempt == 0 else f"retry_attempt_{attempt}",
+                    error=result.error if not result.success else None,
+                )
                 return result, False
             except Exception as exc:
                 last_error = exc
@@ -719,6 +728,15 @@ class Orchestrator:
                 recovery_strategy="disabled",
                 recovery_success=False,
             )
+            self.audit_log.record_agent_call(
+                turn_id=context.get("_turn_id", "unknown"),
+                agent_name=agent_name,
+                success=False,
+                duration_ms=0.0,
+                tokens_used=0,
+                step_id="terminal_failure_recovery_disabled",
+                error=str(last_error),
+            )
             trace.emit("✗ FAIL", agent_name, reason="failure_recovery disabled")
             failed_result = AgentResult(
                 agent_name=agent_name,
@@ -738,6 +756,16 @@ class Orchestrator:
             error=str(last_error),
             recovery_strategy=recovery["strategy"],
             recovery_success=recovery["success"],
+        )
+        self.audit_log.record_agent_call(
+            turn_id=context.get("_turn_id", "unknown"),
+            agent_name=agent_name,
+            success=recovery["success"],
+            duration_ms=0.0,
+            tokens_used=0,
+            step_id="terminal_failure_recovered" if recovery["success"]
+                     else "terminal_failure_unrecovered",
+            error=str(last_error),
         )
         trace.emit("↻ RECOVER", agent_name,
                    strategy=recovery["strategy"], success=recovery["success"])
@@ -798,15 +826,14 @@ class Orchestrator:
             always injected, now driven by a declaration instead of an
             agent-name string match.
         """
-        if not result.success:
-            return {}
         published: dict[str, Any] = {}
-        cap = CAPABILITIES.get(agent_name)
-        if cap is not None:
-            for key in cap.produces:
-                value = result.payload.get(key)
-                if value is not None:
-                    published[key] = value
+        if result.success:
+            cap = CAPABILITIES.get(agent_name)
+            if cap is not None:
+                for key in cap.produces:
+                    value = result.payload.get(key)
+                    if value is not None:
+                        published[key] = value
         payload_key = self._AGENT_PAYLOAD_CONTEXT_KEY.get(agent_name)
         if payload_key is not None:
             published[payload_key] = result.payload
@@ -1483,24 +1510,53 @@ class Orchestrator:
                    known=self._session_state.get("customer_known"))
 
         # -- Layer 1: Classify intent --
-        # QUESTIONNAIRE SHORT-CIRCUIT (Section 2)
-        #     If ConversationalAgent is mid-questionnaire, this message is an
-        #     answer to a question the system itself just asked, and there is
-        #     nothing to classify. Running the classifier anyway would spend
-        #     an LLM call to label "1200" as a general_query and then route
-        #     away from the very form we're in the middle of — the loop would
-        #     never close. Skipping it is both cheaper and the only routing
-        #     that makes a multi-turn form work.
+        # QUESTIONNAIRE SHORT-CIRCUIT (Section 2), extended with pivot-through
+        #     If ConversationalAgent is mid-questionnaire, this message is
+        #     USUALLY an answer to a question the system itself just asked,
+        #     and there is nothing to classify — running the classifier
+        #     anyway would spend an LLM call to label "1200" as a
+        #     general_query and then route away from the very form we're in
+        #     the middle of. That's still true for "stop" and "answering"
+        #     replies below.
+        #
+        #     But a mid-questionnaire message is not ALWAYS an answer — a
+        #     customer can ask something entirely unrelated ("why did you
+        #     recommend that ETF?" while being asked for employment status).
+        #     Blindly absorbing that into the questionnaire either silently
+        #     drops the real question or, worse, gets written into a slot as
+        #     if it were the answer (see ConversationalAgent._parse_text_answer).
+        #     classify_questionnaire_reply() below is the three-way check
+        #     that tells the two cases apart; only "stop"/"answering" take
+        #     the original short-circuit. "off_topic" falls through to
+        #     ordinary classification + routing, same as any other turn.
+        #     questionnaire_absorbs_this_turn is the single flag threaded
+        #     into _plan_turn() below so both layers agree on which case
+        #     this is — see _plan_turn()'s docstring.
         conv_agent = self._agents["ConversationalAgent"]
         in_questionnaire = getattr(conv_agent, "questionnaire_active", False)
+        questionnaire_absorbs_this_turn = False
+        questionnaire_pivot_this_turn = False
         if in_questionnaire:
             _kind = getattr(conv_agent, "questionnaire_kind", "budget")
-            routing, intent, confidence = (
-                RoutingDecision.CONVERSATIONAL_ONLY,
-                "risk_profiling" if _kind == "risk" else "budget_analysis",
-                1.0,
+            reply_class, reply_basis = conv_agent.classify_questionnaire_reply(
+                user_message
             )
-            trace.emit("L1", f"{_kind} questionnaire mode — classification skipped")
+            trace.emit(
+                "L1",
+                f"{_kind} questionnaire mode — reply classified "
+                f"{reply_class} ({reply_basis})",
+            )
+            if reply_class == "off_topic":
+                questionnaire_pivot_this_turn = True
+                with trace.span("[L1]", "goal decomposition"):
+                    routing, intent, confidence = self._classify_intent(user_message)
+            else:
+                questionnaire_absorbs_this_turn = True
+                routing, intent, confidence = (
+                    RoutingDecision.CONVERSATIONAL_ONLY,
+                    "risk_profiling" if _kind == "risk" else "budget_analysis",
+                    1.0,
+                )
         else:
             with trace.span("[L1]", "goal decomposition"):
                 routing, intent, confidence = self._classify_intent(user_message)
@@ -1526,7 +1582,10 @@ class Orchestrator:
         context = self._build_context(user_message)
         context["_turn_id"] = turn_id
 
-        turn_plan = self._plan_turn(user_message, context, routing, intent, turn_id)
+        turn_plan = self._plan_turn(
+            user_message, context, routing, intent, turn_id,
+            questionnaire_absorbs_this_turn=questionnaire_absorbs_this_turn,
+        )
         agent_sequence = list(turn_plan.steps)
 
         elicitation: str | None = None
@@ -1651,6 +1710,22 @@ class Orchestrator:
                 )
                 final_response = settings.approval.withheld_message
 
+        # A paused questionnaire is still active (questionnaire_active is
+        # untouched on a pivot-through turn — see the Layer 1 comment
+        # above), just not what this particular turn was about. Nudge
+        # rather than say nothing, so it doesn't look abandoned. Skipped
+        # when gate_reasons held the response — a withheld turn should stay
+        # purely withheld, nothing appended alongside it.
+        if questionnaire_pivot_this_turn and not gate_reasons:
+            _paused_kind = getattr(conv_agent, "questionnaire_kind", "budget")
+            _paused_label = "risk profile" if _paused_kind == "risk" else "budget review"
+            final_response = (
+                final_response.rstrip()
+                + f"\n\n(By the way — we were partway through your "
+                f"{_paused_label}. Whenever you're ready, let me know and "
+                f"I'll pick up where we left off.)"
+            )
+
         # Update conversation history
         self._session_state["conversation_history"].append(
             {"role": "assistant", "content": final_response}
@@ -1709,6 +1784,7 @@ class Orchestrator:
         routing: RoutingDecision,
         intent: str,
         turn_id: str,
+        questionnaire_absorbs_this_turn: bool = False,
     ) -> Plan:
         """
         Decide this turn's agent sequence, and record how the decision was made.
@@ -1722,6 +1798,21 @@ class Orchestrator:
             away from the form and strand it (the same reasoning that already
             skips intent classification here).
 
+            questionnaire_absorbs_this_turn is passed in by process_turn()
+            rather than re-derived here from conv_agent.questionnaire_active
+            directly. Those two are NOT interchangeable: questionnaire_active
+            is persistent session state (true for the whole time a form is
+            paused, including turns that pivot away from it), while this
+            parameter is turn-specific — only true when process_turn()'s
+            classify_questionnaire_reply() check found THIS turn to be an
+            in-flow "stop"/"answering" reply. A message classified
+            "off_topic" leaves questionnaire_active true (the form is still
+            paused, not abandoned) but must still reach the planner/static
+            table below like any ordinary turn — re-checking
+            questionnaire_active here instead would silently force every
+            pivoted-through turn back onto ("ConversationalAgent",) even
+            though `routing` correctly points somewhere else.
+
         THE STATIC TABLE IS KEYED BY ROUTING DECISION, NOT RAW INTENT
             `intent` is a Banking77 bucket; `routing` is the six-way decision
             the bucket maps to, and two intents can share one route
@@ -1731,8 +1822,7 @@ class Orchestrator:
             which is the premise of the planner-vs-static comparison: the two
             arms must differ only in who chose.
         """
-        conv_agent = self._agents["ConversationalAgent"]
-        if getattr(conv_agent, "questionnaire_active", False):
+        if questionnaire_absorbs_this_turn:
             return Plan(steps=("ConversationalAgent",), source="static_fallback",
                         intent=routing.value)
 

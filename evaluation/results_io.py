@@ -17,7 +17,7 @@ QW7 - PROVENANCE.
     had.
 """
 from __future__ import annotations
-
+import hashlib
 import json
 import subprocess
 from datetime import datetime, timezone
@@ -27,21 +27,71 @@ from typing import Any
 from config.settings import ROOT_DIR
 
 RESULTS_ROOT = ROOT_DIR / "results"
+DIRTY_DIFFS_DIR = RESULTS_ROOT / "_dirty_diffs"
 
 
-def _git_sha() -> str:
+def _git_sha() -> dict[str, Any]:
+    """
+    Returns {"sha": ..., "dirty_files": [...], "diff_patch_path": ... | None}
+    rather than a single string — build_meta() flattens "sha"+"-dirty" back
+    into the git_sha field callers already expect, and adds the rest as new
+    fields alongside it, so nothing that reads _meta["git_sha"] as a string
+    needs to change.
+    """
     try:
         sha = subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],
             cwd=ROOT_DIR, stderr=subprocess.DEVNULL, timeout=5,
         ).decode().strip()
-        dirty = subprocess.check_output(
+    except Exception:
+        return {"sha": "unknown", "dirty_files": [], "diff_patch_path": None}
+
+    try:
+        porcelain = subprocess.check_output(
             ["git", "status", "--porcelain"],
             cwd=ROOT_DIR, stderr=subprocess.DEVNULL, timeout=5,
-        ).decode().strip()
-        return f"{sha}-dirty" if dirty else sha
+        ).decode()
     except Exception:
-        return "unknown"
+        porcelain = ""
+
+    dirty_files = [
+        {"status": line[:2].strip(), "path": line[3:]}
+        for line in porcelain.splitlines() if line.strip()
+    ]
+    if not dirty_files:
+        return {"sha": sha, "dirty_files": [], "diff_patch_path": None}
+
+    diff_patch_path = None
+    try:
+        diff_text = subprocess.check_output(
+            ["git", "diff", "HEAD"],
+            cwd=ROOT_DIR, stderr=subprocess.DEVNULL, timeout=10,
+        ).decode()
+        # git diff HEAD misses untracked new files entirely — not a diff
+        # against anything, so `git diff` has nothing to show. Appended as
+        # its own section so the patch file still tells the whole story,
+        # even though it isn't valid `git apply` input once that section
+        # is present.
+        untracked = [f["path"] for f in dirty_files if f["status"] == "??"]
+        if untracked:
+            diff_text += (
+                "\n\n# --- untracked files (not included above; git diff "
+                "cannot show a diff for a file git isn't tracking) ---\n"
+                + "\n".join(f"# {p}" for p in untracked) + "\n"
+            )
+        diff_hash = hashlib.sha256(diff_text.encode()).hexdigest()[:12]
+        DIRTY_DIFFS_DIR.mkdir(parents=True, exist_ok=True)
+        patch_path = DIRTY_DIFFS_DIR / f"{sha}-{diff_hash}.patch"
+        # Many result files can share the exact same dirty state in one
+        # session — write once per distinct (sha, diff) pair, not once per
+        # result file, so this doesn't spam duplicate patches.
+        if not patch_path.exists():
+            patch_path.write_text(diff_text, encoding="utf-8")
+        diff_patch_path = str(patch_path.relative_to(ROOT_DIR))
+    except Exception:
+        pass  # dirty_files still gets returned even if the diff itself failed
+
+    return {"sha": sha, "dirty_files": dirty_files, "diff_patch_path": diff_patch_path}
 
 def _llm_cache_stats() -> dict[str, Any]:
     """Cache hit/miss counters, so a replayed run is identifiable as such."""
@@ -95,9 +145,14 @@ def build_meta(llm_mode: str | None = None) -> dict[str, Any]:
         from utils.llm_client import LLMClient
         llm_mode = LLMClient().mode
 
+    git = _git_sha()
+    git_sha_str = f"{git['sha']}-dirty" if git["dirty_files"] else git["sha"]
+
     return {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "git_sha": _git_sha(),
+        "git_sha": git_sha_str,
+        "git_dirty_files": [f["path"] for f in git["dirty_files"]],
+        "git_diff_patch_path": git["diff_patch_path"],
         "prompt_version": PROMPT_VERSION,
         "llm_mode": llm_mode,
         "orchestrator_model": settings.llm.orchestrator_model,

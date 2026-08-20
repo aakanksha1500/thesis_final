@@ -224,6 +224,7 @@ def main() -> int:
         "feature_importances": importances,
         "training_data": "GiveMeSomeCredit [D8] SeriousDlqin2yrs",
         "sklearn_estimator": type(model).__name__,
+        "sklearn_version": __import__("sklearn").__version__,
         "note": (
             "Predicts P(financial distress), NOT a risk tier — no tier labels "
             "exist in this project's data. RiskProfilingAgent converts this to "

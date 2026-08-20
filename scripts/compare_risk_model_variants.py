@@ -117,6 +117,15 @@ def compare(heuristic_path: Path, trained_path: Path) -> dict[str, Any]:
         )
 
     return {
+        "circularity_and_supersession_warning": (
+            "SUPERSEDED — both inputs to this comparison come from the "
+            "same 15-item fixture (RQ1_FIXTURE) and the same author's "
+            "scoring, so neither run is independent validation of the "
+            "other, and this comparison is a diagnostic of how the two "
+            "scorers disagree, not a reportable RQ1 result. Cite "
+            "rq1_gold_risk_evaluation.json (n=200, independently "
+            "rubric-labelled) for RQ1 itself."
+        ),
         "metrics": rows,
         "disagreements": disagreements,
         "heuristic_meta": h.get("_meta", {}),
@@ -128,6 +137,7 @@ def print_report(result: dict[str, Any]) -> None:
     print("\n" + "=" * 64)
     print("  RQ1 — heuristic vs trained-model comparison")
     print("=" * 64)
+    print(f"\n  !! {result['circularity_and_supersession_warning']}")
 
     print(f"\n  {'Metric':<28}{'Heuristic':>12}{'Trained':>12}{'Δ':>10}")
     for row in result["metrics"]:

@@ -233,11 +233,29 @@ def _run_finqa_condition(
         "research_question": "RQ5",
         "condition": condition_name,
         "rag_grounding_used": use_context,
+        "status": "SUPERSEDED — do not report these numbers",
+        "superseded_by": (
+            "results/<mode>/rq5_finqa_verified_{no_rag,rag_retrieved,"
+            "rag_oracle}.json, produced by "
+            "scripts/eval_rq5_finqa_verified.py on all 91 items of the real "
+            "FinQA Verified [D1] test split."
+        ),
+        "why_superseded": (
+            "Neither condition in this file calls a model. _with_rag_predict "
+            "is a hand-written function that computes the correct answer "
+            "from the context (and test_with_rag_predict_matches_every_"
+            "fixture_item asserts it gets 10/10); _no_rag_predict is "
+            "documented as always subtracting regardless of what the "
+            "question asks. The resulting 1.00-vs-0.40 exact-match gap is a "
+            "property of those two functions, not a measurement of the "
+            "system, and the 10 items are synthetic FinQA-STYLE questions "
+            "rather than FinQA. Retained and still runnable so the earlier "
+            "numbers stay auditable; retagged so they cannot be mistaken "
+            "for a result."
+        ),
         "fixture_note": (
-            "Synthetic FinQA-style fixture (n=10) standing in for the full "
-            "FinQA Verified [D1] split — replace with the downloaded split "
-            "(scripts/download_datasets.py --phase 8) before final "
-            "dissertation RQ5 numbers are reported."
+            "Synthetic FinQA-style fixture (n=10), answered by hand-written "
+            "simulator functions. See why_superseded above."
         ),
         "metrics": {
             "finqa_exact_match": match_result.to_dict(),

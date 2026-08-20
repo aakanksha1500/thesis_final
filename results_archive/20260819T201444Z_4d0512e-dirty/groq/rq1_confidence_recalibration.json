@@ -1,0 +1,277 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-19T09:14:59.094947+00:00",
+    "git_sha": "4d0512e-dirty",
+    "git_dirty_files": [
+      "README.md",
+      "agents/budget_questionnaire.py",
+      "agents/conversational_agent.py",
+      "agents/payloads.py",
+      "agents/risk_profiling_agent.py",
+      "agents/risk_questionnaire.py",
+      "config/settings.py",
+      "evaluation/agent_judge.py",
+      "evaluation/metrics.py",
+      "evaluation/results_io.py",
+      "explainability/explainability_agent.py",
+      "logs/audit/session_baseline-DEMO_GC_042.jsonl",
+      "logs/audit/session_baseline-DEMO_GC_107.jsonl",
+      "logs/audit/session_baseline-DEMO_GMSC_318.jsonl",
+      "logs/audit/session_baseline-push-PUSH_001.jsonl",
+      "logs/audit/session_baseline-push-PUSH_002.jsonl",
+      "logs/audit/session_baseline-push-PUSH_003.jsonl",
+      "orchestrator/orchestrator.py",
+      "results/EVIDENCE_MANIFEST.json",
+      "results/groq/phase3_risk_baseline.json",
+      "results/groq/phase3_risk_comparison.json",
+      "results/groq/phase8b_existing_customer_baseline.json",
+      "results/groq/phase8b_push_mode_baseline.json",
+      "results/groq/rq1_risk_model_training.json",
+      "results/groq/rq3_full_stack.json",
+      "results/groq/rq3_shap_only.json",
+      "results/groq/rq3_shap_rag.json",
+      "results/groq/rq4_mas_coherence.json",
+      "results/mock/phase2_conversational_baseline.json",
+      "results/mock/phase3_risk_baseline.json",
+      "results/mock/phase5_budget_baseline.json",
+      "results/mock/phase5_transaction_window_comparison.json",
+      "results/mock/phase8b_existing_customer_baseline.json",
+      "results/mock/phase8b_push_mode_baseline.json",
+      "results/mock/rq3_full_stack.json",
+      "results/mock/rq3_shap_only.json",
+      "results/mock/rq3_shap_rag.json",
+      "results/mock/rq4_mas_coherence.json",
+      "results/mock/rq5_finqa_no_rag.json",
+      "results/mock/rq5_finqa_with_rag.json",
+      "scripts/compare_risk_model_variants.py",
+      "scripts/recalibrate_risk_model_age_neutral.py",
+      "scripts/regenerate_evidence.py",
+      "scripts/train_risk_model.py",
+      "tests/integration/test_orchestrator_pipeline.py",
+      "tests/unit/test_banking77_evaluation.py",
+      "tests/unit/test_explainability_agent.py",
+      "tests/unit/test_risk_profiling_agent.py",
+      "tests/unit/test_rq5_finqa_evaluation.py",
+      "utils/llm_client.py",
+      "agents/transaction_contract.py",
+      "data/evaluation/",
+      "evaluation/banking77_data.py",
+      "evaluation/bootstrap.py",
+      "evaluation/datasets.py",
+      "evaluation/finqa_data.py",
+      "evaluation/risk_rubric.py",
+      "orchestrator/routing_policy.py",
+      "results/_dirty_diffs/",
+      "results/groq/phase2_banking77_stratified.json",
+      "results/groq/phase2c_core_intent_baseline.json",
+      "results/groq/rq1_confidence_calibration.json",
+      "results/groq/rq1_gold_risk_evaluation.json",
+      "results/groq/rq1_robustness_layers.json",
+      "results/groq/rq5_finqa_verified_no_rag.json",
+      "results/groq/rq5_finqa_verified_rag_oracle.json",
+      "results/groq/rq5_finqa_verified_rag_retrieved.json",
+      "results_archive/20260812T044213Z_4d0512e/",
+      "results_archive/20260812T045101Z_4d0512e-dirty/",
+      "results_archive/20260812T045202Z_4d0512e-dirty/",
+      "results_day2.zip",
+      "revert_audit_fixes.sh",
+      "rough_work",
+      "scripts/build_gold_risk_dataset.py",
+      "scripts/build_stress_customer_base.py",
+      "scripts/calibrate_risk_confidence.py",
+      "scripts/eval_banking77_stratified.py",
+      "scripts/eval_confidence_calibration.py",
+      "scripts/eval_robustness_layers.py",
+      "scripts/eval_rq1_gold.py",
+      "scripts/eval_rq5_finqa_verified.py",
+      "scripts/verify_audit_fixes.py",
+      "tests/unit/test_audit_regressions.py",
+      "tests/unit/test_evaluation_layers.py"
+    ],
+    "git_diff_patch_path": "results/_dirty_diffs/4d0512e-ea3e1196df2f.patch",
+    "prompt_version": "v1.2",
+    "llm_mode": "groq",
+    "orchestrator_model": "openai/gpt-oss-120b",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "qwen/qwen3.6-27b",
+    "environment": "development",
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": true,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 3,
+  "research_question": "RQ1 \u2014 confidence recalibration (fix for the inverted calibration finding in rq1_confidence_calibration.json)",
+  "agent": "RiskProfilingAgent",
+  "requires_llm": false,
+  "dataset": {
+    "dataset_name": "gold_risk_profiles_v1",
+    "n_records": 200,
+    "source_path": "data/evaluation/gold_risk_profiles.json",
+    "layer": "layer3_gold",
+    "name": "Gold-standard independently-labelled evaluation set",
+    "purpose": "accuracy, precision, recall, F1, confusion matrix, CIs",
+    "has_independent_ground_truth": true,
+    "permitted_metrics": [
+      "accuracy",
+      "precision",
+      "recall",
+      "f1",
+      "auc_roc",
+      "risk_alignment_rate",
+      "confusion_matrix",
+      "bootstrap_ci"
+    ],
+    "forbidden_metrics": [],
+    "provenance": {
+      "generated_at_utc": "2026-08-13T07:41:57.522223+00:00",
+      "git_sha": "4d0512e",
+      "generator": "scripts/build_gold_risk_dataset.py",
+      "seed": 20260812,
+      "per_class_target": 40,
+      "rubric_version": "1.0",
+      "construction": "Label-first rejection sampling. For each target class a suitability-matrix cell is chosen, demographically coherent profiles are drawn from broad priors, and a profile is kept only if the independent rubric places it in that cell. The model is never run during construction and no profile is ever discarded for being predicted incorrectly.",
+      "independence_guarantees": [
+        "No model prediction was consulted at any point.",
+        "risk_model.pkl is never loaded by this script.",
+        "evaluation/risk_rubric.py imports nothing from agents/.",
+        "Labels are fixed at build time and are never revised.",
+        "No profile is filtered out on the basis of model output."
+      ],
+      "sampling_statistics": {
+        "conservative": {
+          "attempts": 251,
+          "accepted": 40,
+          "by_cell": {
+            "low|low": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 127
+            },
+            "low|medium": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 124
+            }
+          }
+        },
+        "moderately_conservative": {
+          "attempts": 246,
+          "accepted": 40,
+          "by_cell": {
+            "low|high": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 114
+            },
+            "medium|low": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 132
+            }
+          }
+        },
+        "moderate": {
+          "attempts": 1155,
+          "accepted": 40,
+          "by_cell": {
+            "high|low": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 988
+            },
+            "medium|medium": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 167
+            }
+          }
+        },
+        "moderately_aggressive": {
+          "attempts": 1516,
+          "accepted": 40,
+          "by_cell": {
+            "high|medium": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 1390
+            },
+            "medium|high": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 126
+            }
+          }
+        },
+        "aggressive": {
+          "attempts": 2178,
+          "accepted": 40,
+          "by_cell": {
+            "high|high": {
+              "quota": 40,
+              "accepted": 40,
+              "attempts": 2178
+            }
+          }
+        }
+      },
+      "class_counts": {
+        "conservative": 43,
+        "moderately_conservative": 42,
+        "moderate": 43,
+        "moderately_aggressive": 43,
+        "aggressive": 44
+      },
+      "original_15_preserved": 15
+    }
+  },
+  "method": {
+    "calibrator": "sklearn.isotonic.IsotonicRegression(increasing='auto')",
+    "input": "raw decision-margin confidence (_compute_confidence)",
+    "output": "P(correct) \u2014 a genuine calibrated probability, unlike the raw margin (see that method's own docstring for why ECE was not reportable on it)",
+    "cv_folds": 5,
+    "cv_seed": 20260817,
+    "fold_signs_agree": true,
+    "deployed_calibrator_path": "data/processed/risk_confidence_calibrator.pkl",
+    "deployed_calibrator_fit_on": "all 200 points (refit after CV validated the approach \u2014 see honest_evaluation_note)"
+  },
+  "headline_metrics": {
+    "auroc_raw_confidence": 0.3907,
+    "auroc_calibrated_confidence_cv_held_out": 0.5454,
+    "honest_evaluation_note": "auroc_calibrated_confidence_cv_held_out is computed ONLY on points each fold's calibrator never trained on \u2014 not a number computed on the deployed calibrator's own training data, which would overstate the fix. Compare against 0.391 in rq1_confidence_calibration.json (below chance). Isotonic regression cannot manufacture discriminative signal that isn't in the raw score's rank-ordering \u2014 it can only correctly ORIENT and SHAPE whatever monotonic relationship already exists, so this is a ceiling-respecting improvement, not an inflated one."
+  },
+  "gate_utility_at_current_threshold": {
+    "threshold": 0.6,
+    "before_raw_confidence": {
+      "n_at_or_above": 81,
+      "accuracy_at_or_above": 0.3086,
+      "n_below": 119,
+      "accuracy_below": 0.4286
+    },
+    "after_calibrated_confidence": {
+      "n_at_or_above": 0,
+      "accuracy_at_or_above": null,
+      "n_below": 200,
+      "accuracy_below": 0.38
+    },
+    "note": "before_raw_confidence reproduces rq1_confidence_calibration.json's approval_gate_utility finding (passes lower-accuracy predictions, holds back higher-accuracy ones). after_calibrated_confidence applies the SAME threshold value to the calibrated score \u2014 but calibrated confidence is now a genuine P(correct) estimate, so 0.6 means something different post-calibration than it did as a raw margin threshold. This script does not retune the threshold itself; compare the two accuracy splits here, then decide separately whether 0.6 is still the right cut for a calibrated probability."
+  },
+  "deployment": {
+    "opt_in_setting": "settings.risk.use_calibrated_confidence (env: USE_CALIBRATED_CONFIDENCE)",
+    "currently_enabled": false,
+    "why_opt_in": "Mirrors use_trained_model's existing opt-in pattern \u2014 this changes every confidence-dependent number in the system, so it should not activate just because this file now exists on disk. Set USE_CALIBRATED_CONFIDENCE=true once these CV numbers have been reviewed."
+  }
+}

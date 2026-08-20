@@ -273,7 +273,23 @@ class LLMClient:
                                   "system_preview": system[:120]},
                 )
 
-            return LLMResponse(content=content, tokens_used=tokens_used, model=self.model)
+            # Report the model the SERVER says answered, not the one we
+            # asked for. Providers silently upgrade deprecated model IDs
+            # to a replacement during their transition window (Groq
+            # documents this in its deprecation lifecycle). With
+            # `model=self.model` a results file would keep naming the
+            # retired model for output a different one produced —
+            # a provenance error invisible at the time and unfixable
+            # after the fact.
+            served_model = getattr(response, "model", None) or self.model
+            if served_model != self.model:
+                logger.warning(
+                    f"[LLMClient] requested model {self.model!r} but the "
+                    f"provider served {served_model!r} — recording the "
+                    f"served model in results provenance"
+                )
+            return LLMResponse(content=content, tokens_used=tokens_used,
+                               model=served_model)
         except Exception as e:
             logger.error(f"[LLMClient] API call failed: {e}")
             raise

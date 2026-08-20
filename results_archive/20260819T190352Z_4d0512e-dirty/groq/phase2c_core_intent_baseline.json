@@ -1,0 +1,748 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-13T13:04:02.815821+00:00",
+    "git_sha": "4d0512e-dirty",
+    "prompt_version": "v1.2",
+    "llm_mode": "groq",
+    "orchestrator_model": "openai/gpt-oss-120b",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "qwen/qwen3.6-27b",
+    "environment": "development",
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": true,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 2,
+  "research_question": "Core advisory intent classification \u2014 the 5 buckets Banking77 has zero ground truth for",
+  "dataset": "Hand-authored corpus, tests/unit/test_core_intent_evaluation.py::CORE_INTENT_FIXTURE, n=110",
+  "cost_control": "classify_only() -- 1 LLM call/sample",
+  "overall_accuracy": 0.9636,
+  "per_bucket_metrics": {
+    "risk_profiling": {
+      "true_count_in_sample": 22,
+      "predicted_count": 22,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "investment_advice": {
+      "true_count_in_sample": 22,
+      "predicted_count": 21,
+      "precision": 0.952,
+      "recall": 0.909
+    },
+    "budget_analysis": {
+      "true_count_in_sample": 22,
+      "predicted_count": 23,
+      "precision": 0.957,
+      "recall": 1.0
+    },
+    "full_advisory": {
+      "true_count_in_sample": 22,
+      "predicted_count": 22,
+      "precision": 0.909,
+      "recall": 0.909
+    },
+    "out_of_scope": {
+      "true_count_in_sample": 22,
+      "predicted_count": 22,
+      "precision": 1.0,
+      "recall": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "risk_profiling": {
+      "risk_profiling": 22
+    },
+    "investment_advice": {
+      "investment_advice": 20,
+      "full_advisory": 2
+    },
+    "budget_analysis": {
+      "budget_analysis": 22
+    },
+    "full_advisory": {
+      "full_advisory": 20,
+      "budget_analysis": 1,
+      "investment_advice": 1
+    },
+    "out_of_scope": {
+      "out_of_scope": 22
+    }
+  },
+  "predictions": [
+    {
+      "text": "What's my risk profile?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.99
+    },
+    {
+      "text": "Can you assess my risk tolerance?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.99
+    },
+    {
+      "text": "Am I a cautious investor or more of a risk-taker?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.99
+    },
+    {
+      "text": "How risky an investor am I?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.99
+    },
+    {
+      "text": "Would you say I'm conservative or aggressive with money?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.97
+    },
+    {
+      "text": "I want to know my investor profile before I put any money anywhere.",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.99
+    },
+    {
+      "text": "Assess my risk tolerance please",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.99
+    },
+    {
+      "text": "What kind of investor am I based on my situation?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.97
+    },
+    {
+      "text": "Can you tell me how much risk I can handle?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.98
+    },
+    {
+      "text": "Where do I sit on the risk spectrum?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.99
+    },
+    {
+      "text": "Rate my appetite for investment risk",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.97
+    },
+    {
+      "text": "I've never really thought about my risk tolerance, can you work it out?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.99
+    },
+    {
+      "text": "Am I too cautious with my money?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.97
+    },
+    {
+      "text": "How would you classify me as an investor?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.97
+    },
+    {
+      "text": "Can you figure out if I'm risk averse?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.98
+    },
+    {
+      "text": "What's my investor type?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.99
+    },
+    {
+      "text": "I keep hearing about 'risk profiles' - what's mine?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.97
+    },
+    {
+      "text": "Given my age and income, how much risk should I be taking?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.97
+    },
+    {
+      "text": "Is my attitude to risk more conservative or moderate?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.97
+    },
+    {
+      "text": "Can you profile my appetite for investment losses?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.99
+    },
+    {
+      "text": "How much risk can I actually afford to take on?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.97
+    },
+    {
+      "text": "My friend got told she was 'moderate risk' - what would I be?",
+      "true_bucket": "risk_profiling",
+      "predicted_bucket": "risk_profiling",
+      "confidence": 0.99
+    },
+    {
+      "text": "Should I invest my savings?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.98
+    },
+    {
+      "text": "What should I invest in?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "How can I grow my money?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "Is now a good time to invest?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.99
+    },
+    {
+      "text": "I have some money saved up, what should I do with it?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "What kind of return could I realistically get?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "Can you recommend an investment for me?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "I want to start investing but don't know where to begin",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.86
+    },
+    {
+      "text": "Is putting money in a fund a good idea for me?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "Should I be putting my savings into something that grows instead of just sitting in the bank?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "What are my options if I want to invest 10,000 euro?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "I want my money to work harder for me",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.92
+    },
+    {
+      "text": "Would an ETF suit me?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "I'm thinking about investing for retirement, what would you suggest?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "Can you suggest something with a decent return?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "What's a good investment for someone my age?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "I've got a lump sum from an inheritance, what should I do with it?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.96
+    },
+    {
+      "text": "Is it worth investing right now or should I wait?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.99
+    },
+    {
+      "text": "What would you put my savings into?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "I want to start building wealth, where do I start?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.92
+    },
+    {
+      "text": "Can you help me pick an investment product?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "Should I invest a lump sum or drip-feed it in monthly?",
+      "true_bucket": "investment_advice",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.97
+    },
+    {
+      "text": "Where does my money go?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.99
+    },
+    {
+      "text": "What am I spending on?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.99
+    },
+    {
+      "text": "Show me my budget",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.99
+    },
+    {
+      "text": "Am I overspending?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.99
+    },
+    {
+      "text": "How much do I have left each month?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.99
+    },
+    {
+      "text": "Can you break down my spending for me?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "I feel like I'm always broke by the end of the month, why?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "What's my disposable income?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "Help me understand my monthly spending",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "Is my grocery spend normal for my income?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "Am I saving enough each month?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "I want a clearer picture of my finances - where's it all going?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.96
+    },
+    {
+      "text": "Can you check if I'm spending too much on any one thing?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "How does my spending compare to a typical household?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.96
+    },
+    {
+      "text": "I'm struggling to make ends meet, what am I doing wrong?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "I'm behind on some payments, what should I look at first?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "What happens if I miss a bill payment?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "Can you tell me if my rent is eating up too much of my income?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "I want to cut back but don't know where",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "What's my savings rate looking like?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.92
+    },
+    {
+      "text": "Can you look at my transactions and tell me what's normal and what's not?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "I never seem to have anything left over, can you see why?",
+      "true_bucket": "budget_analysis",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "I don't know where to start",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "Can you give me a complete review of my finances?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "I'm new to all this, where do I begin?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "I want a full picture of my finances",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "Can you look at everything - my spending, my investments, all of it?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "I've never managed my money properly, can you help me get on top of it?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "budget_analysis",
+      "confidence": 0.97
+    },
+    {
+      "text": "Where should someone in my position even start?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "I want a complete financial health check",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "Can you walk me through my whole financial situation?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "I feel completely lost with money, can you help me sort it all out?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.92
+    },
+    {
+      "text": "What's the first thing I should be doing with my finances?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "I just want an overall sense of how I'm doing financially",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.96
+    },
+    {
+      "text": "Can you give me the full works - budget, investing, risk, all of it?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "I've come into some money and I have no idea what to do with any of it",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "investment_advice",
+      "confidence": 0.93
+    },
+    {
+      "text": "Give me a general assessment of my finances",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "I want to get serious about my money but don't know the first step",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "Can you look at my whole situation and tell me what I should be doing?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "I need help getting my finances in order generally",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.96
+    },
+    {
+      "text": "What should someone starting from scratch focus on first?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.96
+    },
+    {
+      "text": "I want a holistic plan for my money",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "Can we go through everything from the beginning?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.97
+    },
+    {
+      "text": "I have no financial plan at all, can you help me build one?",
+      "true_bucket": "full_advisory",
+      "predicted_bucket": "full_advisory",
+      "confidence": 0.96
+    },
+    {
+      "text": "Can you give me legal advice about a dispute with my landlord?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "What medication should I take for a headache?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "Can you help me write a will?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "I need legal advice about my mortgage contract.",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "What's the weather like tomorrow?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "I think I broke my arm, what should I do?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "Can you recommend a good divorce lawyer?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "What's the capital of France?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "Can you diagnose this rash for me?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "I'm having chest pains, is that serious?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "Can you help me with my visa application?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "What's a good recipe for chicken curry?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "My neighbour is being a nuisance, what are my legal rights?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "Can you write my CV for me?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "I need advice on custody arrangements for my kids",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "What symptoms does the flu have?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "Can you tell me if I have a case for a personal injury claim?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "I need immigration advice",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "What's the best treatment for anxiety?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "Can you help plan my wedding?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "I'm being evicted, what are my tenant rights?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    },
+    {
+      "text": "Can you give me medical advice about my prescription?",
+      "true_bucket": "out_of_scope",
+      "predicted_bucket": "out_of_scope",
+      "confidence": 0.99
+    }
+  ]
+}

@@ -49,7 +49,7 @@ PAYLOAD_CONTRACTS: dict[str, dict[str, Any]] = {
     },
 }
 
-_PARTIAL_STATUSES = {"incomplete", "blocked", "error", "skipped", "needs_input"}
+PARTIAL_STATUSES = {"incomplete", "blocked", "error", "skipped", "needs_input"}
 
 def strict_mode() -> bool:
     return os.getenv("STRICT_PAYLOADS", "true").lower() != "false"
@@ -68,7 +68,7 @@ def validate_payload(
         return []                       # unknown agent: nothing to enforce
     if not success:
         return []                       # a failed run has no output contract
-    if payload.get("status") in _PARTIAL_STATUSES:
+    if payload.get("status") in PARTIAL_STATUSES:
         return []                       # deliberate refusal, see above
 
     problems: list[str] = []

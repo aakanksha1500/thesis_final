@@ -140,6 +140,14 @@ class RiskConfig:
     ])
     min_confidence: float = 0.6
     model_path: Path = ROOT_DIR / "data" / "processed" / "risk_model.pkl"
+    use_calibrated_confidence: bool = field(
+        default_factory=lambda: (
+            os.getenv("USE_CALIBRATED_CONFIDENCE", "false").lower() == "true"
+        )
+    )
+    confidence_calibrator_path: Path = (
+        ROOT_DIR / "data" / "processed" / "risk_confidence_calibrator.pkl"
+    )
     german_credit_path: Path = ROOT_DIR / "data" / "raw" / "german_credit.data"
     bank_marketing_path: Path = ROOT_DIR / "data" / "raw" / "bank_marketing"
 

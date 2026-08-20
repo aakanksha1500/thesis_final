@@ -1,28 +1,71 @@
 {
-  "generated_at_utc": "2026-08-12T04:36:59.776844+00:00",
-  "git_sha": "e3a04f1",
+  "generated_at_utc": "2026-08-19T20:44:13.384917+00:00",
+  "git_sha": "4d0512e",
   "git_dirty": true,
   "llm_cache_mode": "record",
   "llm_cache_stats": {
     "hits": 0,
     "misses": 0,
-    "writes": 60,
+    "writes": 6,
     "errors": 0,
     "mode": "record",
     "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
     "hit_rate": null,
     "clean_replay": false
   },
-  "wall_clock_s": 453.2,
-  "archived_to": "results_archive/20260812T042926Z_e3a04f1-dirty",
+  "wall_clock_s": 1769.0,
+  "archived_to": "results_archive/20260819T201444Z_4d0512e-dirty",
   "stages": [
+    {
+      "key": "rq5_verified",
+      "label": "RQ5 \u2014 FinQA Verified, all 91 items, 3 grounding conditions",
+      "rq": "RQ5",
+      "status": "ok",
+      "returncode": 0,
+      "duration_s": 1310.3,
+      "produced": [
+        "groq/rq5_finqa_verified_no_rag.json",
+        "groq/rq5_finqa_verified_rag_retrieved.json",
+        "groq/rq5_finqa_verified_rag_oracle.json"
+      ],
+      "est_tokens": 90000
+    },
+    {
+      "key": "intent_stratified",
+      "label": "Banking77 \u2014 stratified n=500 bucket classification",
+      "rq": "RQ4 (supporting)",
+      "status": "ok",
+      "returncode": 0,
+      "duration_s": 1.8,
+      "produced": [
+        "groq/phase2_banking77_stratified.json"
+      ],
+      "est_tokens": 15000
+    },
+    {
+      "key": "rq5",
+      "label": "RQ5 \u2014 FinQA grounding (with and without RAG)",
+      "rq": "RQ5",
+      "status": "ok",
+      "returncode": 0,
+      "duration_s": 13.3,
+      "produced": [
+        "rq5_finqa_no_rag.json",
+        "mock/rq5_finqa_no_rag.json",
+        "groq/rq5_finqa_no_rag.json",
+        "rq5_finqa_with_rag.json",
+        "mock/rq5_finqa_with_rag.json",
+        "groq/rq5_finqa_with_rag.json"
+      ],
+      "est_tokens": 6000
+    },
     {
       "key": "intent",
       "label": "Banking77 intent-classification baseline",
       "rq": "RQ4 (supporting)",
       "status": "ok",
       "returncode": 0,
-      "duration_s": 197.9,
+      "duration_s": 323.1,
       "produced": [
         "phase2_conversational_baseline.json",
         "mock/phase2_conversational_baseline.json",
@@ -36,8 +79,41 @@
       "rq": "RQ4 (supporting)",
       "status": "ok",
       "returncode": 0,
-      "duration_s": 255.4,
-      "produced": [],
+      "duration_s": 79.1,
+      "produced": [
+        "groq/phase2c_core_intent_baseline.json"
+      ],
+      "est_tokens": 4000
+    },
+    {
+      "key": "budget",
+      "label": "Budget benchmark baseline (Ireland HBS [D11])",
+      "rq": "\u2014 (validates benchmark logic)",
+      "status": "ok",
+      "returncode": 0,
+      "duration_s": 0.6,
+      "produced": [
+        "phase5_budget_baseline.json",
+        "mock/phase5_budget_baseline.json",
+        "groq/phase5_budget_baseline.json"
+      ],
+      "est_tokens": 1500
+    },
+    {
+      "key": "customer",
+      "label": "Existing-customer + push-mode baselines",
+      "rq": "\u2014 (flow coverage)",
+      "status": "ok",
+      "returncode": 0,
+      "duration_s": 40.8,
+      "produced": [
+        "phase8b_existing_customer_baseline.json",
+        "mock/phase8b_existing_customer_baseline.json",
+        "groq/phase8b_existing_customer_baseline.json",
+        "phase8b_push_mode_baseline.json",
+        "mock/phase8b_push_mode_baseline.json",
+        "groq/phase8b_push_mode_baseline.json"
+      ],
       "est_tokens": 4000
     }
   ],

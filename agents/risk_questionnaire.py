@@ -96,6 +96,19 @@ def is_plausible(slot_name: str, value: float) -> bool:
     low, high = SLOT_PLAUSIBLE_RANGE.get(slot_name, (-1e9, 1e9))
     return low <= value <= high
 
+SLOT_TEXT_VOCAB: dict[str, set[str]] = {
+    "employment_status": {
+        "employed", "self-employed", "unemployed", "retired", "student",
+    },
+}
+
+
+def text_vocab(slot_name: str) -> set[str] | None:
+    """The closed vocabulary for a text-type slot, or None if the slot
+    has no fixed vocabulary (falls back to accepting any non-empty text,
+    the pre-existing behaviour)."""
+    return SLOT_TEXT_VOCAB.get(slot_name)
+
 
 def is_sufficient(
     collected_slots: dict[str, Any],

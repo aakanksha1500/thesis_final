@@ -29,6 +29,7 @@ from agents.budget_questionnaire import QUESTIONNAIRE_SCHEMA as _BUDGET_SCHEMA
 from agents.budget_questionnaire import is_plausible as _budget_is_plausible
 from agents.budget_questionnaire import is_sufficient as _budget_is_sufficient
 from agents.budget_questionnaire import next_question as _budget_next_question
+from agents.budget_questionnaire import text_vocab as _budget_text_vocab
 from config.prompts import CONVERSATIONAL_SYSTEM, INTENT_CLASSIFIER_SYSTEM
 from config.settings import settings
 from utils.llm_client import LLMClient
@@ -45,12 +46,14 @@ _QUESTIONNAIRE_KINDS: dict[str, dict[str, Any]] = {
         "next_question": _budget_next_question,
         "is_sufficient": _budget_is_sufficient,
         "is_plausible": _budget_is_plausible,
+        "text_vocab": _budget_text_vocab,
     },
     "risk": {
         "schema": risk_questionnaire.QUESTIONNAIRE_SCHEMA,
         "next_question": risk_questionnaire.next_question,
         "is_sufficient": risk_questionnaire.is_sufficient,
         "is_plausible": risk_questionnaire.is_plausible,
+        "text_vocab": risk_questionnaire.text_vocab,
     },
 }
 
@@ -445,6 +448,76 @@ class ConversationalAgent(BaseAgent):
             logger.warning(f"[ConversationalAgent] Stop-intent LLM check failed: {exc}")
         return False, "llm_unavailable_default_continue"
 
+    def classify_questionnaire_reply(self, user_message: str) -> tuple[str, str]:
+        """
+        Three-way classification of a message received while a questionnaire
+        is active: "stop" / "answering" / "off_topic". Called by the
+        Orchestrator BEFORE it decides whether this turn is absorbed by the
+        questionnaire (the original Section 2 short-circuit) or falls
+        through to normal intent classification and specialist routing —
+        the "pivot-through" case, e.g. the customer asks something
+        unrelated to the pending question mid-form ("why did you recommend
+        that ETF?" while being asked for employment status).
+
+        NOT layered on top of _detect_stop_intent — both independently call
+        the same deterministic tier (detect_stop_intent()) as their first
+        step. A message that resolves deterministically (an explicit stop
+        phrase, or an answer containing a parseable figure) costs no LLM
+        call in either method. Only a message that's genuinely ambiguous in
+        BOTH this check and the one inside _questionnaire_turn() pays for
+        two LLM calls instead of one — accepted as a bounded, uncommon cost
+        rather than threading a cross-layer cache through
+        Orchestrator -> run() -> _questionnaire_turn() for what
+        deterministic resolution already handles in the common case.
+
+        On LLM failure, defaults to "answering" — not "off_topic" — so a
+        broken classification call degrades to the ORIGINAL pre-pivot-through
+        behaviour (questionnaire absorbs the turn; existing parse/
+        plausibility logic handles whatever the message turns out to be)
+        rather than silently abandoning the questionnaire whenever this
+        call fails.
+        """
+        deterministic = detect_stop_intent(user_message)
+        if deterministic is True:
+            return "stop", "deterministic"
+        if deterministic is False:
+            return "answering", "deterministic"
+
+        topic = "risk-profiling" if self._questionnaire_kind == "risk" else "budgeting"
+        pending_text = (
+            self._pending_question.question_text
+            if self._pending_question is not None else topic
+        )
+        prompt = (
+            f"A customer is being asked a short series of {topic} questions. "
+            f"The question just asked was:\n\"{pending_text}\"\n\n"
+            f"They just replied:\n\"{user_message}\"\n\n"
+            f"Classify their reply as exactly one of:\n"
+            f'  "stop" — they want to stop answering questions, now or for '
+            f"the moment\n"
+            f'  "answering" — they are trying to answer the question asked, '
+            f"even if unclear or invalid\n"
+            f'  "off_topic" — they are saying or asking something unrelated '
+            f"to the question asked, not declining to answer it and not "
+            f"attempting an answer\n\n"
+            f"Respond with ONLY valid JSON, no other text:\n"
+            f'{{"classification": "stop"|"answering"|"off_topic"}}'
+        )
+        try:
+            raw, _ = self._call_llm(prompt, temperature=0.0)
+            match = re.search(r'\{[^}]*\}', raw, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group())
+                cls = parsed.get("classification")
+                if cls in ("stop", "answering", "off_topic"):
+                    return cls, "llm"
+        except Exception as exc:
+            logger.warning(
+                f"[ConversationalAgent] Questionnaire-reply classification "
+                f"failed: {exc}"
+            )
+        return "answering", "llm_unavailable_default_continue"
+
     def _parse_questionnaire_answer(
         self, user_message: str, question: QuestionnaireQuestion
     ) -> tuple[Any, str]:
@@ -455,7 +528,7 @@ class ConversationalAgent(BaseAgent):
         """
         answer_type = getattr(question, "answer_type", "money")
         if answer_type == "text":
-            return self._parse_text_answer(user_message)
+            return self._parse_text_answer(user_message, question.slot_name)
         if answer_type == "integer":
             return self._parse_numeric_answer(user_message, question, integer=True)
         if answer_type == "scale_1_5":
@@ -465,16 +538,73 @@ class ConversationalAgent(BaseAgent):
     def _is_plausible(self, slot_name: str, value: float) -> bool:
         return self._kind_funcs()["is_plausible"](slot_name, value)
 
-    def _parse_text_answer(self, user_message: str) -> tuple[str | None, str]:
-        """Deterministic only — categorical free text (e.g. employment
-        status) has no numeric plausibility check to escalate to an LLM
-        for; if the rules can't read it there's nothing more reliable to try."""
+    def _text_vocab(self, slot_name: str) -> set[str] | None:
+        """The closed vocabulary for a text-type slot (e.g. employment_status
+        -> {"employed", "self-employed", ...}), or None if this slot has no
+        registered vocabulary — see risk_questionnaire.SLOT_TEXT_VOCAB."""
+        return self._kind_funcs()["text_vocab"](slot_name)
+
+    def _parse_text_answer(
+        self, user_message: str, slot_name: str | None = None,
+    ) -> tuple[str | None, str]:
+        """
+        Categorical free text (e.g. employment status). Slots with no
+        registered vocabulary keep the original behaviour exactly: any
+        non-empty string is accepted verbatim, lowercased. Slots WITH a
+        registered vocabulary (currently just employment_status) are now
+        checked against it — deterministic exact/substring match first,
+        one LLM call only if neither hits — instead of being accepted
+        blindly. This closes the gap the previous version of this
+        docstring named directly ("no numeric plausibility check to
+        escalate to an LLM for") for the one slot where it actually
+        mattered: an off-topic reply mistaken for an answer would
+        otherwise be written straight into a customer record unchecked.
+        """
         if is_skip_answer(user_message):
             return None, "skip"
         text = (user_message or "").strip()
         if not text:
             return None, "unparsed"
-        return text.lower(), "single_figure"
+        lowered = text.lower()
+
+        vocab = self._text_vocab(slot_name) if slot_name else None
+        if vocab is None:
+            return lowered, "single_figure"
+
+        if lowered in vocab:
+            return lowered, "single_figure"
+        for candidate in vocab:
+            if re.search(rf"\b{re.escape(candidate)}\b", lowered):
+                return candidate, "matched_within_reply"
+
+        prompt = (
+            f"A customer was asked a question whose valid answers are "
+            f"exactly one of: {sorted(vocab)}.\n"
+            f"They replied: \"{user_message}\"\n\n"
+            f"Does their reply clearly correspond to exactly one of those "
+            f"values? If yes, return that exact value. If their reply does "
+            f"not correspond to any of them — for example if it's a "
+            f"question, an unrelated comment, or genuinely unclear — "
+            f"return null. Do not guess.\n"
+            f"Respond with ONLY valid JSON, no other text:\n"
+            f'{{"value": <one of {sorted(vocab)}, or null>}}'
+        )
+        try:
+            raw, _ = self._call_llm(prompt, temperature=0.0)
+            match = re.search(r'\{[^}]*\}', raw, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group())
+                value = parsed.get("value")
+                if isinstance(value, str) and value.strip().lower() in vocab:
+                    return value.strip().lower(), "llm"
+                if value is None:
+                    return None, "rejected_implausible_llm"
+        except Exception as exc:
+            logger.warning(
+                f"[ConversationalAgent] Text-answer extraction LLM call "
+                f"failed: {exc}"
+            )
+        return None, "unparsed"
 
     def _parse_numeric_answer(
         self, user_message: str, question: QuestionnaireQuestion, integer: bool,

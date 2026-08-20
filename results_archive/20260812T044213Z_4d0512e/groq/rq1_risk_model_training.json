@@ -1,0 +1,56 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-07-29T09:20:00.272418+00:00",
+    "git_sha": "54dfee1-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "groq",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama-3.1-8b-instant",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "record",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 3,
+  "component": "risk_model_training",
+  "metrics": {
+    "auc_advisory_features": 0.6926,
+    "average_precision": 0.1334,
+    "auc_all_features_ceiling": 0.858,
+    "information_gap": 0.1653,
+    "n_train": 120000,
+    "n_test": 30000,
+    "positive_rate": 0.0668
+  },
+  "feature_importances": {
+    "age": 0.4802,
+    "income": 0.2682,
+    "existing_debt": 0.209,
+    "dependents": 0.0425
+  },
+  "feature_names": [
+    "age",
+    "income",
+    "existing_debt",
+    "dependents"
+  ],
+  "training_data": "GiveMeSomeCredit [D8] SeriousDlqin2yrs",
+  "sklearn_estimator": "RandomForestClassifier",
+  "kind": "distress_probability",
+  "note": "Predicts P(financial distress), NOT a risk tier \u2014 no tier labels exist in this project's data. RiskProfilingAgent converts this to a capacity score and blends it with self-reported preference features (loss_tolerance, investment_horizon, financial_knowledge_score), which have no training data and remain coefficient-based."
+}

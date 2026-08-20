@@ -1,0 +1,327 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-19T09:15:59.094275+00:00",
+    "git_sha": "4d0512e-dirty",
+    "git_dirty_files": [
+      "README.md",
+      "agents/budget_questionnaire.py",
+      "agents/conversational_agent.py",
+      "agents/payloads.py",
+      "agents/risk_profiling_agent.py",
+      "agents/risk_questionnaire.py",
+      "config/settings.py",
+      "evaluation/agent_judge.py",
+      "evaluation/metrics.py",
+      "evaluation/results_io.py",
+      "explainability/explainability_agent.py",
+      "logs/audit/session_baseline-DEMO_GC_042.jsonl",
+      "logs/audit/session_baseline-DEMO_GC_107.jsonl",
+      "logs/audit/session_baseline-DEMO_GMSC_318.jsonl",
+      "logs/audit/session_baseline-push-PUSH_001.jsonl",
+      "logs/audit/session_baseline-push-PUSH_002.jsonl",
+      "logs/audit/session_baseline-push-PUSH_003.jsonl",
+      "orchestrator/orchestrator.py",
+      "results/EVIDENCE_MANIFEST.json",
+      "results/groq/phase3_risk_baseline.json",
+      "results/groq/phase3_risk_comparison.json",
+      "results/groq/phase8b_existing_customer_baseline.json",
+      "results/groq/phase8b_push_mode_baseline.json",
+      "results/groq/rq1_risk_model_training.json",
+      "results/groq/rq3_full_stack.json",
+      "results/groq/rq3_shap_only.json",
+      "results/groq/rq3_shap_rag.json",
+      "results/groq/rq4_mas_coherence.json",
+      "results/mock/phase2_conversational_baseline.json",
+      "results/mock/phase3_risk_baseline.json",
+      "results/mock/phase5_budget_baseline.json",
+      "results/mock/phase5_transaction_window_comparison.json",
+      "results/mock/phase8b_existing_customer_baseline.json",
+      "results/mock/phase8b_push_mode_baseline.json",
+      "results/mock/rq3_full_stack.json",
+      "results/mock/rq3_shap_only.json",
+      "results/mock/rq3_shap_rag.json",
+      "results/mock/rq4_mas_coherence.json",
+      "results/mock/rq5_finqa_no_rag.json",
+      "results/mock/rq5_finqa_with_rag.json",
+      "scripts/compare_risk_model_variants.py",
+      "scripts/recalibrate_risk_model_age_neutral.py",
+      "scripts/regenerate_evidence.py",
+      "scripts/train_risk_model.py",
+      "tests/integration/test_orchestrator_pipeline.py",
+      "tests/unit/test_banking77_evaluation.py",
+      "tests/unit/test_explainability_agent.py",
+      "tests/unit/test_risk_profiling_agent.py",
+      "tests/unit/test_rq5_finqa_evaluation.py",
+      "utils/llm_client.py",
+      "agents/transaction_contract.py",
+      "data/evaluation/",
+      "evaluation/banking77_data.py",
+      "evaluation/bootstrap.py",
+      "evaluation/datasets.py",
+      "evaluation/finqa_data.py",
+      "evaluation/risk_rubric.py",
+      "orchestrator/routing_policy.py",
+      "results/_dirty_diffs/",
+      "results/groq/phase2_banking77_stratified.json",
+      "results/groq/phase2c_core_intent_baseline.json",
+      "results/groq/rq1_confidence_calibration.json",
+      "results/groq/rq1_confidence_recalibration.json",
+      "results/groq/rq1_gold_risk_evaluation.json",
+      "results/groq/rq1_robustness_layers.json",
+      "results/groq/rq5_finqa_verified_no_rag.json",
+      "results/groq/rq5_finqa_verified_rag_oracle.json",
+      "results/groq/rq5_finqa_verified_rag_retrieved.json",
+      "results_archive/20260812T044213Z_4d0512e/",
+      "results_archive/20260812T045101Z_4d0512e-dirty/",
+      "results_archive/20260812T045202Z_4d0512e-dirty/",
+      "results_day2.zip",
+      "revert_audit_fixes.sh",
+      "rough_work",
+      "scripts/build_gold_risk_dataset.py",
+      "scripts/build_stress_customer_base.py",
+      "scripts/calibrate_risk_confidence.py",
+      "scripts/eval_banking77_stratified.py",
+      "scripts/eval_confidence_calibration.py",
+      "scripts/eval_robustness_layers.py",
+      "scripts/eval_rq1_gold.py",
+      "scripts/eval_rq5_finqa_verified.py",
+      "scripts/verify_audit_fixes.py",
+      "tests/unit/test_audit_regressions.py",
+      "tests/unit/test_evaluation_layers.py"
+    ],
+    "git_diff_patch_path": "results/_dirty_diffs/4d0512e-fa2c3473e55e.patch",
+    "prompt_version": "v1.2",
+    "llm_mode": "mock",
+    "orchestrator_model": "openai/gpt-oss-120b",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "qwen/qwen3.6-27b",
+    "environment": "development",
+    "subsystem_modes": {
+      "embedder": "sentence-transformers",
+      "vector_store": "faiss",
+      "hallucination_detector": "hhem",
+      "market_data": "unavailable"
+    },
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": true,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 7,
+  "research_question": "RQ4 (supplementary) \u2014 multi-agent coordination under conditions where multiple agents actually run together, complementing TestRQ4Evaluation's cold-start routing scenarios (see this class's own docstring for why that file's CSS/TUE=1.00 numbers are under-tested)",
+  "n_scenarios": 4,
+  "metrics": {
+    "component_synergy_score": {
+      "metric": "component_synergy_score",
+      "value": 1.0,
+      "details": {
+        "total_agent_calls": 13,
+        "successful_calls": 13,
+        "conflicts": 0,
+        "failures": 0,
+        "raw_css": 1.0
+      }
+    },
+    "tool_utilisation_efficacy": {
+      "metric": "tool_utilisation_efficacy",
+      "value": 1.0,
+      "details": {
+        "total_calls": 13,
+        "redundant_calls": 0,
+        "turns_analysed": 4
+      }
+    }
+  },
+  "coordination_coverage": {
+    "n_scenarios_invoking_multiple_agents": 4,
+    "n_scenarios_of_total": 4,
+    "n_scenarios_where_all_expected_agents_ran": 4,
+    "total_conflicts_observed": 0,
+    "total_constraint_violations_observed": 12,
+    "note": "n_scenarios_invoking_multiple_agents is the number this class exists to move off 1/10 (TestRQ4Evaluation's real figure) \u2014 compare directly. conflicts/violations are OBSERVED counts, not targets: 0 here means these particular seeded profiles didn't produce a disagreement between agents, not that conflict resolution was exercised and passed."
+  },
+  "scenarios": [
+    {
+      "scenario_id": "M01",
+      "description": "Full advisory review, complete existing profile",
+      "customer_id": "DEMO_GC_042",
+      "message": "Can you give me a full review \u2014 my risk profile, some investment ideas, and how my budget looks?",
+      "expected_routing": "full_advisory",
+      "actual_routing": "full_advisory",
+      "expected_agents": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "n_agents_invoked": 4,
+      "all_expected_agents_ran": true,
+      "unexpected_agents": [],
+      "missing_expected_agents": [],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 10658.578999806195
+    },
+    {
+      "scenario_id": "M02",
+      "description": "Investment request, complete existing profile",
+      "customer_id": "DEMO_GC_107",
+      "message": "What investment products would suit me right now?",
+      "expected_routing": "investment",
+      "actual_routing": "investment",
+      "expected_agents": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "ExplainabilityAgent"
+      ],
+      "n_agents_invoked": 3,
+      "all_expected_agents_ran": true,
+      "unexpected_agents": [],
+      "missing_expected_agents": [],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 423.87275001965463
+    },
+    {
+      "scenario_id": "M03",
+      "description": "Budget explanation, complete existing profile",
+      "customer_id": "DEMO_GMSC_318",
+      "message": "Can you break down my spending and explain where I could cut back?",
+      "expected_routing": "budget",
+      "actual_routing": "budget",
+      "expected_agents": [
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "agents_invoked": [
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "n_agents_invoked": 2,
+      "all_expected_agents_ran": true,
+      "unexpected_agents": [],
+      "missing_expected_agents": [],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 69.8489579372108
+    },
+    {
+      "scenario_id": "M04",
+      "description": "Full advisory, second profile \u2014 different risk tier than M01, same routing decision",
+      "customer_id": "DEMO_GMSC_318",
+      "message": "I'd like the full picture \u2014 risk, investing, and budgeting, all of it.",
+      "expected_routing": "full_advisory",
+      "actual_routing": "full_advisory",
+      "expected_agents": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "InvestmentAgent",
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "n_agents_invoked": 4,
+      "all_expected_agents_ran": true,
+      "unexpected_agents": [],
+      "missing_expected_agents": [],
+      "conflicts": [],
+      "constraint_violations": [
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'not regulated financial advice'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'consult a qualified advisor'"
+        },
+        {
+          "rule_id": "R004",
+          "severity": "warn",
+          "description": "Missing disclaimer: 'past performance'"
+        }
+      ],
+      "recovered_agents": [],
+      "duration_ms": 298.06445888243616
+    }
+  ]
+}

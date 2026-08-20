@@ -479,6 +479,17 @@ def _run_ablation_condition(
     tci_result = trust_calibration_index(
         tci_data["trust"], tci_data["quality"]
     )
+    _synthetic_data_caveat = (
+        "SYNTHETIC — n=5 hand-authored survey responses, not real pilot "
+        "data. Do not cite this value in the dissertation without either "
+        "replacing it with real pilot study responses (n>=20) or stating "
+        "this limitation alongside it. No amount of additional synthetic "
+        "data fixes this."
+    )
+    tps_dict = tps_result.to_dict()
+    tci_dict = tci_result.to_dict()
+    tps_dict["data_provenance_warning"] = _synthetic_data_caveat
+    tci_dict["data_provenance_warning"] = _synthetic_data_caveat
 
     results = {
         "phase": 6,
@@ -492,8 +503,8 @@ def _run_ablation_condition(
         },
         "layers_applied": result.payload["layers_applied"],
         "metrics": {
-            "transparency_perception_score": tps_result.to_dict(),
-            "trust_calibration_index": tci_result.to_dict(),
+            "transparency_perception_score": tps_dict,
+            "trust_calibration_index": tci_dict,
         },
         "sample_explanation": {
             "shap_narrative": result.payload["shap_narrative"],
@@ -502,10 +513,7 @@ def _run_ablation_condition(
             "calibration_note": result.payload["calibration_note"],
             "full_explanation": result.payload["full_explanation"],
         },
-        "survey_note": (
-            "Synthetic survey fixture — replace with real pilot study "
-            "responses (n≥20) before dissertation submission."
-        ),
+        "survey_note": _synthetic_data_caveat,
     }
 
     write_results(results, results_filename)

@@ -1,0 +1,265 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-01T03:45:01.337794+00:00",
+    "git_sha": "0dd36cd-dirty",
+    "prompt_version": "v1.0",
+    "llm_mode": "mock",
+    "orchestrator_model": "llama-3.3-70b-versatile",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "llama-3.3-70b-versatile",
+    "environment": "development",
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": false,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 2,
+  "research_question": "Banking77 bucket classification (Day 2b)",
+  "dataset": "PolyAI/banking77 (Casanueva et al. 2020), stratified n=200",
+  "bucket_map_source": "data/banking77_bucket_map.json",
+  "cost_control": "classify_only() -- 1 LLM call/sample, not run() (3 calls)",
+  "domain_gap_note": "5 of 8 buckets (risk_profiling, investment_advice, budget_analysis, full_advisory, out_of_scope) have zero Banking77 ground truth by construction -- precision/recall for them is not meaningful. False-positive leakage INTO them (reported below) is the relevant signal instead.",
+  "per_bucket_metrics": {
+    "general_query": {
+      "true_count_in_sample": 168,
+      "predicted_count": 200,
+      "precision": 0.84,
+      "recall": 1.0,
+      "has_ground_truth_in_banking77": true
+    },
+    "risk_profiling": {
+      "true_count_in_sample": 0,
+      "predicted_count": 0,
+      "precision": null,
+      "recall": null,
+      "has_ground_truth_in_banking77": false
+    },
+    "investment_advice": {
+      "true_count_in_sample": 0,
+      "predicted_count": 0,
+      "precision": null,
+      "recall": null,
+      "has_ground_truth_in_banking77": false
+    },
+    "budget_analysis": {
+      "true_count_in_sample": 0,
+      "predicted_count": 0,
+      "precision": null,
+      "recall": null,
+      "has_ground_truth_in_banking77": false
+    },
+    "product_suggestion": {
+      "true_count_in_sample": 30,
+      "predicted_count": 0,
+      "precision": null,
+      "recall": 0.0,
+      "has_ground_truth_in_banking77": true
+    },
+    "explanation_request": {
+      "true_count_in_sample": 2,
+      "predicted_count": 0,
+      "precision": null,
+      "recall": 0.0,
+      "has_ground_truth_in_banking77": true
+    },
+    "full_advisory": {
+      "true_count_in_sample": 0,
+      "predicted_count": 0,
+      "precision": null,
+      "recall": null,
+      "has_ground_truth_in_banking77": false
+    },
+    "out_of_scope": {
+      "true_count_in_sample": 0,
+      "predicted_count": 0,
+      "precision": null,
+      "recall": null,
+      "has_ground_truth_in_banking77": false
+    }
+  },
+  "confusion_matrix": {
+    "general_query": {
+      "general_query": 168
+    },
+    "product_suggestion": {
+      "general_query": 30,
+      "product_suggestion": 0
+    },
+    "explanation_request": {
+      "general_query": 2,
+      "explanation_request": 0
+    },
+    "risk_profiling": {
+      "risk_profiling": 0
+    },
+    "investment_advice": {
+      "investment_advice": 0
+    },
+    "budget_analysis": {
+      "budget_analysis": 0
+    },
+    "full_advisory": {
+      "full_advisory": 0
+    },
+    "out_of_scope": {
+      "out_of_scope": 0
+    }
+  },
+  "full_advisory_false_positives_by_true_bucket": {},
+  "investment_advice_false_positives_by_true_bucket": {},
+  "sample_predictions_first_20": [
+    {
+      "text": "Why is my transfer still pending after all this time?",
+      "banking77_label": "pending_transfer",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "My card wants to be topped what do you guys support?",
+      "banking77_label": "supported_cards_and_currencies",
+      "true_bucket": "product_suggestion",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "Help me cancel a transfer.",
+      "banking77_label": "cancel_transfer",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "how come i was declined",
+      "banking77_label": "declined_cash_withdrawal",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "Why isn't my topup working?",
+      "banking77_label": "top_up_failed",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "What do I do about a debit on my account that I didn't make?",
+      "banking77_label": "direct_debit_payment_not_recognised",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "There is a direct debit transaction that I did not authorize",
+      "banking77_label": "direct_debit_payment_not_recognised",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "Hi, I am unable to see transaction in my account which i made couples of hours ago from my UK account. Please help me in this.",
+      "banking77_label": "balance_not_updated_after_bank_transfer",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "I transferred some money but the balance stayed the same.",
+      "banking77_label": "balance_not_updated_after_bank_transfer",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "What steps should I take before my card expires?",
+      "banking77_label": "card_about_to_expire",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "I want to transfer money using my credit card.",
+      "banking77_label": "topping_up_by_card",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "Where's my top up code?",
+      "banking77_label": "verify_top_up",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "I was removing a dollar amount from my account and now don't have access to my card.",
+      "banking77_label": "card_swallowed",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "I just saw a charge for a cash withdrawal that I made! ATM withdrawals have always been free in the past, so why is there suddenly a charge? What is it going to cost me now?",
+      "banking77_label": "cash_withdrawal_charge",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "Card has been received, how will it show up on the app?",
+      "banking77_label": "card_linking",
+      "true_bucket": "product_suggestion",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "I got charged a service fee on my account. Can it be waived since I didn't know about it before?",
+      "banking77_label": "card_payment_fee_charged",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "How do I locate my PIN now that I have my card?",
+      "banking77_label": "get_physical_card",
+      "true_bucket": "product_suggestion",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "I made a payment with my card that was cancelled?",
+      "banking77_label": "reverted_card_payment?",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "Are the delivery days flexible?  My schedule only allows me to be a available on specific dates.",
+      "banking77_label": "card_delivery_estimate",
+      "true_bucket": "product_suggestion",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    },
+    {
+      "text": "My card payment has been declined, why?",
+      "banking77_label": "declined_card_payment",
+      "true_bucket": "general_query",
+      "predicted_bucket": "general_query",
+      "confidence": 0.5
+    }
+  ]
+}

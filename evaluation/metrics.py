@@ -991,3 +991,156 @@ def hallucination_rate(
             "detector_modes_seen": sorted(modes),
         },
     )
+
+# Gold-standard classification reporting (added with the Layer-3 gold set)
+#
+# WHY THESE ARE SEPARATE FROM f1_risk_classification ABOVE
+#     f1_risk_classification predates the gold set and is referenced by
+#     existing results files and existing tests; changing its return shape
+#     would silently invalidate every archived phase3_risk_baseline.json.
+#     These are additive. The functions below report the full picture the
+#     gold set makes possible — accuracy, per-class precision/recall/F1
+#     WITH support counts, both macro and weighted averages, and a full
+#     confusion matrix — and take an explicit `labels` list so a class the
+#     model never predicts still appears as a row of zeros rather than
+#     silently vanishing from the average.
+#
+#     The plain scalar helpers (accuracy_value, macro_f1_value) exist so
+#     evaluation/bootstrap.py can resample them cheaply: a bootstrap calls
+#     its statistic 1000 times, and building a full EvalResult with nested
+#     dicts on every one of those calls is wasted work.
+# ---------------------------------------------------------------------------
+
+def accuracy_value(predictions: list[str], ground_truth: list[str]) -> float:
+    """Exact-match accuracy as a bare float. Bootstrap-friendly."""
+    if not predictions:
+        return 0.0
+    return sum(p == g for p, g in zip(predictions, ground_truth)) / len(predictions)
+
+
+def macro_f1_value(
+        predictions: list[str],
+        ground_truth: list[str],
+        labels: list[str] | None = None,
+) -> float:
+    """
+    Macro-averaged F1 as a bare float, averaged over `labels` if given.
+
+    Averaging over a FIXED label list matters inside a bootstrap: a
+    resample that happens to contain no 'aggressive' cases would otherwise
+    be macro-averaged over 4 classes while the full sample uses 5, making
+    the resampled statistic incomparable to the point estimate.
+    """
+    if not predictions:
+        return 0.0
+    label_set = labels if labels is not None else sorted(set(ground_truth) | set(predictions))
+
+    f1s = []
+    for label in label_set:
+        tp = sum(p == label and g == label for p, g in zip(predictions, ground_truth))
+        fp = sum(p == label and g != label for p, g in zip(predictions, ground_truth))
+        fn = sum(p != label and g == label for p, g in zip(predictions, ground_truth))
+        precision = tp / (tp + fp) if (tp + fp) else 0.0
+        recall = tp / (tp + fn) if (tp + fn) else 0.0
+        f1s.append(
+            2 * precision * recall / (precision + recall)
+            if (precision + recall) else 0.0
+        )
+    return float(sum(f1s) / len(f1s)) if f1s else 0.0
+
+
+def confusion_matrix(
+        predictions: list[str],
+        ground_truth: list[str],
+        labels: list[str],
+) -> dict[str, dict[str, int]]:
+    """
+    Nested dict: matrix[true_label][predicted_label] = count.
+
+    Dense over `labels` — every cell present, zeros included — so the JSON
+    can be pasted into a dissertation table without post-processing, and
+    so a class with no predictions is visibly empty rather than absent.
+    """
+    matrix = {t: {p: 0 for p in labels} for t in labels}
+    for p, g in zip(predictions, ground_truth):
+        if g in matrix and p in matrix[g]:
+            matrix[g][p] += 1
+    return matrix
+
+
+def classification_report(
+        predictions: list[str],
+        ground_truth: list[str],
+        labels: list[str] | None = None,
+) -> EvalResult:
+    """
+    Full supervised-classification report for a set WITH ground truth.
+
+    value = overall accuracy. details carries per-class precision, recall,
+    F1 and support, macro and weighted averages, and the confusion matrix.
+
+    Only ever call this on Layer-3 (gold) data. evaluation/datasets.py
+    enforces that at the dataset level; this docstring is the reminder for
+    anyone calling it directly.
+    """
+    if not predictions or len(predictions) != len(ground_truth):
+        return EvalResult("classification_report", 0.0,
+                          {"error": "empty or mismatched inputs"})
+
+    label_set = labels if labels is not None else sorted(set(ground_truth) | set(predictions))
+
+    per_class: dict[str, dict] = {}
+    for label in label_set:
+        tp = sum(p == label and g == label for p, g in zip(predictions, ground_truth))
+        fp = sum(p == label and g != label for p, g in zip(predictions, ground_truth))
+        fn = sum(p != label and g == label for p, g in zip(predictions, ground_truth))
+        support = sum(g == label for g in ground_truth)
+
+        precision = tp / (tp + fp) if (tp + fp) else 0.0
+        recall = tp / (tp + fn) if (tp + fn) else 0.0
+        f1 = (2 * precision * recall / (precision + recall)
+              if (precision + recall) else 0.0)
+
+        per_class[label] = {
+            "precision": round(precision, 4),
+            "recall": round(recall, 4),
+            "f1": round(f1, 4),
+            "support": support,
+            "true_positives": tp,
+            "false_positives": fp,
+            "false_negatives": fn,
+        }
+
+    n = len(predictions)
+    accuracy = accuracy_value(predictions, ground_truth)
+
+    macro = {
+        key: round(float(np.mean([per_class[c][key] for c in label_set])), 4)
+        for key in ("precision", "recall", "f1")
+    }
+    total_support = sum(per_class[c]["support"] for c in label_set)
+    if total_support:
+        weighted = {
+            key: round(float(sum(
+                per_class[c][key] * per_class[c]["support"] for c in label_set
+            ) / total_support), 4)
+            for key in ("precision", "recall", "f1")
+        }
+    else:
+        weighted = {key: 0.0 for key in ("precision", "recall", "f1")}
+
+    return EvalResult(
+        metric_name="classification_report",
+        value=round(accuracy, 4),
+        details={
+            "n": n,
+            "n_correct": sum(p == g for p, g in zip(predictions, ground_truth)),
+            "labels": label_set,
+            "accuracy": round(accuracy, 4),
+            "per_class": per_class,
+            "macro_avg": macro,
+            "weighted_avg": weighted,
+            "confusion_matrix": confusion_matrix(predictions, ground_truth, label_set),
+            "confusion_matrix_orientation": "matrix[true_label][predicted_label]",
+        },
+    )

@@ -1,0 +1,3231 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-19T15:35:19.190189+00:00",
+    "git_sha": "4d0512e-dirty",
+    "git_dirty_files": [
+      "README.md",
+      "agents/budget_questionnaire.py",
+      "agents/conversational_agent.py",
+      "agents/payloads.py",
+      "agents/risk_profiling_agent.py",
+      "agents/risk_questionnaire.py",
+      "config/settings.py",
+      "evaluation/agent_judge.py",
+      "evaluation/metrics.py",
+      "evaluation/results_io.py",
+      "explainability/explainability_agent.py",
+      "logs/audit/session_baseline-DEMO_GC_042.jsonl",
+      "logs/audit/session_baseline-DEMO_GC_107.jsonl",
+      "logs/audit/session_baseline-DEMO_GMSC_318.jsonl",
+      "logs/audit/session_baseline-push-PUSH_001.jsonl",
+      "logs/audit/session_baseline-push-PUSH_002.jsonl",
+      "logs/audit/session_baseline-push-PUSH_003.jsonl",
+      "orchestrator/orchestrator.py",
+      "results/EVIDENCE_MANIFEST.json",
+      "results/groq/phase3_risk_baseline.json",
+      "results/groq/phase3_risk_comparison.json",
+      "results/groq/phase8b_existing_customer_baseline.json",
+      "results/groq/phase8b_push_mode_baseline.json",
+      "results/groq/rq1_risk_model_training.json",
+      "results/groq/rq3_full_stack.json",
+      "results/groq/rq3_shap_only.json",
+      "results/groq/rq3_shap_rag.json",
+      "results/groq/rq4_mas_coherence.json",
+      "results/mock/phase2_conversational_baseline.json",
+      "results/mock/phase3_risk_baseline.json",
+      "results/mock/phase5_budget_baseline.json",
+      "results/mock/phase5_transaction_window_comparison.json",
+      "results/mock/phase8b_existing_customer_baseline.json",
+      "results/mock/phase8b_push_mode_baseline.json",
+      "results/mock/rq3_full_stack.json",
+      "results/mock/rq3_shap_only.json",
+      "results/mock/rq3_shap_rag.json",
+      "results/mock/rq4_mas_coherence.json",
+      "results/mock/rq5_finqa_no_rag.json",
+      "results/mock/rq5_finqa_with_rag.json",
+      "scripts/compare_risk_model_variants.py",
+      "scripts/recalibrate_risk_model_age_neutral.py",
+      "scripts/regenerate_evidence.py",
+      "scripts/train_risk_model.py",
+      "tests/integration/test_orchestrator_pipeline.py",
+      "tests/unit/test_banking77_evaluation.py",
+      "tests/unit/test_explainability_agent.py",
+      "tests/unit/test_risk_profiling_agent.py",
+      "tests/unit/test_rq5_finqa_evaluation.py",
+      "utils/llm_client.py",
+      "agents/transaction_contract.py",
+      "data/evaluation/",
+      "evaluation/banking77_data.py",
+      "evaluation/bootstrap.py",
+      "evaluation/datasets.py",
+      "evaluation/finqa_data.py",
+      "evaluation/risk_rubric.py",
+      "orchestrator/routing_policy.py",
+      "results/_dirty_diffs/",
+      "results/groq/phase2_banking77_stratified.json",
+      "results/groq/phase2c_core_intent_baseline.json",
+      "results/groq/rq1_confidence_calibration.json",
+      "results/groq/rq1_confidence_recalibration.json",
+      "results/groq/rq1_gold_risk_evaluation.json",
+      "results/groq/rq1_robustness_layers.json",
+      "results/groq/rq5_finqa_verified_no_rag.json",
+      "results/groq/rq5_finqa_verified_rag_oracle.json",
+      "results/groq/rq5_finqa_verified_rag_retrieved.json",
+      "results/mock/rq4_multi_agent_coordination.json",
+      "results_archive/20260812T044213Z_4d0512e/",
+      "results_archive/20260812T045101Z_4d0512e-dirty/",
+      "results_archive/20260812T045202Z_4d0512e-dirty/",
+      "results_archive/20260819T153425Z_4d0512e-dirty/",
+      "results_day2.zip",
+      "revert_audit_fixes.sh",
+      "rough_work",
+      "scripts/build_gold_risk_dataset.py",
+      "scripts/build_stress_customer_base.py",
+      "scripts/calibrate_risk_confidence.py",
+      "scripts/eval_banking77_stratified.py",
+      "scripts/eval_confidence_calibration.py",
+      "scripts/eval_robustness_layers.py",
+      "scripts/eval_rq1_gold.py",
+      "scripts/eval_rq5_finqa_verified.py",
+      "scripts/measure_planner_determinism.py",
+      "scripts/verify_audit_fixes.py",
+      "tests/unit/test_audit_regressions.py",
+      "tests/unit/test_evaluation_layers.py"
+    ],
+    "git_diff_patch_path": "results/_dirty_diffs/4d0512e-50f7a4142fc7.patch",
+    "prompt_version": "v1.2",
+    "llm_mode": "groq",
+    "orchestrator_model": "openai/gpt-oss-120b",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "qwen/qwen3.6-27b",
+    "environment": "development",
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "record",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": true,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 3,
+  "research_question": "RQ1",
+  "agent": "RiskProfilingAgent",
+  "model_mode": "trained_model",
+  "requires_llm": false,
+  "dataset": {
+    "dataset_name": "gold_risk_profiles_v1",
+    "n_records": 215,
+    "source_path": "data/evaluation/gold_risk_profiles.json",
+    "layer": "layer3_gold",
+    "name": "Gold-standard independently-labelled evaluation set",
+    "purpose": "accuracy, precision, recall, F1, confusion matrix, CIs",
+    "has_independent_ground_truth": true,
+    "permitted_metrics": [
+      "accuracy",
+      "precision",
+      "recall",
+      "f1",
+      "auc_roc",
+      "risk_alignment_rate",
+      "confusion_matrix",
+      "bootstrap_ci"
+    ],
+    "forbidden_metrics": [],
+    "provenance": {
+      "generated_at_utc": "2026-08-19T15:35:11.903478+00:00",
+      "git_sha": "4d0512e",
+      "generator": "scripts/build_gold_risk_dataset.py",
+      "seed": 20260812,
+      "per_class_target": 40,
+      "rubric_version": "1.0",
+      "construction": "Label-first rejection sampling. For each target class a suitability-matrix cell is chosen, demographically coherent profiles are drawn from broad priors, and a profile is kept only if the independent rubric places it in that cell. The model is never run during construction and no profile is ever discarded for being predicted incorrectly.",
+      "independence_guarantees": [
+        "No model prediction was consulted at any point.",
+        "risk_model.pkl is never loaded by this script.",
+        "evaluation/risk_rubric.py imports nothing from agents/.",
+        "Labels are fixed at build time and are never revised.",
+        "No profile is filtered out on the basis of model output."
+      ],
+      "sampling_statistics": {
+        "conservative": {
+          "attempts": 251,
+          "accepted": 40,
+          "by_cell": {
+            "low|low": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 127
+            },
+            "low|medium": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 124
+            }
+          }
+        },
+        "moderately_conservative": {
+          "attempts": 246,
+          "accepted": 40,
+          "by_cell": {
+            "low|high": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 114
+            },
+            "medium|low": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 132
+            }
+          }
+        },
+        "moderate": {
+          "attempts": 1155,
+          "accepted": 40,
+          "by_cell": {
+            "high|low": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 988
+            },
+            "medium|medium": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 167
+            }
+          }
+        },
+        "moderately_aggressive": {
+          "attempts": 1516,
+          "accepted": 40,
+          "by_cell": {
+            "high|medium": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 1390
+            },
+            "medium|high": {
+              "quota": 20,
+              "accepted": 20,
+              "attempts": 126
+            }
+          }
+        },
+        "aggressive": {
+          "attempts": 2178,
+          "accepted": 40,
+          "by_cell": {
+            "high|high": {
+              "quota": 40,
+              "accepted": 40,
+              "attempts": 2178
+            }
+          }
+        }
+      },
+      "class_counts": {
+        "conservative": 43,
+        "moderately_conservative": 42,
+        "moderate": 43,
+        "moderately_aggressive": 43,
+        "aggressive": 44
+      },
+      "original_15_preserved": 15
+    }
+  },
+  "evaluation_configuration": {
+    "predictor": "_hybrid_score -> _score_to_class (deterministic)",
+    "ml_weight": 0.6,
+    "rule_weight": 0.4,
+    "capacity_weight": 0.5,
+    "class_boundaries": [
+      0.2,
+      0.4,
+      0.6,
+      0.8
+    ],
+    "bootstrap_resamples": 1000,
+    "confidence_level": 0.95,
+    "sklearn_runtime_version": "1.9.0",
+    "sklearn_pickle_version": "1.9.0"
+  },
+  "primary_result": {
+    "name": "gold_rubric_labelled_200",
+    "n": 200,
+    "class_distribution": {
+      "conservative": 40,
+      "moderately_conservative": 40,
+      "moderate": 40,
+      "moderately_aggressive": 40,
+      "aggressive": 40
+    },
+    "predicted_class_distribution": {
+      "conservative": 16,
+      "moderately_conservative": 68,
+      "moderate": 35,
+      "moderately_aggressive": 80,
+      "aggressive": 1
+    },
+    "score_distribution_diagnostic": {
+      "hybrid_score_min": 0.09,
+      "hybrid_score_max": 0.825,
+      "hybrid_score_mean": 0.4864,
+      "hybrid_score_std": 0.1983,
+      "counts_per_class_band": {
+        "0.0-0.2 (conservative)": 16,
+        "0.2-0.4 (moderately_conservative)": 68,
+        "0.4-0.6 (moderate)": 35,
+        "0.6-0.8 (moderately_aggressive)": 80,
+        "0.8-1.0 (aggressive)": 1
+      },
+      "interpretation": "_score_to_class cuts [0,1] into five equal-width bands. If the observed score range is narrower than [0,1], the outer tiers are unreachable in practice and per-class recall for conservative/aggressive is bounded above by the binning, not by the model's ranking ability. Compare the near-1.0 AUC-ROC (a ranking metric, threshold-free) with the per-class recall (threshold-dependent) to see whether the problem is ranking or calibration."
+    },
+    "metrics": {
+      "classification_report": {
+        "metric": "classification_report",
+        "value": 0.38,
+        "details": {
+          "n": 200,
+          "n_correct": 76,
+          "labels": [
+            "conservative",
+            "moderately_conservative",
+            "moderate",
+            "moderately_aggressive",
+            "aggressive"
+          ],
+          "accuracy": 0.38,
+          "per_class": {
+            "conservative": {
+              "precision": 0.8125,
+              "recall": 0.325,
+              "f1": 0.4643,
+              "support": 40,
+              "true_positives": 13,
+              "false_positives": 3,
+              "false_negatives": 27
+            },
+            "moderately_conservative": {
+              "precision": 0.3676,
+              "recall": 0.625,
+              "f1": 0.463,
+              "support": 40,
+              "true_positives": 25,
+              "false_positives": 43,
+              "false_negatives": 15
+            },
+            "moderate": {
+              "precision": 0.3714,
+              "recall": 0.325,
+              "f1": 0.3467,
+              "support": 40,
+              "true_positives": 13,
+              "false_positives": 22,
+              "false_negatives": 27
+            },
+            "moderately_aggressive": {
+              "precision": 0.3,
+              "recall": 0.6,
+              "f1": 0.4,
+              "support": 40,
+              "true_positives": 24,
+              "false_positives": 56,
+              "false_negatives": 16
+            },
+            "aggressive": {
+              "precision": 1.0,
+              "recall": 0.025,
+              "f1": 0.0488,
+              "support": 40,
+              "true_positives": 1,
+              "false_positives": 0,
+              "false_negatives": 39
+            }
+          },
+          "macro_avg": {
+            "precision": 0.5703,
+            "recall": 0.38,
+            "f1": 0.3446
+          },
+          "weighted_avg": {
+            "precision": 0.5703,
+            "recall": 0.38,
+            "f1": 0.3446
+          },
+          "confusion_matrix": {
+            "conservative": {
+              "conservative": 13,
+              "moderately_conservative": 25,
+              "moderate": 2,
+              "moderately_aggressive": 0,
+              "aggressive": 0
+            },
+            "moderately_conservative": {
+              "conservative": 3,
+              "moderately_conservative": 25,
+              "moderate": 11,
+              "moderately_aggressive": 1,
+              "aggressive": 0
+            },
+            "moderate": {
+              "conservative": 0,
+              "moderately_conservative": 10,
+              "moderate": 13,
+              "moderately_aggressive": 17,
+              "aggressive": 0
+            },
+            "moderately_aggressive": {
+              "conservative": 0,
+              "moderately_conservative": 8,
+              "moderate": 8,
+              "moderately_aggressive": 24,
+              "aggressive": 0
+            },
+            "aggressive": {
+              "conservative": 0,
+              "moderately_conservative": 0,
+              "moderate": 1,
+              "moderately_aggressive": 38,
+              "aggressive": 1
+            }
+          },
+          "confusion_matrix_orientation": "matrix[true_label][predicted_label]"
+        }
+      },
+      "risk_alignment_rate": {
+        "metric": "risk_alignment_rate",
+        "value": 0.94,
+        "details": {
+          "n": 200,
+          "aligned": 188,
+          "per_tier_alignment": {
+            "conservative": 0.95,
+            "moderately_conservative": 0.975,
+            "moderate": 1.0,
+            "moderately_aggressive": 0.8,
+            "aggressive": 0.975
+          }
+        }
+      },
+      "f1_macro_legacy_metric": {
+        "metric": "f1_risk_classification",
+        "value": 0.3445,
+        "details": {
+          "per_class": {
+            "conservative": {
+              "precision": 0.812,
+              "recall": 0.325,
+              "f1": 0.464
+            },
+            "moderately_conservative": {
+              "precision": 0.368,
+              "recall": 0.625,
+              "f1": 0.463
+            },
+            "moderate": {
+              "precision": 0.371,
+              "recall": 0.325,
+              "f1": 0.347
+            },
+            "moderately_aggressive": {
+              "precision": 0.3,
+              "recall": 0.6,
+              "f1": 0.4
+            },
+            "aggressive": {
+              "precision": 1.0,
+              "recall": 0.025,
+              "f1": 0.049
+            }
+          }
+        }
+      },
+      "auc_roc": {
+        "metric": "auc_roc",
+        "value": 0.8026,
+        "details": {
+          "method": "one_vs_rest_macro",
+          "n": 200,
+          "classes_evaluated": [
+            "conservative",
+            "moderately_conservative",
+            "moderate",
+            "moderately_aggressive",
+            "aggressive"
+          ],
+          "per_class_auc": {
+            "conservative": 0.9384,
+            "moderately_conservative": 0.7791,
+            "moderate": 0.7105,
+            "moderately_aggressive": 0.6541,
+            "aggressive": 0.9307
+          },
+          "class_counts": {
+            "conservative": 40,
+            "moderately_conservative": 40,
+            "moderate": 40,
+            "moderately_aggressive": 40,
+            "aggressive": 40
+          }
+        }
+      },
+      "hybrid_vs_rule_only_delta": {
+        "metric": "hybrid_vs_rule_only_delta",
+        "value": 0.25,
+        "details": {
+          "hybrid_rar": 0.94,
+          "rule_only_rar": 0.69,
+          "improvement": "+0.2500",
+          "interpretation": "Hybrid outperforms rule-only baseline"
+        }
+      }
+    },
+    "confidence_intervals_95pct": {
+      "accuracy": {
+        "point_estimate": 0.38,
+        "ci_low": 0.315,
+        "ci_high": 0.445,
+        "ci_width": 0.13,
+        "confidence": 0.95,
+        "method": "percentile bootstrap",
+        "n_resamples": 1000,
+        "n_items": 200,
+        "seed": 42,
+        "n_degenerate_resamples": 0
+      },
+      "macro_f1": {
+        "point_estimate": 0.3445,
+        "ci_low": 0.2813,
+        "ci_high": 0.4019,
+        "ci_width": 0.1207,
+        "confidence": 0.95,
+        "method": "percentile bootstrap",
+        "n_resamples": 1000,
+        "n_items": 200,
+        "seed": 42,
+        "n_degenerate_resamples": 0
+      },
+      "risk_alignment_rate": {
+        "point_estimate": 0.94,
+        "ci_low": 0.905,
+        "ci_high": 0.97,
+        "ci_width": 0.065,
+        "confidence": 0.95,
+        "method": "percentile bootstrap",
+        "n_resamples": 1000,
+        "n_items": 200,
+        "seed": 42,
+        "n_degenerate_resamples": 0
+      }
+    },
+    "component_ablation": {
+      "hybrid": {
+        "accuracy": 0.38,
+        "macro_f1": 0.3445,
+        "risk_alignment_rate": 0.94
+      },
+      "rule_only": {
+        "accuracy": 0.295,
+        "macro_f1": 0.2186,
+        "risk_alignment_rate": 0.69
+      },
+      "ml_only": {
+        "accuracy": 0.36,
+        "macro_f1": 0.3204,
+        "risk_alignment_rate": 0.87
+      }
+    },
+    "shared_structure_diagnostic": {
+      "rubric_vs_rule_layer_agreement": 0.295,
+      "rubric_vs_ml_layer_agreement": 0.36,
+      "interpretation": "Agreement between the labelling rubric and each component of the system, reported so the reader can see how much construct overlap exists rather than inferring it. The rubric and the rule layer both encode MiFID II / CBI suitability constructs, so their agreement is expected to be above chance (0.20 for 5 balanced classes). The ML layer is trained on GMSC distress data and shares no structure with the rubric."
+    },
+    "per_profile": [
+      {
+        "profile_id": "GOLD_CONS_001",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.156,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_002",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.21,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_003",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "conservative",
+        "hybrid_score": 0.122,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_004",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.25,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_005",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.252,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_006",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.249,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_007",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.256,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_008",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.325,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_009",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "conservative",
+        "hybrid_score": 0.09,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_010",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.193,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_011",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.218,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_012",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.256,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_013",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.215,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_014",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.201,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_015",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.155,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_016",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.149,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_017",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.147,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_018",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.373,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_019",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.401,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_CONS_020",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.451,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_CONS_001",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.343,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_002",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.29,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_003",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.249,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_004",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.3,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_005",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.283,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_006",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.273,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_007",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.303,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_008",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.126,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_009",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.33,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_010",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.237,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_011",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.152,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_012",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.321,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_013",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.352,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_014",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.256,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_015",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.138,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_016",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.218,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_017",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.207,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_018",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.177,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_019",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.161,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_CONS_020",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.174,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_001",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.488,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_002",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.292,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_003",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.273,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_004",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.496,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_005",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.335,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_006",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.285,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_007",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.252,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_008",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.238,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_009",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.39,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_010",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.361,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_011",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.366,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_012",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.381,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_013",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.198,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_014",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.482,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_015",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.4,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_016",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.248,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_017",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.388,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_018",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.268,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_019",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.364,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_020",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.192,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_001",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.41,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_002",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.526,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_003",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.214,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_004",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.33,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_005",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.541,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_006",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.186,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_007",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.478,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_008",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.287,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_009",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.308,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_010",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.545,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_011",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.355,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_012",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.368,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_013",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.32,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_014",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.302,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_015",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.384,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_016",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.501,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_017",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.358,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_018",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.23,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_019",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.472,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MCON_020",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.603,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_MODT_001",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.598,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_002",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_aggressive",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.708,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_003",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.627,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_004",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.656,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_005",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.621,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_006",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.756,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_007",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.57,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_008",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.588,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_009",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.691,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_010",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.631,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_011",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.641,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_012",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.625,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_013",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.634,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_014",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.634,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_015",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.753,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_016",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.571,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_017",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.657,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_018",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.627,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_019",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.653,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_020",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.651,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_001",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.384,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_002",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.464,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_003",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.36,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_004",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.639,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_005",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.594,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_006",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.328,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_007",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.359,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_008",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.58,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_009",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.593,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_010",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.316,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_011",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.558,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_012",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.274,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_013",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.349,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_014",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.599,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_015",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.378,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_016",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.32,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_017",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.54,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_018",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.561,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_019",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.401,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MODT_020",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.27,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_001",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.736,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_002",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.61,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_003",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.648,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_004",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.791,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_005",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.657,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_006",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.623,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_007",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.663,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_008",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.679,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_009",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.664,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_010",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.601,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_011",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.675,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_012",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.791,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_013",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.684,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_014",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.641,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_015",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.633,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_016",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.761,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_017",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.742,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_018",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.696,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_019",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.791,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_020",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.629,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_001",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.363,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_MAGG_002",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.578,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_003",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.544,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_004",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderate",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.474,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_005",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderate",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.453,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_006",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.664,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_007",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.383,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_MAGG_008",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.392,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_MAGG_009",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.61,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_010",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.34,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_MAGG_011",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.614,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_012",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.524,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_013",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.399,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_MAGG_014",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.333,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_MAGG_015",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.489,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_016",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.685,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_017",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.486,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_018",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.352,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_MAGG_019",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.468,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_MAGG_020",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.368,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_AGGR_001",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.681,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_002",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.699,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_003",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.671,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_004",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_aggressive",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.786,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_005",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.791,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_006",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.733,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_007",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.649,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_008",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.686,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_009",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.737,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_010",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.632,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_011",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.737,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_012",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.669,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_013",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.705,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_014",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.696,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_015",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.661,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_016",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "aggressive",
+        "rule_pred": "moderately_aggressive",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.825,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_017",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.657,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_018",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.721,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_019",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.658,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_020",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.713,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_021",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.701,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_022",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.687,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_023",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.791,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_024",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.764,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_025",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.67,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_026",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.735,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_027",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.705,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_028",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.714,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_029",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.681,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_030",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.726,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_031",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_aggressive",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.714,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_032",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.774,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_033",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.667,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_034",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.777,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_035",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.765,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_036",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.675,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_037",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.549,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "GOLD_AGGR_038",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.693,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_039",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.721,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "GOLD_AGGR_040",
+        "provenance": "rubric_labelled_v1.0",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.697,
+        "correct": false,
+        "within_one_tier": true
+      }
+    ]
+  },
+  "original_15_result": {
+    "name": "original_hand_labelled_15",
+    "n": 15,
+    "class_distribution": {
+      "conservative": 3,
+      "moderately_conservative": 2,
+      "moderate": 3,
+      "moderately_aggressive": 3,
+      "aggressive": 4
+    },
+    "predicted_class_distribution": {
+      "moderate": 4,
+      "conservative": 1,
+      "moderately_conservative": 2,
+      "moderately_aggressive": 5,
+      "aggressive": 3
+    },
+    "score_distribution_diagnostic": {
+      "hybrid_score_min": 0.168,
+      "hybrid_score_max": 0.831,
+      "hybrid_score_mean": 0.6001,
+      "hybrid_score_std": 0.2208,
+      "counts_per_class_band": {
+        "0.0-0.2 (conservative)": 1,
+        "0.2-0.4 (moderately_conservative)": 2,
+        "0.4-0.6 (moderate)": 4,
+        "0.6-0.8 (moderately_aggressive)": 5,
+        "0.8-1.0 (aggressive)": 3
+      },
+      "interpretation": "_score_to_class cuts [0,1] into five equal-width bands. If the observed score range is narrower than [0,1], the outer tiers are unreachable in practice and per-class recall for conservative/aggressive is bounded above by the binning, not by the model's ranking ability. Compare the near-1.0 AUC-ROC (a ranking metric, threshold-free) with the per-class recall (threshold-dependent) to see whether the problem is ranking or calibration."
+    },
+    "metrics": {
+      "classification_report": {
+        "metric": "classification_report",
+        "value": 0.6667,
+        "details": {
+          "n": 15,
+          "n_correct": 10,
+          "labels": [
+            "conservative",
+            "moderately_conservative",
+            "moderate",
+            "moderately_aggressive",
+            "aggressive"
+          ],
+          "accuracy": 0.6667,
+          "per_class": {
+            "conservative": {
+              "precision": 1.0,
+              "recall": 0.3333,
+              "f1": 0.5,
+              "support": 3,
+              "true_positives": 1,
+              "false_positives": 0,
+              "false_negatives": 2
+            },
+            "moderately_conservative": {
+              "precision": 0.5,
+              "recall": 0.5,
+              "f1": 0.5,
+              "support": 2,
+              "true_positives": 1,
+              "false_positives": 1,
+              "false_negatives": 1
+            },
+            "moderate": {
+              "precision": 0.5,
+              "recall": 0.6667,
+              "f1": 0.5714,
+              "support": 3,
+              "true_positives": 2,
+              "false_positives": 2,
+              "false_negatives": 1
+            },
+            "moderately_aggressive": {
+              "precision": 0.6,
+              "recall": 1.0,
+              "f1": 0.75,
+              "support": 3,
+              "true_positives": 3,
+              "false_positives": 2,
+              "false_negatives": 0
+            },
+            "aggressive": {
+              "precision": 1.0,
+              "recall": 0.75,
+              "f1": 0.8571,
+              "support": 4,
+              "true_positives": 3,
+              "false_positives": 0,
+              "false_negatives": 1
+            }
+          },
+          "macro_avg": {
+            "precision": 0.72,
+            "recall": 0.65,
+            "f1": 0.6357
+          },
+          "weighted_avg": {
+            "precision": 0.7533,
+            "recall": 0.6667,
+            "f1": 0.6595
+          },
+          "confusion_matrix": {
+            "conservative": {
+              "conservative": 1,
+              "moderately_conservative": 1,
+              "moderate": 1,
+              "moderately_aggressive": 0,
+              "aggressive": 0
+            },
+            "moderately_conservative": {
+              "conservative": 0,
+              "moderately_conservative": 1,
+              "moderate": 1,
+              "moderately_aggressive": 0,
+              "aggressive": 0
+            },
+            "moderate": {
+              "conservative": 0,
+              "moderately_conservative": 0,
+              "moderate": 2,
+              "moderately_aggressive": 1,
+              "aggressive": 0
+            },
+            "moderately_aggressive": {
+              "conservative": 0,
+              "moderately_conservative": 0,
+              "moderate": 0,
+              "moderately_aggressive": 3,
+              "aggressive": 0
+            },
+            "aggressive": {
+              "conservative": 0,
+              "moderately_conservative": 0,
+              "moderate": 0,
+              "moderately_aggressive": 1,
+              "aggressive": 3
+            }
+          },
+          "confusion_matrix_orientation": "matrix[true_label][predicted_label]"
+        }
+      },
+      "risk_alignment_rate": {
+        "metric": "risk_alignment_rate",
+        "value": 0.9333,
+        "details": {
+          "n": 15,
+          "aligned": 14,
+          "per_tier_alignment": {
+            "conservative": 0.667,
+            "moderately_conservative": 1.0,
+            "moderate": 1.0,
+            "moderately_aggressive": 1.0,
+            "aggressive": 1.0
+          }
+        }
+      },
+      "f1_macro_legacy_metric": {
+        "metric": "f1_risk_classification",
+        "value": 0.6357,
+        "details": {
+          "per_class": {
+            "conservative": {
+              "precision": 1.0,
+              "recall": 0.333,
+              "f1": 0.5
+            },
+            "moderately_conservative": {
+              "precision": 0.5,
+              "recall": 0.5,
+              "f1": 0.5
+            },
+            "moderate": {
+              "precision": 0.5,
+              "recall": 0.667,
+              "f1": 0.571
+            },
+            "moderately_aggressive": {
+              "precision": 0.6,
+              "recall": 1.0,
+              "f1": 0.75
+            },
+            "aggressive": {
+              "precision": 1.0,
+              "recall": 0.75,
+              "f1": 0.857
+            }
+          }
+        }
+      },
+      "auc_roc": {
+        "metric": "auc_roc",
+        "value": 0.9248,
+        "details": {
+          "method": "one_vs_rest_macro",
+          "n": 15,
+          "classes_evaluated": [
+            "conservative",
+            "moderately_conservative",
+            "moderate",
+            "moderately_aggressive",
+            "aggressive"
+          ],
+          "per_class_auc": {
+            "conservative": 0.9722,
+            "moderately_conservative": 0.8462,
+            "moderate": 0.8611,
+            "moderately_aggressive": 0.9444,
+            "aggressive": 1.0
+          },
+          "class_counts": {
+            "conservative": 3,
+            "moderately_conservative": 2,
+            "moderate": 3,
+            "moderately_aggressive": 3,
+            "aggressive": 4
+          }
+        }
+      },
+      "hybrid_vs_rule_only_delta": {
+        "metric": "hybrid_vs_rule_only_delta",
+        "value": 0.0,
+        "details": {
+          "hybrid_rar": 0.9333,
+          "rule_only_rar": 0.9333,
+          "improvement": "+0.0000",
+          "interpretation": "Rule-only baseline matches or exceeds hybrid"
+        }
+      }
+    },
+    "confidence_intervals_95pct": {
+      "accuracy": {
+        "point_estimate": 0.6667,
+        "ci_low": 0.4,
+        "ci_high": 0.8667,
+        "ci_width": 0.4667,
+        "confidence": 0.95,
+        "method": "percentile bootstrap",
+        "n_resamples": 1000,
+        "n_items": 15,
+        "seed": 42,
+        "n_degenerate_resamples": 0
+      },
+      "macro_f1": {
+        "point_estimate": 0.6357,
+        "ci_low": 0.3133,
+        "ci_high": 0.8533,
+        "ci_width": 0.54,
+        "confidence": 0.95,
+        "method": "percentile bootstrap",
+        "n_resamples": 1000,
+        "n_items": 15,
+        "seed": 42,
+        "n_degenerate_resamples": 0
+      },
+      "risk_alignment_rate": {
+        "point_estimate": 0.9333,
+        "ci_low": 0.8,
+        "ci_high": 1.0,
+        "ci_width": 0.2,
+        "confidence": 0.95,
+        "method": "percentile bootstrap",
+        "n_resamples": 1000,
+        "n_items": 15,
+        "seed": 42,
+        "n_degenerate_resamples": 0
+      }
+    },
+    "component_ablation": {
+      "hybrid": {
+        "accuracy": 0.6667,
+        "macro_f1": 0.6357,
+        "risk_alignment_rate": 0.9333
+      },
+      "rule_only": {
+        "accuracy": 0.4,
+        "macro_f1": 0.3378,
+        "risk_alignment_rate": 0.9333
+      },
+      "ml_only": {
+        "accuracy": 0.4,
+        "macro_f1": 0.3455,
+        "risk_alignment_rate": 0.9333
+      }
+    },
+    "shared_structure_diagnostic": {
+      "rubric_vs_rule_layer_agreement": 0.4,
+      "rubric_vs_ml_layer_agreement": 0.6667,
+      "interpretation": "Agreement between the labelling rubric and each component of the system, reported so the reader can see how much construct overlap exists rather than inferring it. The rubric and the rule layer both encode MiFID II / CBI suitability constructs, so their agreement is expected to be above chance (0.20 for 5 balanced classes). The ML layer is trained on GMSC distress data and shares no structure with the rubric."
+    },
+    "per_profile": [
+      {
+        "profile_id": "ORIG_HAND_001",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderately_conservative",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.407,
+        "correct": false,
+        "within_one_tier": false
+      },
+      {
+        "profile_id": "ORIG_HAND_002",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "conservative",
+        "hybrid_pred": "conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "conservative",
+        "hybrid_score": 0.168,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_003",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "conservative",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.207,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_004",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderately_conservative",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_conservative",
+        "hybrid_score": 0.388,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_005",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "moderately_conservative",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderate",
+        "hybrid_score": 0.465,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_006",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.555,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_007",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderate",
+        "rule_pred": "moderate",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.559,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_008",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "moderate",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_aggressive",
+        "ml_pred": "moderately_aggressive",
+        "hybrid_score": 0.669,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_009",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_aggressive",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.78,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_010",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.727,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_011",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "moderately_aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderately_aggressive",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.792,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_012",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "aggressive",
+        "rule_pred": "moderately_aggressive",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.831,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_013",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "aggressive",
+        "rule_pred": "moderately_aggressive",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.825,
+        "correct": true,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_014",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "moderately_aggressive",
+        "rule_pred": "moderate",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.797,
+        "correct": false,
+        "within_one_tier": true
+      },
+      {
+        "profile_id": "ORIG_HAND_015",
+        "provenance": "hand_labelled_original_15",
+        "ground_truth": "aggressive",
+        "hybrid_pred": "aggressive",
+        "rule_pred": "moderately_aggressive",
+        "ml_pred": "aggressive",
+        "hybrid_score": 0.831,
+        "correct": true,
+        "within_one_tier": true
+      }
+    ]
+  },
+  "statistical_power": {
+    "n": 200,
+    "baseline_rate_assumed": 0.5,
+    "standard_error": 0.0354,
+    "minimum_detectable_difference": 0.099,
+    "alpha": 0.05,
+    "power": 0.8,
+    "interpretation": "With n=200, a two-sided test at alpha=0.05 with 80% power can detect a difference of about 9.9 percentage points against a 50% baseline. Smaller true differences are likely to be missed."
+  },
+  "methodological_guarantees": [
+    "Labels were assigned by evaluation/risk_rubric.py before this script ran and were not modified afterwards.",
+    "No profile was excluded on the basis of the model's output.",
+    "No model prediction was used as ground truth anywhere.",
+    "Layer-1 (real) and Layer-2 (stress) data are excluded from this file entirely \u2014 they have no independent labels."
+  ],
+  "supersedes": "phase3_risk_baseline.json (n=15, no confidence intervals, no confusion matrix, no per-class support)"
+}

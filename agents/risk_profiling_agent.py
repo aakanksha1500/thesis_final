@@ -34,7 +34,9 @@ class RiskProfilingAgent(BaseAgent):
 
     def __init__(self, llm_client: LLMClient):
         super().__init__(llm_client, name="RiskProfilingAgent")
+        self._sklearn_version_mismatch: dict | None = None
         self._ml_model = self._load_ml_model()
+        self._confidence_calibrator = self._load_confidence_calibrator()
 
     @property
     def system_prompt(self) -> str:
@@ -92,6 +94,37 @@ class RiskProfilingAgent(BaseAgent):
                         logger.info(
                             f"[RiskProfileAgent] loaded trained ML model from {model_path}"
                         )
+                self._sklearn_version_mismatch = None
+                runtime_version = __import__("sklearn").__version__
+                pickled_version = (
+                    model.get("sklearn_version") if isinstance(model, dict) else None
+                )
+                if pickled_version is not None and pickled_version != runtime_version:
+                    self._sklearn_version_mismatch = {
+                        "pickled_under": pickled_version,
+                        "running_under": runtime_version,
+                    }
+                    logger.warning(
+                        f"[RiskProfilingAgent] {model_path} was pickled under "
+                        f"scikit-learn {pickled_version} but this process is "
+                        f"running {runtime_version}. RQ1 numbers from this run "
+                        f"are not guaranteed to reproduce byte-for-byte "
+                        f"elsewhere. Regenerate before final reporting: "
+                        f"python scripts/train_risk_model.py (then "
+                        f"scripts/recalibrate_risk_model_age_neutral.py if "
+                        f"that step is part of your pipeline — check for "
+                        f"percentile_grid_age_neutral in the bundle to tell "
+                        f"whether it already was). See README 'Known "
+                        f"limitations'."
+                    )
+                elif pickled_version is None and isinstance(model, dict):
+                    logger.warning(
+                        f"[RiskProfilingAgent] {model_path} has no recorded "
+                        f"sklearn_version (pickled before this field existed) "
+                        f"— cannot check for a version mismatch. Regenerating "
+                        f"with the current scripts/train_risk_model.py will "
+                        f"add it."
+                    )
                 return model
             except Exception as exc:
                 logger.warning(
@@ -364,6 +397,59 @@ class RiskProfilingAgent(BaseAgent):
         confidence = min(min_distance / 0.1, 1.0)
         return round(float(confidence), 4)
 
+    def _load_confidence_calibrator(self):
+        """
+        Load the isotonic-regression confidence calibrator from disk if
+        available and settings.risk.use_calibrated_confidence is true.
+
+        Returns None if disabled, or if the file doesn't exist yet (run
+        scripts/calibrate_risk_confidence.py to produce it) — the raw
+        margin from _compute_confidence is used as-is in either case,
+        with a warning so a run that silently fell back doesn't look
+        identical to one that deliberately chose to.
+        """
+        if not settings.risk.use_calibrated_confidence:
+            return None
+        path = settings.risk.confidence_calibrator_path
+        if not path.exists():
+            logger.warning(
+                f"[RiskProfilingAgent] settings.risk.use_calibrated_confidence "
+                f"is true but no calibrator found at {path} — falling back to "
+                f"raw decision-margin confidence (known inversely calibrated, "
+                f"see _compute_confidence). Run "
+                f"scripts/calibrate_risk_confidence.py first."
+            )
+            return None
+        try:
+            import pickle
+            with open(path, "rb") as f:
+                bundle = pickle.load(f)
+            logger.info(
+                f"[RiskProfilingAgent] Loaded confidence calibrator from "
+                f"{path} — fit on {bundle.get('fit_n')} gold profiles, "
+                f"CV AUROC raw={bundle.get('cv_auroc_raw')} -> "
+                f"calibrated={bundle.get('cv_auroc_calibrated')}."
+            )
+            return bundle["calibrator"]
+        except Exception as exc:
+            logger.warning(
+                f"[RiskProfilingAgent] Failed to load confidence calibrator "
+                f"from {path}: {exc}. Falling back to raw confidence."
+            )
+            return None
+
+    def _apply_confidence_calibration(self, raw_confidence: float) -> float:
+        """
+        Map raw decision-margin confidence through the fitted calibrator,
+        if one is loaded — otherwise return raw_confidence unchanged.
+        Kept as a separate step (not folded into _compute_confidence) so
+        the raw value is always still computable/loggable on its own.
+        """
+        if self._confidence_calibrator is None:
+            return raw_confidence
+        calibrated = self._confidence_calibrator.predict([raw_confidence])[0]
+        return round(float(calibrated), 4)
+
     def _compute_shap_proxy(
             self,
             features: dict[str, Any],
@@ -577,7 +663,8 @@ class RiskProfilingAgent(BaseAgent):
         # Hybrid scoring
         ml_score, rule_score, hybrid = self._hybrid_score(features)
         risk_class = self._score_to_class(hybrid)
-        confidence = self._compute_confidence(hybrid)
+        raw_confidence = self._compute_confidence(hybrid)
+        confidence = self._apply_confidence_calibration(raw_confidence)
         shap_proxy = self._compute_shap_proxy(features, ml_score)
 
         # Flag low confidence explicitly (X3 — Takayanagi et al. [7])
@@ -626,6 +713,27 @@ class RiskProfilingAgent(BaseAgent):
             "rule_score": round(rule_score, 4),
             "hybrid_score": round(hybrid, 4),
             "confidence": confidence,
+            "raw_confidence": raw_confidence,
+            "confidence_calibrated": self._confidence_calibrator is not None,
+            "ml_model_sklearn_version_mismatch": self._sklearn_version_mismatch,
+            "ml_score_basis": (
+                {
+                    "trained_on": self._ml_model.get("training_data"),
+                    "sklearn_estimator": self._ml_model.get("sklearn_estimator"),
+                    "note": self._ml_model.get("note"),
+                }
+                if isinstance(self._ml_model, dict)
+                else {
+                    "trained_on": None,
+                    "sklearn_estimator": None,
+                    "note": (
+                        "No trained model loaded — ml_score is the "
+                        "coefficient-based heuristic fallback "
+                        "(_ml_score's heuristic branch), not a "
+                        "model prediction of any kind."
+                    ),
+                }
+            ),
             "confidence_flag": confidence_flag,
             "feature_importance": shap_proxy,
             "rationale": rationale,
@@ -636,8 +744,11 @@ class RiskProfilingAgent(BaseAgent):
         logger.info(
             f"[RiskProfilingAgent] risk_class={risk_class} "
             f"hybrid={hybrid:.3f} confidence={confidence:.3f} "
-            f"duration={duration_ms:.0f}ms"
+            + (f"(raw={raw_confidence:.3f}, calibrated) "
+               if self._confidence_calibrator is not None else "")
+            + f"duration={duration_ms:.0f}ms"
         )
+
 
         return self._make_result(
             payload=payload,

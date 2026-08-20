@@ -1,0 +1,67 @@
+{
+  "generated_at_utc": "2026-08-12T04:43:04.876166+00:00",
+  "git_sha": "4d0512e",
+  "git_dirty": true,
+  "llm_cache_mode": "record",
+  "llm_cache_stats": {
+    "hits": 0,
+    "misses": 0,
+    "writes": 0,
+    "errors": 0,
+    "mode": "record",
+    "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+    "hit_rate": null,
+    "clean_replay": false
+  },
+  "wall_clock_s": 51.1,
+  "archived_to": "results_archive/20260812T044213Z_4d0512e",
+  "stages": [
+    {
+      "key": "index",
+      "label": "Rebuild RAG index with the current embedder",
+      "rq": "\u2014",
+      "status": "ok",
+      "returncode": 0,
+      "duration_s": 20.8,
+      "produced": [],
+      "est_tokens": 0
+    },
+    {
+      "key": "riskmodel",
+      "label": "Train the distress model (GMSC [D8])",
+      "rq": "RQ1",
+      "status": "ok",
+      "returncode": 0,
+      "duration_s": 8.0,
+      "produced": [
+        "groq/rq1_risk_model_training.json"
+      ],
+      "est_tokens": 0
+    },
+    {
+      "key": "recalibrate",
+      "label": "Recalibrate percentile grid (age-neutral, own population)",
+      "rq": "RQ1",
+      "status": "ok",
+      "returncode": 0,
+      "duration_s": 19.6,
+      "produced": [],
+      "est_tokens": 0
+    },
+    {
+      "key": "rq1",
+      "label": "RQ1 \u2014 risk classification (hybrid vs rule-only)",
+      "rq": "RQ1",
+      "status": "ok",
+      "returncode": 0,
+      "duration_s": 2.8,
+      "produced": [
+        "phase3_risk_baseline.json",
+        "mock/phase3_risk_baseline.json",
+        "groq/phase3_risk_baseline.json"
+      ],
+      "est_tokens": 2000
+    }
+  ],
+  "metric_changes": []
+}

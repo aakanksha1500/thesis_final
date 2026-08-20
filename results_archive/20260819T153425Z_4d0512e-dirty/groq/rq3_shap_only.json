@@ -1,0 +1,76 @@
+{
+  "_meta": {
+    "generated_at_utc": "2026-08-18T18:30:10.578257+00:00",
+    "git_sha": "4d0512e-dirty",
+    "prompt_version": "v1.2",
+    "llm_mode": "groq",
+    "orchestrator_model": "openai/gpt-oss-120b",
+    "specialist_model": "llama3.1:8b",
+    "judge_model": "qwen/qwen3.6-27b",
+    "environment": "development",
+    "subsystem_modes": {},
+    "llm_cache": {
+      "hits": 0,
+      "misses": 0,
+      "writes": 0,
+      "errors": 0,
+      "mode": "off",
+      "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+      "hit_rate": null,
+      "clean_replay": false
+    },
+    "product_catalogue_mode": "synthetic",
+    "explainability_ablation": {
+      "use_shap": true,
+      "use_rag_citation": true,
+      "use_counterfactual": true
+    }
+  },
+  "phase": 6,
+  "agent": "ExplainabilityAgent",
+  "ablation_condition": "shap_only",
+  "config": {
+    "use_shap": true,
+    "use_rag_citation": false,
+    "use_counterfactual": false,
+    "use_calibration_note": true
+  },
+  "layers_applied": [
+    "shap",
+    "calibration_note"
+  ],
+  "metrics": {
+    "transparency_perception_score": {
+      "metric": "transparency_perception_score",
+      "value": 0.44,
+      "details": {
+        "n_responses": 5,
+        "mean_clarity": 0.68,
+        "mean_source_visible": 0.0,
+        "mean_counterfactual_useful": 0.44,
+        "mean_trust_appropriate": 0.64
+      },
+      "data_provenance_warning": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+    },
+    "trust_calibration_index": {
+      "metric": "trust_calibration_index",
+      "value": 0.9,
+      "details": {
+        "n": 5,
+        "mean_trust": 3.6,
+        "mean_quality": 3.2,
+        "mean_deviation": 0.1,
+        "interpretation": "Well-calibrated: trust tracks advice quality"
+      },
+      "data_provenance_warning": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+    }
+  },
+  "sample_explanation": {
+    "shap_narrative": "Based on coefficient estimates. Your higher loss tolerance and longer investment horizon both nudge the recommendation toward a more aggressive approach. At the same time, the $5,000 of existing debt pulls it toward a more conservative stance.",
+    "rag_citations": [],
+    "counterfactual": null,
+    "calibration_note": "If your total portfolio equity allocation exceeds 50\u202f% or your risk tolerance falls below moderate, this recommendation should be reconsidered.",
+    "full_explanation": "Based on coefficient estimates. Your higher loss tolerance and longer investment horizon both nudge the recommendation toward a more aggressive approach. At the same time, the $5,000 of existing debt pulls it toward a more conservative stance. If your total portfolio equity allocation exceeds 50\u202f% or your risk tolerance falls below moderate, this recommendation should be reconsidered."
+  },
+  "survey_note": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+}

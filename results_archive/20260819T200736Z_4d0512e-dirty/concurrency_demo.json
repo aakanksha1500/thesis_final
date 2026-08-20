@@ -1,0 +1,94 @@
+{
+  "summary": {
+    "generated_at_utc": "2026-08-07T00:18:29.067919+00:00",
+    "mode": "real",
+    "workers": 3,
+    "total_customers": 5,
+    "succeeded": 5,
+    "failed": 0,
+    "wall_clock_s": 54.08,
+    "throughput_requests_per_s": 0.09,
+    "turn_id_uniqueness": {
+      "total_turn_ids": 5,
+      "unique_turn_ids": 5,
+      "duplicates_found": 0
+    },
+    "sqlite_lock_errors_under_concurrency": 0,
+    "latency_ms": {
+      "mean": 29694.8,
+      "median": 40848.4,
+      "p95": 47429.5,
+      "max": 48359.4
+    },
+    "routing_breakdown": {
+      "investment": 1,
+      "budget": 1,
+      "risk_profiling": 3
+    },
+    "errors": []
+  },
+  "results": [
+    {
+      "customer_id": "SYNTH_00003",
+      "message": "Should I invest my savings?",
+      "turn_id": "4068ce4e",
+      "routing": "investment",
+      "agents_invoked": [
+        "InvestmentAgent"
+      ],
+      "success": true,
+      "duration_ms": 5380.3,
+      "error": null
+    },
+    {
+      "customer_id": "SYNTH_00002",
+      "message": "Where does my money go?",
+      "turn_id": "29e41536",
+      "routing": "budget",
+      "agents_invoked": [
+        "BudgetAgent",
+        "ExplainabilityAgent"
+      ],
+      "success": true,
+      "duration_ms": 43710.0,
+      "error": null
+    },
+    {
+      "customer_id": "SYNTH_00004",
+      "message": "Can you explain my risk level?",
+      "turn_id": "0d67a29b",
+      "routing": "risk_profiling",
+      "agents_invoked": [
+        "ExplainabilityAgent"
+      ],
+      "success": true,
+      "duration_ms": 40848.4,
+      "error": null
+    },
+    {
+      "customer_id": "SYNTH_00001",
+      "message": "Can you assess my risk profile?",
+      "turn_id": "90ef1ba6",
+      "routing": "risk_profiling",
+      "agents_invoked": [
+        "RiskProfilingAgent",
+        "ExplainabilityAgent"
+      ],
+      "success": true,
+      "duration_ms": 48359.4,
+      "error": null
+    },
+    {
+      "customer_id": "SYNTH_00005",
+      "message": "Can you assess my risk profile?",
+      "turn_id": "c11d2bc4",
+      "routing": "risk_profiling",
+      "agents_invoked": [
+        "RiskProfilingAgent"
+      ],
+      "success": true,
+      "duration_ms": 10176.1,
+      "error": null
+    }
+  ]
+}
