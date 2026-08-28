@@ -1,5 +1,7 @@
 """
-Keeps one Orchestrator per active user so several sessions can rn at 
+Keeps one Orchestrator instance per active session so several users' sessions
+can run concurrently without sharing state. Each session gets its own
+Orchestrator, LLMClient, and customer context, looked up by session_id.
 """
 
 from __future__ import annotations

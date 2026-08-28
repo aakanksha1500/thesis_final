@@ -128,6 +128,46 @@ class VectorStore:
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[:top_k]
 
+    def search_filtered(
+        self,
+        query_vector: list[float],
+        top_k: int,
+        document_sets: list[str],
+    ) -> list[tuple[Document, float]]:
+        """
+        Like search(), but restricted to documents whose document_set is in
+        `document_sets` BEFORE ranking, not after.
+
+        search()+post-filter (the previous approach in knowledge_base.retrieve)
+        over-fetches a fixed multiple of top_k from the whole index and then
+        drops anything outside document_sets. That silently starves any
+        document_set that is a small minority of the corpus: with ~4,360
+        FinQA chunks against a handful of regulatory/CBI paragraphs, none of
+        the minority set reliably survives into even a top-(4*top_k) window,
+        regardless of how good the embedder is. Filtering candidates first
+        means a relevant minority-set document is compared on its own merits,
+        not against how much larger the excluded majority set happens to be.
+
+        Brute-force cosine over the filtered subset is used regardless of
+        backend (including when FAISS is active) — FAISS's flat index has no
+        per-document metadata filter, and the filtered subset here is always
+        small enough (bounded by how much of a given document_set exists)
+        that brute-force is not a performance concern.
+        """
+        allowed = set(document_sets)
+        candidates = [
+            (doc, vec)
+            for doc, vec in zip(self._documents, self._vectors)
+            if doc.document_set in allowed
+        ]
+        if not candidates:
+            return []
+        scored = [
+            (doc, cosine_similarity(query_vector, vec)) for doc, vec in candidates
+        ]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[:top_k]
+
     # R13 - the index is no longer persisted with pickle.
     #
     # pickle.load() executes arbitrary code contained in the file. This index

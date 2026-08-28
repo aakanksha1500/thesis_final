@@ -1,5 +1,13 @@
 """
-Declares what each agent needs and produces, plus the fallback routing table.
+The capability graph: what each agent requires as input and produces as
+output (agents/payloads.CAPABILITIES), plus the hand-written fallback
+sequence per intent (STATIC_SEQUENCES) used when an LLM-proposed plan
+fails validation.
+
+This is the single source of truth orchestrator/planner.py validates
+every plan against — e.g. InvestmentAgent.requires includes "risk_class",
+which is what guarantees RiskProfilingAgent always runs first for any
+investment-related request, however the plan was generated.
 """
 from __future__ import annotations
 

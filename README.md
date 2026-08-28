@@ -1,6 +1,6 @@
 # Orchestrated Multi-Agent Conversational AI for Transparent Financial Decision Support.
 
-**MSC Computer Science (AI) - University of Galway**
+**MSC Computer Science (DA) - University of Galway**
 **Student:** Aakanksha Shyam Deshpande (25238088)
 **Supervisor:** Adrian Clear
 
@@ -161,47 +161,6 @@ that establishes this is reported in every RQ5 results file.
 corpus. The RQ5 harness therefore builds its own in-memory corpus from
 the `context` field only and never touches the shared index.
 
----
-
-## Banking77: what changed and why
-
-Two things.
-
-**The harness had been lost.** In the snapshot this work started from,
-`tests/unit/test_banking77_evaluation.py` was byte-identical to
-`tests/unit/test_approval_gate.py` (same md5). The Banking77 evaluation
-had been overwritten by a copy of the approval-gate tests, and pytest was
-collecting and running that duplicate twice under two names — which is
-why nothing failed. Only the outputs survived. The harness is rebuilt in
-`scripts/eval_banking77_stratified.py` + `evaluation/banking77_data.py`.
-
-**The split is `train`, and the results say so.** Only one arrow file is
-cached (9,993 rows, `state.json` says `_split: "train"`); the 3,076-row
-test split is described in `dataset_info.json` but is not in the repo.
-Using the train split is sound *here* because the intent classifier is
-**zero-shot** — no Banking77 data is used for training, fine-tuning or
-few-shot prompting anywhere in the project, so train utterances are
-unseen text to it. `assert_no_prompt_leakage()` verifies that claim
-against the actual prompt (0 sampled utterances found in it) rather than
-asserting it. If the test split is ever downloaded, the loader prefers it
-automatically.
-
-Sampling is **stratified over all 77 fine-grained intents** rather than
-over the 3 reachable buckets: this preserves bucket balance automatically
-(population 0.841 / 0.147 / 0.012 → sample 0.842 / 0.146 / 0.012) *and*
-guarantees no individual intent drops out, which bucket-level
-stratification would allow. Allocation is proportional with
-largest-remainder rounding; the seed is fixed; **no label was changed**.
-
-Five of the eight buckets have zero Banking77 ground truth by
-construction, so the relevant signal for them is **false-positive leakage
-into advisory buckets** — a "where is my card" question routed to the
-InvestmentAgent — which is reported explicitly. Those five buckets are
-evaluated properly by the 110-item hand-authored corpus in
-`tests/unit/test_core_intent_evaluation.py`.
-
----
-
 ## Known limitations
 
 Stated here rather than discovered in a viva.
@@ -238,25 +197,3 @@ Stated here rather than discovered in a viva.
   fixture.** No amount of extra data fixes this; it needs the n≥20 pilot
   the results file already flags, or a reframing around
   machine-checkable proxies.
-- **RQ2 remains n=5 queries** over a 29-product catalogue. Untouched by
-  this work — the bottleneck there is relevance labelling, not sample
-  size.
-- **Age-neutrality was an open design question — it has since been
-  resolved, and this section previously didn't say so.**
-  `test_trained_model_age_effect_is_empirical_not_assumed` no longer
-  exists in `tests/unit/test_risk_profiling_agent.py`; it was replaced
-  by `test_age_neutral_capacity_is_invariant_to_age`, whose own
-  docstring records why: age carries 0.48 feature importance in the
-  GMSC distress model, and letting a protected characteristic drive
-  nearly half of a suitability assessment isn't defensible under EU AI
-  Act / CBI model-risk expectations. `scripts/
-  recalibrate_risk_model_age_neutral.py` removes age's own SHAP
-  contribution from the capacity score; after that, P(distress) for
-  ages 25 and 65 differ by 0.002 and land in the same percentile
-  bucket, so capacity is identical by design. That's still measured
-  behaviour worth stating plainly in a results chapter, but it is no
-  longer an open question with a test left failing to mark it — the
-  decision was made (age-neutral) and the test suite was updated to
-  match, before this section was. If a viva question raises this,
-  the answer is "resolved in favour of age-neutrality, for the fairness
-  reason above" — not "still undecided."

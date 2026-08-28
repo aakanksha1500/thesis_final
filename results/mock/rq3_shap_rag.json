@@ -1,7 +1,20 @@
 {
   "_meta": {
-    "generated_at_utc": "2026-08-16T02:17:43.623921+00:00",
-    "git_sha": "4d0512e-dirty",
+    "generated_at_utc": "2026-08-20T18:42:17.618847+00:00",
+    "git_sha": "dd5c041-dirty",
+    "git_dirty_files": [
+      "rag/embedder.py",
+      "rag/knowledge_base.py",
+      "rag/vector_store.py",
+      "results/mock/rq3_full_stack.json",
+      "results/mock/rq3_shap_only.json",
+      "results/mock/rq3_shap_rag.json",
+      "results/_dirty_diffs/dd5c041-534c54642b4d.patch",
+      "results/_dirty_diffs/dd5c041-99fdaf4ddb7d.patch",
+      "results/_dirty_diffs/dd5c041-cf64397fd049.patch",
+      "results/_dirty_diffs/dd5c041-df79bb995746.patch"
+    ],
+    "git_diff_patch_path": "results/_dirty_diffs/dd5c041-819681cbeb96.patch",
     "prompt_version": "v1.2",
     "llm_mode": "mock",
     "orchestrator_model": "openai/gpt-oss-120b",
@@ -53,7 +66,8 @@
         "mean_source_visible": 1.0,
         "mean_counterfactual_useful": 0.48,
         "mean_trust_appropriate": 0.72
-      }
+      },
+      "data_provenance_warning": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
     },
     "trust_calibration_index": {
       "metric": "trust_calibration_index",
@@ -64,7 +78,8 @@
         "mean_quality": 3.2,
         "mean_deviation": 0.1,
         "interpretation": "Well-calibrated: trust tracks advice quality"
-      }
+      },
+      "data_provenance_warning": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
     }
   },
   "sample_explanation": {
@@ -85,11 +100,19 @@
         "relevance": 0.4031,
         "document_set": "regulatory",
         "doc_id": "eu-mifid2-2014-65-0475-1"
+      },
+      {
+        "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
+        "source": "Irish/EU regulatory sources [D12]",
+        "text": "ve financial instruments, having regard to whether, inter alia, they are traded on a regulated market, an MTF or an OTF;",
+        "relevance": 0.3914,
+        "document_set": "regulatory",
+        "doc_id": "eu-mifid2-2014-65-0311-1"
       }
     ],
     "counterfactual": null,
     "calibration_note": "[MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses.",
     "full_explanation": "Based on coefficient estimates. [MOCK RESPONSE] Agent role: 'You are generating the SHAP explanation layer of a multi-age...' | User said: 'Feature attributions for 'moderate' clas...' | Set OPENAI_API_KEY in .env for real API responses. Grounded in: Irish/EU regulatory sources [D12]: \"links with the investment firm or market operator operating the OTF.\" | Irish/EU regulatory sources [D12]: \"terest between the investment firm or market operator and its clients. EN 12.6.2014 Official Journal of the European Union L 173/403 8.\" [MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses."
   },
-  "survey_note": "Synthetic survey fixture \u2014 replace with real pilot study responses (n\u226520) before dissertation submission."
+  "survey_note": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
 }

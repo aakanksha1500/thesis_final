@@ -1,30 +1,5 @@
 """
-Agent collaboration tests (Day 7 / G6 §6.6).
-
-WHAT THESE TESTS ARE FOR
-    Day 6 established prevention: don't invoke an agent whose precondition
-    is already known to be unmet. Day 7 is repair: an agent got invoked
-    anyway (the static path, or a need too specific for CAPABILITIES.
-    requires' coarse declaration) and, instead of just failing, names
-    exactly what it's missing (payload={"status": "needs_input", "needs":
-    [...]}) so the orchestrator can go get it and retry. _execute_agent is
-    stubbed throughout most of this file, same principle test_dynamic_
-    routing.py uses — what's under test is _satisfy_needs()'s own logic,
-    not any real agent's behaviour.
-
-WHY THE END-TO-END SCENARIO IS ExplainabilityAgent, NOT InvestmentAgent
-    BUILD_PLAN.md's own worked example is "ask 'should I invest?' with no
-    risk profile; InvestmentAgent returns needs: ['risk_class']". Day 6
-    already structurally prevents that exact trigger: PlanValidator and
-    _execute_plan's dynamic gate share the identical satisfiability check,
-    so a plan naming InvestmentAgent without risk_class being producible
-    is rejected before execution ever reaches it (see test_dynamic_routing
-    .py::TestOrchestratorResultSkipped's docstring for the full argument).
-    ExplainabilityAgent is the genuine trigger in this build: its
-    CAPABILITIES.requires is empty by design (X1 — it explains whatever
-    ran, or nothing), so nothing gates it, and it used to silently default
-    to risk_class="moderate" when it had nothing to explain rather than
-    ask for a real one. See explainability_agent.py's needs_input branch.
+Agent collaboration tests 
 
 RUNNING
     python -m pytest tests/unit/test_agent_collaboration.py -v

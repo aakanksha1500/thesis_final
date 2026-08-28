@@ -1,6 +1,8 @@
 """
-LLM Abstraction Layer - the single point of contact between the system
-and any external language model API.
+LLM Abstraction Layer — the single point of contact between the system
+and any external language model API. Handles the mock/real switch,
+retries transient failures (see _is_retryable), and records which model
+actually served each response in case a provider silently substitutes one.
 """
 
 from __future__ import annotations

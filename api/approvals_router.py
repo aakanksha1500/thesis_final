@@ -38,6 +38,7 @@ def list_approvals(session_id: str | None = None) -> list[dict]:
 
 @router.get("/approvals/{turn_id}")
 def get_approval(turn_id: str) -> dict:
+    """Fetch one pending approval by turn_id, or 404 if it doesn't exist."""
     store = get_approval_store()
     pending = store.get(turn_id)
     if pending is None:
@@ -47,6 +48,7 @@ def get_approval(turn_id: str) -> dict:
 
 @router.post("/approvals/{turn_id}/approve")
 def approve(turn_id: str, body: DecisionBody = DecisionBody()) -> dict:
+    """Approve a held turn; optional reviewer_note is stored with the decision."""
     store = get_approval_store()
     try:
         approved = store.approve(turn_id, reviewer_note=body.reviewer_note)
@@ -59,6 +61,7 @@ def approve(turn_id: str, body: DecisionBody = DecisionBody()) -> dict:
 
 @router.post("/approvals/{turn_id}/reject")
 def reject(turn_id: str, body: DecisionBody = DecisionBody()) -> dict:
+    """Reject a held turn; optional reviewer_note is stored with the decision."""
     store = get_approval_store()
     try:
         rejected = store.reject(turn_id, reviewer_note=body.reviewer_note)

@@ -1,5 +1,6 @@
 """
-agents/transaction_contract.py — the transaction-data interface, specified.
+Specifies the transaction-data contract — shape, validation, redaction,
+and freshness rules — shared by both supported transports (push and pull).
 
 WHY THIS FILE EXISTS
     "Per-query push vs pull-by-customer_id" was carried as an open decision

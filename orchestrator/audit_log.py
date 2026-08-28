@@ -1,10 +1,9 @@
 """
-Phase 7 - TRiSM-compliant JSONL audit log
-
-Committed BEFORE the Orchestrator so the audit log can be
-tested in isolation. This mirrors the dissertation argument: auditability
-is a design property that must be provably present before the system
-runs, not a feature added after evaluation.
+Per-session audit trail: one append-only JSONL file per conversation,
+one line per event (routing decision, agent call, conflict, violation).
+Never logs message text — only length — everything else about what the
+system decided is recorded. _write() never raises: a logging failure
+must never be the reason a user doesn't get a response.
 
 TRiSM requires:
     - Every routing decisions is logged with rationale.
@@ -19,7 +18,7 @@ EU AI Act requirements addressed:
     - Human oversight: audit trail enables post-hoc review of any decision.
     - GDPR: user message content is NOT logged - only message length.
     Slot values collected during the session ARE logged (user provided them
-    for the advisory services: this is within the purpose limitation).
+    for the advisory services: this is within the purpose limitation)
 
 Log location: logs/audit/session_<session_id>.jsonl
 Format: one JSON object per line, newline-delimited.

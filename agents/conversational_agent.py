@@ -1,6 +1,12 @@
 """
-The only aagent the user talks to directly. Classifies intent, fills slots, and hands off 
-to specialist agents.
+The only agent the user talks to directly. Three jobs: classify intent
+and route to specialists, run the multi-turn questionnaire when a
+specialist reports missing data (tracking one _pending_question at a
+time via next_question()), and pivot cleanly to answer an off-topic
+question mid-questionnaire instead of misreading it as an answer
+(classify_questionnaire_reply) before resuming where it left off.
+
+Evaluation:
 
 Evaluation:
     - Banking77 intent accuracy (Phase 2 eval)

@@ -1,5 +1,26 @@
 """
-Scores a customer's risk tier by blending a trained model with deterministic rules.
+Classifies a customer into one of five risk tiers (conservative through
+aggressive) by blending a trained ML model with deterministic rules.
+
+THE BLEND
+    hybrid_score = ml_weight * ml_score + rule_weight * rule_score  (0.6 / 0.4)
+    ml_score itself blends a trained distress-model capacity score with a
+    self-reported preference score (loss tolerance, horizon, financial
+    knowledge). See _hybrid_score(), _capacity_score(), _rule_score().
+
+AGE-NEUTRAL CAPACITY CORRECTION
+    Age carries ~48% of the underlying model's feature importance — a
+    valid signal for its original label (credit delinquency) but a poor
+    proxy for investment-loss capacity. _capacity_score() subtracts age's
+    own SHAP contribution from P(distress) before scoring it against a
+    separately-fit percentile grid. See scripts/recalibrate_risk_model_
+    age_neutral.py for why. Falls back to the raw, age-inclusive score if
+    SHAP or the age-neutral grid isn't available.
+
+TIER BOUNDARIES
+    _score_to_class() and _compute_confidence() support both fixed
+    equal-width boundaries (default) and a fitted quantile scheme
+    (USE_QUANTILE_TIER_BOUNDARIES=true) — see _load_tier_boundaries().
 """
 
 from __future__ import annotations
@@ -37,6 +58,7 @@ class RiskProfilingAgent(BaseAgent):
         self._sklearn_version_mismatch: dict | None = None
         self._ml_model = self._load_ml_model()
         self._confidence_calibrator = self._load_confidence_calibrator()
+        self._tier_boundaries = self._load_tier_boundaries()
 
     @property
     def system_prompt(self) -> str:
@@ -373,10 +395,13 @@ class RiskProfilingAgent(BaseAgent):
     def _score_to_class(self, score: float) -> str:
         """
         Map continuous [0, 1] hybrid score to 5-class risk tier.
-        Thresholds divide [0, 1] into 5 equal bands of width 0.2
+
+        Uses settings.risk.use_quantile_tier_boundaries to choose between
+        two threshold sources — see _load_tier_boundaries for why the
+        equal-width default starves the outer classes.
         """
         classes = settings.risk.risk_classes
-        thresholds = [0.2, 0.4, 0.6, 0.8]
+        thresholds = self._tier_boundaries or [0.2, 0.4, 0.6, 0.8]
         for i, threshold in enumerate(thresholds):
             if score < threshold:
                 return classes[i]
@@ -384,18 +409,72 @@ class RiskProfilingAgent(BaseAgent):
 
     def _compute_confidence(self, hybrid_score: float) -> float:
         """
-        Confidence estimate based on distance from the nearest class boundary.
-        Score near a boundary (0.2, 0.4, 0.6, 0.8) -> lower confidence.
-        Score near a class centre (0.1, 0.3, 0.5, 0.7, 0.9) -> higher confidence.
-        """
+        Confidence estimate based on distance from the nearest class
+        boundary, normalised by that bin's own half-width so a wide bin
+        (common under quantile boundaries, where bin widths are no
+        longer equal) doesn't get compressed toward 0 or 1 relative to a
+        narrow one. Falls back to the original fixed 0.1 half-width when
+        using the equal-width [0.2, 0.4, 0.6, 0.8] thresholds, so this is
+        unchanged from before unless use_quantile_tier_boundaries is on.
 
-        boundaries = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-        # Find distance to nearest boundary
-        distances = [abs(hybrid_score -b) for b in boundaries]
-        min_distance = min(distances)
-        # Normalise: max possible distance from boundary is 0.1 (class midpoint)
-        confidence = min(min_distance / 0.1, 1.0)
+        This formula's deeper limitation — margin-from-boundary is not
+        the same thing as a learned probability of correctness — is not
+        fixed by either boundary scheme. See _load_confidence_calibrator
+        and Section VII-D of the dissertation.
+        """
+        thresholds = self._tier_boundaries or [0.2, 0.4, 0.6, 0.8]
+        boundaries = [0.0] + list(thresholds) + [1.0]
+
+        bin_idx = 0
+        for i in range(len(boundaries) - 1):
+            if boundaries[i] <= hybrid_score <= boundaries[i + 1]:
+                bin_idx = i
+                break
+        lo, hi = boundaries[bin_idx], boundaries[bin_idx + 1]
+        half_width = (hi - lo) / 2 or 1e-9
+        dist_to_boundary = min(hybrid_score - lo, hi - hybrid_score)
+        confidence = min(dist_to_boundary / half_width, 1.0)
         return round(float(confidence), 4)
+
+    def _load_tier_boundaries(self) -> list[float] | None:
+        """
+        Load quantile-fitted tier boundaries from disk if enabled and
+        available (scripts/calibrate_risk_tier_boundaries.py produces
+        this file, fit on the unlabelled stress set — never the gold set
+        used to evaluate it).
+
+        Returns None if disabled, or if the file doesn't exist yet — the
+        fixed [0.2, 0.4, 0.6, 0.8] thresholds are used as-is in either
+        case, with a warning so a run that silently fell back doesn't
+        look identical to one that deliberately chose to. Mirrors
+        _load_confidence_calibrator's opt-in pattern exactly.
+        """
+        if not settings.risk.use_quantile_tier_boundaries:
+            return None
+        path = settings.risk.tier_boundaries_path
+        if not path.exists():
+            logger.warning(
+                f"[RiskProfilingAgent] use_quantile_tier_boundaries=True but "
+                f"no boundaries file at {path} — falling back to fixed "
+                f"[0.2, 0.4, 0.6, 0.8]. Run "
+                f"scripts/calibrate_risk_tier_boundaries.py to produce it."
+            )
+            return None
+        try:
+            with open(path) as f:
+                data = json.load(f)
+            thresholds = data["thresholds"]
+            logger.info(
+                f"[RiskProfilingAgent] Loaded quantile tier boundaries: "
+                f"{thresholds} (fit on {data['fit_on']['n']} stress profiles)"
+            )
+            return thresholds
+        except Exception as exc:
+            logger.warning(
+                f"[RiskProfilingAgent] Failed to load tier boundaries from "
+                f"{path}: {exc} — falling back to fixed [0.2, 0.4, 0.6, 0.8]."
+            )
+            return None
 
     def _load_confidence_calibrator(self):
         """

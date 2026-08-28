@@ -40,6 +40,7 @@ class TraceConfig:
         default_factory=lambda: os.getenv("TRACE_COLOUR", "true").lower() == "true"
         and sys.stdout.isatty()
     )
+    max_captured_turns: int = 200
 
 
 trace_config = TraceConfig()

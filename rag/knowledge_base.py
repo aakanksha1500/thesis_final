@@ -289,6 +289,10 @@ class KnowledgeBase:
         if (index_dir / "meta.json").exists() and self._index_matches_current_embedder(index_dir):
             try:
                 self.store = VectorStore.load(index_dir)
+                if self.embedder.mode == "fallback":
+                    with open(index_dir / "meta.json") as f:
+                        idf = json.load(f).get("fallback_idf")
+                    self.embedder.set_idf(idf)
                 self._built = True
                 logger.info(
                     f"[KnowledgeBase] Loaded persisted index - "
@@ -326,6 +330,12 @@ class KnowledgeBase:
                     ))
 
         if documents:
+            if self.embedder.mode == "fallback":
+                # Corpus-fitted IDF weighting (see rag/embedder.py) — must be
+                # fit before encode() so document vectors reflect it, and the
+                # resulting weights are persisted (persist()) and restored
+                # (ensure_built()) so query-time encoding matches.
+                self.embedder.fit_idf([d.text for d in documents])
             vectors = self.embedder.encode([d.text for d in documents])
             self.store = VectorStore(dim=self.embedder.dim)
             self.store.add(documents, vectors)
@@ -338,15 +348,15 @@ class KnowledgeBase:
         )
 
     def persist(self) -> None:
-        self.store.save(
-            settings.rag.index_dir,
-            extra_meta={
-                "embedder_mode": self.embedder.mode,
-                "embedder_model": self.embedder.model_name,
-                "embedding_dim": self.embedder.dim,
-                "document_set_sources": dict(self._source_used),
-            },
-        )
+        extra_meta = {
+            "embedder_mode": self.embedder.mode,
+            "embedder_model": self.embedder.model_name,
+            "embedding_dim": self.embedder.dim,
+            "document_set_sources": dict(self._source_used),
+        }
+        if self.embedder.mode == "fallback":
+            extra_meta["fallback_idf"] = self.embedder.get_idf()
+        self.store.save(settings.rag.index_dir, extra_meta=extra_meta)
 
     # Per-set loading — live fetch / downloaded file / seed fallback
     def _load_document_set(self, document_set: str) -> list[dict[str, str]]:
@@ -557,15 +567,20 @@ class KnowledgeBase:
         top_k = top_k or settings.rag.top_k_citations
         query_vector = self.embedder.encode_one(query)
 
-        # Over-fetch when filtering by document_set so top_k is still met
-        # after filtering, then trim back down.
-        raw_top_k = top_k * 4 if document_sets else top_k
-        hits = self.store.search(query_vector, top_k=raw_top_k)
+        # Filter to document_sets BEFORE ranking, not after (see
+        # VectorStore.search_filtered docstring) — an over-fetch-then-filter
+        # approach silently starves any document_set that is a small
+        # minority of the corpus, which regulatory/CBI/EU sources are next
+        # to the FinQA sets.
+        if document_sets:
+            hits = self.store.search_filtered(
+                query_vector, top_k=top_k, document_sets=document_sets
+            )
+        else:
+            hits = self.store.search(query_vector, top_k=top_k)
 
         results = []
         for doc, score in hits:
-            if document_sets and doc.document_set not in document_sets:
-                continue
             if score < settings.rag.min_relevance_score:
                 continue
             results.append({

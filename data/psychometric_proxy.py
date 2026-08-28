@@ -1,7 +1,7 @@
 """
 Derives a RISK CAPACITY proxy for 'loss_tolerance'
-from hard financial data, for use ONLY when self-reported value is
-available.
+from hard financial data, for use ONLY when the self-reported value is
+NOT available — a fallback, never a substitute for direct self-report.
 
 - Risk CAPACITY - objective, financial: how much loss can this person's
     balance sheet absorb without jeopardising their goals? Derivable from

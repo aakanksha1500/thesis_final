@@ -1,0 +1,924 @@
+diff --git a/rag/embedder.py b/rag/embedder.py
+index ec11116..13c324f 100644
+--- a/rag/embedder.py
++++ b/rag/embedder.py
+@@ -2,10 +2,17 @@
+ Phase - 8: Text embedding layer for the RAG knowledge base.
+ 
+ REAL-MODE: sentence-transformers/all-MiniLM-L6-v2
+-FALLBACK MODE: hashing-trick bag-og-words embedding - deterministic,
+-    dependency-free, same output dimensionality, cosine-comparable.
+-    Not semantically strong, but sufficient to exercise retrieval, ranking,
+-    and ablation-condition plumbing without the model download.
++FALLBACK MODE: IDF-weighted hashing-trick bag-of-words embedding -
++    deterministic, dependency-free, same output dimensionality,
++    cosine-comparable. Not semantically strong (no paraphrase/synonym
++    matching), but a corpus-fitted IDF weighting materially improves
++    lexical discrimination over unweighted hashing: common cross-topic
++    words (e.g. boilerplate financial vocabulary shared by every
++    document_set) are down-weighted, while words that are rare across
++    the corpus and therefore topically distinctive are up-weighted.
++    Still not a substitute for a real semantic model — call fit_idf()
++    with the full corpus before encoding to activate the weighting;
++    without it, this degrades gracefully to unweighted hashing.
+ 
+ The fallback is intentional and is flagged loudly, same as LLMClient - a reader
+ of the logs should never wonder which mode ran.
+@@ -57,6 +64,8 @@ class Embedder:
+         self._model = None
+         self._mode = "fallback"
+         self._force_fallback = force_fallback
++        self._idf: list[float] | None = None
++        self._idf_n_docs: int = 0
+         self._init_model()
+ 
+     def _init_model(self) -> None:
+@@ -125,6 +134,67 @@ class Embedder:
+     def encode_one(self, text: str) -> list[float]:
+         return self.encode([text])[0]
+ 
++    # IDF fitting (fallback mode only) - persistence support
++
++    def fit_idf(self, corpus_texts: Sequence[str]) -> None:
++        """
++        Compute per-bucket inverse document frequency over `corpus_texts`
++        and activate IDF weighting for subsequent _hash_embed() calls.
++
++        Only meaningful in fallback mode - a no-op call in sentence-
++        transformers mode does no harm but has no effect on encode().
++        Must be called with the SAME corpus used to build the index
++        (typically all document chunks), and the resulting weights must
++        be persisted (get_idf) and restored (set_idf) before encoding
++        queries against a loaded index, or query and document vectors
++        drift into different weightings.
++        """
++        n_docs = len(corpus_texts)
++        if n_docs == 0:
++            self._idf = None
++            self._idf_n_docs = 0
++            return
++
++        doc_freq = [0] * self.dim
++        for text in corpus_texts:
++            tokens = {
++                t for t in _TOKEN_RE.findall(text.lower()) if t not in _STOPWORDS
++            }
++            buckets = {
++                int(hashlib.sha256(t.encode("utf-8")).hexdigest()[:8], 16) % self.dim
++                for t in tokens
++            }
++            for bucket in buckets:
++                doc_freq[bucket] += 1
++
++        # Smoothed IDF, sklearn-style: log((n+1)/(df+1)) + 1 - always
++        # positive, and a bucket that appears in every document (df == n)
++        # still gets weight 1 rather than collapsing to 0.
++        self._idf = [
++            math.log((n_docs + 1) / (df + 1)) + 1.0 for df in doc_freq
++        ]
++        self._idf_n_docs = n_docs
++        logger.info(
++            f"[Embedder] Fitted IDF weighting over {n_docs} documents "
++            f"(dim={self.dim})."
++        )
++
++    def get_idf(self) -> list[float] | None:
++        """Return the fitted IDF vector, for persistence alongside the index."""
++        return self._idf
++
++    def set_idf(self, idf: list[float] | None) -> None:
++        """Restore a previously-fitted IDF vector (e.g. after loading a
++        persisted index), so query-time encoding matches document-time
++        encoding."""
++        if idf is not None and len(idf) != self.dim:
++            logger.warning(
++                f"[Embedder] set_idf() vector length {len(idf)} != dim "
++                f"{self.dim} - ignoring, falling back to unweighted hashing."
++            )
++            return
++        self._idf = idf
++
+     # Fallback embedder - deterministic hashing trick
+ 
+     def _hash_embed(self, text: str) -> list[float]:
+@@ -152,7 +222,8 @@ class Embedder:
+             digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+             bucket = int(digest[:8], 16) % self.dim
+             sign = 1.0 if int(digest[8:9], 16) % 2 == 0 else -1.0
+-            vec[bucket] += sign
++            weight = self._idf[bucket] if self._idf is not None else 1.0
++            vec[bucket] += sign * weight
+ 
+         norm = math.sqrt(sum(v * v for v in vec))
+         if norm == 0:
+diff --git a/rag/knowledge_base.py b/rag/knowledge_base.py
+index 558ffba..e27b3e4 100644
+--- a/rag/knowledge_base.py
++++ b/rag/knowledge_base.py
+@@ -289,6 +289,10 @@ class KnowledgeBase:
+         if (index_dir / "meta.json").exists() and self._index_matches_current_embedder(index_dir):
+             try:
+                 self.store = VectorStore.load(index_dir)
++                if self.embedder.mode == "fallback":
++                    with open(index_dir / "meta.json") as f:
++                        idf = json.load(f).get("fallback_idf")
++                    self.embedder.set_idf(idf)
+                 self._built = True
+                 logger.info(
+                     f"[KnowledgeBase] Loaded persisted index - "
+@@ -326,6 +330,12 @@ class KnowledgeBase:
+                     ))
+ 
+         if documents:
++            if self.embedder.mode == "fallback":
++                # Corpus-fitted IDF weighting (see rag/embedder.py) — must be
++                # fit before encode() so document vectors reflect it, and the
++                # resulting weights are persisted (persist()) and restored
++                # (ensure_built()) so query-time encoding matches.
++                self.embedder.fit_idf([d.text for d in documents])
+             vectors = self.embedder.encode([d.text for d in documents])
+             self.store = VectorStore(dim=self.embedder.dim)
+             self.store.add(documents, vectors)
+@@ -338,15 +348,15 @@ class KnowledgeBase:
+         )
+ 
+     def persist(self) -> None:
+-        self.store.save(
+-            settings.rag.index_dir,
+-            extra_meta={
+-                "embedder_mode": self.embedder.mode,
+-                "embedder_model": self.embedder.model_name,
+-                "embedding_dim": self.embedder.dim,
+-                "document_set_sources": dict(self._source_used),
+-            },
+-        )
++        extra_meta = {
++            "embedder_mode": self.embedder.mode,
++            "embedder_model": self.embedder.model_name,
++            "embedding_dim": self.embedder.dim,
++            "document_set_sources": dict(self._source_used),
++        }
++        if self.embedder.mode == "fallback":
++            extra_meta["fallback_idf"] = self.embedder.get_idf()
++        self.store.save(settings.rag.index_dir, extra_meta=extra_meta)
+ 
+     # Per-set loading — live fetch / downloaded file / seed fallback
+     def _load_document_set(self, document_set: str) -> list[dict[str, str]]:
+@@ -557,15 +567,20 @@ class KnowledgeBase:
+         top_k = top_k or settings.rag.top_k_citations
+         query_vector = self.embedder.encode_one(query)
+ 
+-        # Over-fetch when filtering by document_set so top_k is still met
+-        # after filtering, then trim back down.
+-        raw_top_k = top_k * 4 if document_sets else top_k
+-        hits = self.store.search(query_vector, top_k=raw_top_k)
++        # Filter to document_sets BEFORE ranking, not after (see
++        # VectorStore.search_filtered docstring) — an over-fetch-then-filter
++        # approach silently starves any document_set that is a small
++        # minority of the corpus, which regulatory/CBI/EU sources are next
++        # to the FinQA sets.
++        if document_sets:
++            hits = self.store.search_filtered(
++                query_vector, top_k=top_k, document_sets=document_sets
++            )
++        else:
++            hits = self.store.search(query_vector, top_k=top_k)
+ 
+         results = []
+         for doc, score in hits:
+-            if document_sets and doc.document_set not in document_sets:
+-                continue
+             if score < settings.rag.min_relevance_score:
+                 continue
+             results.append({
+diff --git a/rag/vector_store.py b/rag/vector_store.py
+index acd7fb5..2f8f6bb 100644
+--- a/rag/vector_store.py
++++ b/rag/vector_store.py
+@@ -128,6 +128,46 @@ class VectorStore:
+         scored.sort(key=lambda x: x[1], reverse=True)
+         return scored[:top_k]
+ 
++    def search_filtered(
++        self,
++        query_vector: list[float],
++        top_k: int,
++        document_sets: list[str],
++    ) -> list[tuple[Document, float]]:
++        """
++        Like search(), but restricted to documents whose document_set is in
++        `document_sets` BEFORE ranking, not after.
++
++        search()+post-filter (the previous approach in knowledge_base.retrieve)
++        over-fetches a fixed multiple of top_k from the whole index and then
++        drops anything outside document_sets. That silently starves any
++        document_set that is a small minority of the corpus: with ~4,360
++        FinQA chunks against a handful of regulatory/CBI paragraphs, none of
++        the minority set reliably survives into even a top-(4*top_k) window,
++        regardless of how good the embedder is. Filtering candidates first
++        means a relevant minority-set document is compared on its own merits,
++        not against how much larger the excluded majority set happens to be.
++
++        Brute-force cosine over the filtered subset is used regardless of
++        backend (including when FAISS is active) — FAISS's flat index has no
++        per-document metadata filter, and the filtered subset here is always
++        small enough (bounded by how much of a given document_set exists)
++        that brute-force is not a performance concern.
++        """
++        allowed = set(document_sets)
++        candidates = [
++            (doc, vec)
++            for doc, vec in zip(self._documents, self._vectors)
++            if doc.document_set in allowed
++        ]
++        if not candidates:
++            return []
++        scored = [
++            (doc, cosine_similarity(query_vector, vec)) for doc, vec in candidates
++        ]
++        scored.sort(key=lambda x: x[1], reverse=True)
++        return scored[:top_k]
++
+     # R13 - the index is no longer persisted with pickle.
+     #
+     # pickle.load() executes arbitrary code contained in the file. This index
+diff --git a/results/groq/rq3_full_stack.json b/results/groq/rq3_full_stack.json
+index 0d0ab81..093312e 100644
+--- a/results/groq/rq3_full_stack.json
++++ b/results/groq/rq3_full_stack.json
+@@ -1,98 +1,26 @@
+ {
+   "_meta": {
+-    "generated_at_utc": "2026-08-19T15:36:06.256697+00:00",
+-    "git_sha": "4d0512e-dirty",
++    "generated_at_utc": "2026-08-20T18:48:31.203505+00:00",
++    "git_sha": "dd5c041-dirty",
+     "git_dirty_files": [
+-      "README.md",
+-      "agents/budget_questionnaire.py",
+-      "agents/conversational_agent.py",
+-      "agents/payloads.py",
+-      "agents/risk_profiling_agent.py",
+-      "agents/risk_questionnaire.py",
+-      "config/settings.py",
+-      "evaluation/agent_judge.py",
+-      "evaluation/metrics.py",
+-      "evaluation/results_io.py",
+-      "explainability/explainability_agent.py",
+-      "logs/audit/session_baseline-DEMO_GC_042.jsonl",
+-      "logs/audit/session_baseline-DEMO_GC_107.jsonl",
+-      "logs/audit/session_baseline-DEMO_GMSC_318.jsonl",
+-      "logs/audit/session_baseline-push-PUSH_001.jsonl",
+-      "logs/audit/session_baseline-push-PUSH_002.jsonl",
+-      "logs/audit/session_baseline-push-PUSH_003.jsonl",
+-      "orchestrator/orchestrator.py",
+-      "results/EVIDENCE_MANIFEST.json",
+-      "results/groq/phase3_risk_baseline.json",
+-      "results/groq/phase3_risk_comparison.json",
+-      "results/groq/phase8b_existing_customer_baseline.json",
+-      "results/groq/phase8b_push_mode_baseline.json",
+-      "results/groq/rq1_risk_model_training.json",
+-      "results/groq/rq3_full_stack.json",
++      "rag/embedder.py",
++      "rag/knowledge_base.py",
++      "rag/vector_store.py",
+       "results/groq/rq3_shap_only.json",
+       "results/groq/rq3_shap_rag.json",
+-      "results/groq/rq4_mas_coherence.json",
+-      "results/mock/phase2_conversational_baseline.json",
+-      "results/mock/phase3_risk_baseline.json",
+-      "results/mock/phase5_budget_baseline.json",
+-      "results/mock/phase5_transaction_window_comparison.json",
+-      "results/mock/phase8b_existing_customer_baseline.json",
+-      "results/mock/phase8b_push_mode_baseline.json",
+       "results/mock/rq3_full_stack.json",
+       "results/mock/rq3_shap_only.json",
+       "results/mock/rq3_shap_rag.json",
+-      "results/mock/rq4_mas_coherence.json",
+-      "results/mock/rq5_finqa_no_rag.json",
+-      "results/mock/rq5_finqa_with_rag.json",
+-      "scripts/compare_risk_model_variants.py",
+-      "scripts/recalibrate_risk_model_age_neutral.py",
+-      "scripts/regenerate_evidence.py",
+-      "scripts/train_risk_model.py",
+-      "tests/integration/test_orchestrator_pipeline.py",
+-      "tests/unit/test_banking77_evaluation.py",
+-      "tests/unit/test_explainability_agent.py",
+-      "tests/unit/test_risk_profiling_agent.py",
+-      "tests/unit/test_rq5_finqa_evaluation.py",
+-      "utils/llm_client.py",
+-      "agents/transaction_contract.py",
+-      "data/evaluation/",
+-      "evaluation/banking77_data.py",
+-      "evaluation/bootstrap.py",
+-      "evaluation/datasets.py",
+-      "evaluation/finqa_data.py",
+-      "evaluation/risk_rubric.py",
+-      "orchestrator/routing_policy.py",
+-      "results/_dirty_diffs/",
+-      "results/groq/phase2_banking77_stratified.json",
+-      "results/groq/phase2c_core_intent_baseline.json",
+-      "results/groq/rq1_confidence_calibration.json",
+-      "results/groq/rq1_confidence_recalibration.json",
+-      "results/groq/rq1_gold_risk_evaluation.json",
+-      "results/groq/rq1_robustness_layers.json",
+-      "results/groq/rq5_finqa_verified_no_rag.json",
+-      "results/groq/rq5_finqa_verified_rag_oracle.json",
+-      "results/groq/rq5_finqa_verified_rag_retrieved.json",
+-      "results/mock/rq4_multi_agent_coordination.json",
+-      "results_archive/20260812T044213Z_4d0512e/",
+-      "results_archive/20260812T045101Z_4d0512e-dirty/",
+-      "results_archive/20260812T045202Z_4d0512e-dirty/",
+-      "results_archive/20260819T153425Z_4d0512e-dirty/",
+-      "results_day2.zip",
+-      "revert_audit_fixes.sh",
+-      "rough_work",
+-      "scripts/build_gold_risk_dataset.py",
+-      "scripts/build_stress_customer_base.py",
+-      "scripts/calibrate_risk_confidence.py",
+-      "scripts/eval_banking77_stratified.py",
+-      "scripts/eval_confidence_calibration.py",
+-      "scripts/eval_robustness_layers.py",
+-      "scripts/eval_rq1_gold.py",
+-      "scripts/eval_rq5_finqa_verified.py",
+-      "scripts/measure_planner_determinism.py",
+-      "scripts/verify_audit_fixes.py",
+-      "tests/unit/test_audit_regressions.py",
+-      "tests/unit/test_evaluation_layers.py"
++      "results/_dirty_diffs/dd5c041-534c54642b4d.patch",
++      "results/_dirty_diffs/dd5c041-819681cbeb96.patch",
++      "results/_dirty_diffs/dd5c041-99fdaf4ddb7d.patch",
++      "results/_dirty_diffs/dd5c041-a10015237a45.patch",
++      "results/_dirty_diffs/dd5c041-bc45db413a32.patch",
++      "results/_dirty_diffs/dd5c041-cf64397fd049.patch",
++      "results/_dirty_diffs/dd5c041-df79bb995746.patch",
++      "results/_dirty_diffs/dd5c041-f8d95dadb693.patch"
+     ],
+-    "git_diff_patch_path": "results/_dirty_diffs/4d0512e-a08dfc439b33.patch",
++    "git_diff_patch_path": "results/_dirty_diffs/dd5c041-48ce1f902550.patch",
+     "prompt_version": "v1.2",
+     "llm_mode": "groq",
+     "orchestrator_model": "openai/gpt-oss-120b",
+@@ -106,9 +34,9 @@
+     "llm_cache": {
+       "hits": 0,
+       "misses": 0,
+-      "writes": 7,
++      "writes": 0,
+       "errors": 0,
+-      "mode": "record",
++      "mode": "off",
+       "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+       "hit_rate": null,
+       "clean_replay": false
+@@ -162,7 +90,7 @@
+     }
+   },
+   "sample_explanation": {
+-    "shap_narrative": "Based on coefficient estimates. Your higher loss tolerance and a ten\u2011year investment horizon both nudge the profile toward a more aggressive stance, while the $5,000 of existing debt pulls it back toward a more conservative approach.",
++    "shap_narrative": "Based on coefficient estimates. Your higher loss tolerance and a ten\u2011year investment horizon both nudge the profile toward a more aggressive stance, while the $5,000 of existing debt pulls it back toward a more conservative approach. These three factors were the strongest drivers.",
+     "rag_citations": [
+       {
+         "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
+@@ -179,11 +107,19 @@
+         "relevance": 0.4031,
+         "document_set": "regulatory",
+         "doc_id": "eu-mifid2-2014-65-0475-1"
++      },
++      {
++        "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
++        "source": "Irish/EU regulatory sources [D12]",
++        "text": "ve financial instruments, having regard to whether, inter alia, they are traded on a regulated market, an MTF or an OTF;",
++        "relevance": 0.3914,
++        "document_set": "regulatory",
++        "doc_id": "eu-mifid2-2014-65-0311-1"
+       }
+     ],
+-    "counterfactual": "If your loss tolerance were 5, your risk profile would shift toward aggressive and a high\u2011beta growth ETF would become more appropriate.",
+-    "calibration_note": "If your total portfolio equity allocation exceeds\u202f60%\u202for your risk tolerance falls below moderate, this recommendation should be reconsidered.",
+-    "full_explanation": "Based on coefficient estimates. Your higher loss tolerance and a ten\u2011year investment horizon both nudge the profile toward a more aggressive stance, while the $5,000 of existing debt pulls it back toward a more conservative approach. Grounded in: Irish/EU regulatory sources [D12]: \"links with the investment firm or market operator operating the OTF.\" | Irish/EU regulatory sources [D12]: \"terest between the investment firm or market operator and its clients. EN 12.6.2014 Official Journal of the European Union L 173/403 8.\" If your loss tolerance were 5, your risk profile would shift toward aggressive and a high\u2011beta growth ETF would become more appropriate. If your total portfolio equity allocation exceeds\u202f60%\u202for your risk tolerance falls below moderate, this recommendation should be reconsidered."
++    "counterfactual": "If your loss_tolerance were 5, your risk profile would shift toward aggressive and a high\u2011growth technology ETF would become more appropriate.",
++    "calibration_note": "If your total portfolio allocation to equities exceeds 60% or your risk tolerance falls below moderate, this recommendation should be reconsidered.",
++    "full_explanation": "Based on coefficient estimates. Your higher loss tolerance and a ten\u2011year investment horizon both nudge the profile toward a more aggressive stance, while the $5,000 of existing debt pulls it back toward a more conservative approach. These three factors were the strongest drivers. Grounded in: Irish/EU regulatory sources [D12]: \"links with the investment firm or market operator operating the OTF.\" | Irish/EU regulatory sources [D12]: \"terest between the investment firm or market operator and its clients. EN 12.6.2014 Official Journal of the European Union L 173/403 8.\" If your loss_tolerance were 5, your risk profile would shift toward aggressive and a high\u2011growth technology ETF would become more appropriate. If your total portfolio allocation to equities exceeds 60% or your risk tolerance falls below moderate, this recommendation should be reconsidered."
+   },
+   "survey_note": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+ }
+\ No newline at end of file
+diff --git a/results/groq/rq3_shap_only.json b/results/groq/rq3_shap_only.json
+index f21e1c0..62197d8 100644
+--- a/results/groq/rq3_shap_only.json
++++ b/results/groq/rq3_shap_only.json
+@@ -1,98 +1,22 @@
+ {
+   "_meta": {
+-    "generated_at_utc": "2026-08-19T15:35:56.547731+00:00",
+-    "git_sha": "4d0512e-dirty",
++    "generated_at_utc": "2026-08-20T18:48:07.904220+00:00",
++    "git_sha": "dd5c041-dirty",
+     "git_dirty_files": [
+-      "README.md",
+-      "agents/budget_questionnaire.py",
+-      "agents/conversational_agent.py",
+-      "agents/payloads.py",
+-      "agents/risk_profiling_agent.py",
+-      "agents/risk_questionnaire.py",
+-      "config/settings.py",
+-      "evaluation/agent_judge.py",
+-      "evaluation/metrics.py",
+-      "evaluation/results_io.py",
+-      "explainability/explainability_agent.py",
+-      "logs/audit/session_baseline-DEMO_GC_042.jsonl",
+-      "logs/audit/session_baseline-DEMO_GC_107.jsonl",
+-      "logs/audit/session_baseline-DEMO_GMSC_318.jsonl",
+-      "logs/audit/session_baseline-push-PUSH_001.jsonl",
+-      "logs/audit/session_baseline-push-PUSH_002.jsonl",
+-      "logs/audit/session_baseline-push-PUSH_003.jsonl",
+-      "orchestrator/orchestrator.py",
+-      "results/EVIDENCE_MANIFEST.json",
+-      "results/groq/phase3_risk_baseline.json",
+-      "results/groq/phase3_risk_comparison.json",
+-      "results/groq/phase8b_existing_customer_baseline.json",
+-      "results/groq/phase8b_push_mode_baseline.json",
+-      "results/groq/rq1_risk_model_training.json",
+-      "results/groq/rq3_full_stack.json",
+-      "results/groq/rq3_shap_only.json",
+-      "results/groq/rq3_shap_rag.json",
+-      "results/groq/rq4_mas_coherence.json",
+-      "results/mock/phase2_conversational_baseline.json",
+-      "results/mock/phase3_risk_baseline.json",
+-      "results/mock/phase5_budget_baseline.json",
+-      "results/mock/phase5_transaction_window_comparison.json",
+-      "results/mock/phase8b_existing_customer_baseline.json",
+-      "results/mock/phase8b_push_mode_baseline.json",
++      "rag/embedder.py",
++      "rag/knowledge_base.py",
++      "rag/vector_store.py",
+       "results/mock/rq3_full_stack.json",
+       "results/mock/rq3_shap_only.json",
+       "results/mock/rq3_shap_rag.json",
+-      "results/mock/rq4_mas_coherence.json",
+-      "results/mock/rq5_finqa_no_rag.json",
+-      "results/mock/rq5_finqa_with_rag.json",
+-      "scripts/compare_risk_model_variants.py",
+-      "scripts/recalibrate_risk_model_age_neutral.py",
+-      "scripts/regenerate_evidence.py",
+-      "scripts/train_risk_model.py",
+-      "tests/integration/test_orchestrator_pipeline.py",
+-      "tests/unit/test_banking77_evaluation.py",
+-      "tests/unit/test_explainability_agent.py",
+-      "tests/unit/test_risk_profiling_agent.py",
+-      "tests/unit/test_rq5_finqa_evaluation.py",
+-      "utils/llm_client.py",
+-      "agents/transaction_contract.py",
+-      "data/evaluation/",
+-      "evaluation/banking77_data.py",
+-      "evaluation/bootstrap.py",
+-      "evaluation/datasets.py",
+-      "evaluation/finqa_data.py",
+-      "evaluation/risk_rubric.py",
+-      "orchestrator/routing_policy.py",
+-      "results/_dirty_diffs/",
+-      "results/groq/phase2_banking77_stratified.json",
+-      "results/groq/phase2c_core_intent_baseline.json",
+-      "results/groq/rq1_confidence_calibration.json",
+-      "results/groq/rq1_confidence_recalibration.json",
+-      "results/groq/rq1_gold_risk_evaluation.json",
+-      "results/groq/rq1_robustness_layers.json",
+-      "results/groq/rq5_finqa_verified_no_rag.json",
+-      "results/groq/rq5_finqa_verified_rag_oracle.json",
+-      "results/groq/rq5_finqa_verified_rag_retrieved.json",
+-      "results/mock/rq4_multi_agent_coordination.json",
+-      "results_archive/20260812T044213Z_4d0512e/",
+-      "results_archive/20260812T045101Z_4d0512e-dirty/",
+-      "results_archive/20260812T045202Z_4d0512e-dirty/",
+-      "results_archive/20260819T153425Z_4d0512e-dirty/",
+-      "results_day2.zip",
+-      "revert_audit_fixes.sh",
+-      "rough_work",
+-      "scripts/build_gold_risk_dataset.py",
+-      "scripts/build_stress_customer_base.py",
+-      "scripts/calibrate_risk_confidence.py",
+-      "scripts/eval_banking77_stratified.py",
+-      "scripts/eval_confidence_calibration.py",
+-      "scripts/eval_robustness_layers.py",
+-      "scripts/eval_rq1_gold.py",
+-      "scripts/eval_rq5_finqa_verified.py",
+-      "scripts/measure_planner_determinism.py",
+-      "scripts/verify_audit_fixes.py",
+-      "tests/unit/test_audit_regressions.py",
+-      "tests/unit/test_evaluation_layers.py"
++      "results/_dirty_diffs/dd5c041-534c54642b4d.patch",
++      "results/_dirty_diffs/dd5c041-819681cbeb96.patch",
++      "results/_dirty_diffs/dd5c041-99fdaf4ddb7d.patch",
++      "results/_dirty_diffs/dd5c041-a10015237a45.patch",
++      "results/_dirty_diffs/dd5c041-cf64397fd049.patch",
++      "results/_dirty_diffs/dd5c041-df79bb995746.patch"
+     ],
+-    "git_diff_patch_path": "results/_dirty_diffs/4d0512e-39a61e8a8773.patch",
++    "git_diff_patch_path": "results/_dirty_diffs/dd5c041-bc45db413a32.patch",
+     "prompt_version": "v1.2",
+     "llm_mode": "groq",
+     "orchestrator_model": "openai/gpt-oss-120b",
+@@ -103,9 +27,9 @@
+     "llm_cache": {
+       "hits": 0,
+       "misses": 0,
+-      "writes": 2,
++      "writes": 0,
+       "errors": 0,
+-      "mode": "record",
++      "mode": "off",
+       "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+       "hit_rate": null,
+       "clean_replay": false
+@@ -157,11 +81,11 @@
+     }
+   },
+   "sample_explanation": {
+-    "shap_narrative": "Based on coefficient estimates. Your higher loss tolerance and a ten\u2011year investment horizon both nudge the profile toward a more aggressive stance, while the $5,000 of existing debt pulls it back toward a more conservative approach.",
++    "shap_narrative": "Based on coefficient estimates. Your relatively high loss tolerance and a 10\u2011year investment horizon both nudge the recommendation toward a more aggressive approach. However, the $5,000 of existing debt pulls the suggestion back toward a more conservative stance.",
+     "rag_citations": [],
+     "counterfactual": null,
+     "calibration_note": "If your net worth drops below $250,000 or you expect to need the funds within three years, this recommendation should be reconsidered.",
+-    "full_explanation": "Based on coefficient estimates. Your higher loss tolerance and a ten\u2011year investment horizon both nudge the profile toward a more aggressive stance, while the $5,000 of existing debt pulls it back toward a more conservative approach. If your net worth drops below $250,000 or you expect to need the funds within three years, this recommendation should be reconsidered."
++    "full_explanation": "Based on coefficient estimates. Your relatively high loss tolerance and a 10\u2011year investment horizon both nudge the recommendation toward a more aggressive approach. However, the $5,000 of existing debt pulls the suggestion back toward a more conservative stance. If your net worth drops below $250,000 or you expect to need the funds within three years, this recommendation should be reconsidered."
+   },
+   "survey_note": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+ }
+\ No newline at end of file
+diff --git a/results/groq/rq3_shap_rag.json b/results/groq/rq3_shap_rag.json
+index 848c3f3..b54dfbb 100644
+--- a/results/groq/rq3_shap_rag.json
++++ b/results/groq/rq3_shap_rag.json
+@@ -1,98 +1,24 @@
+ {
+   "_meta": {
+-    "generated_at_utc": "2026-08-19T15:36:04.306261+00:00",
+-    "git_sha": "4d0512e-dirty",
++    "generated_at_utc": "2026-08-20T18:48:28.979174+00:00",
++    "git_sha": "dd5c041-dirty",
+     "git_dirty_files": [
+-      "README.md",
+-      "agents/budget_questionnaire.py",
+-      "agents/conversational_agent.py",
+-      "agents/payloads.py",
+-      "agents/risk_profiling_agent.py",
+-      "agents/risk_questionnaire.py",
+-      "config/settings.py",
+-      "evaluation/agent_judge.py",
+-      "evaluation/metrics.py",
+-      "evaluation/results_io.py",
+-      "explainability/explainability_agent.py",
+-      "logs/audit/session_baseline-DEMO_GC_042.jsonl",
+-      "logs/audit/session_baseline-DEMO_GC_107.jsonl",
+-      "logs/audit/session_baseline-DEMO_GMSC_318.jsonl",
+-      "logs/audit/session_baseline-push-PUSH_001.jsonl",
+-      "logs/audit/session_baseline-push-PUSH_002.jsonl",
+-      "logs/audit/session_baseline-push-PUSH_003.jsonl",
+-      "orchestrator/orchestrator.py",
+-      "results/EVIDENCE_MANIFEST.json",
+-      "results/groq/phase3_risk_baseline.json",
+-      "results/groq/phase3_risk_comparison.json",
+-      "results/groq/phase8b_existing_customer_baseline.json",
+-      "results/groq/phase8b_push_mode_baseline.json",
+-      "results/groq/rq1_risk_model_training.json",
+-      "results/groq/rq3_full_stack.json",
++      "rag/embedder.py",
++      "rag/knowledge_base.py",
++      "rag/vector_store.py",
+       "results/groq/rq3_shap_only.json",
+-      "results/groq/rq3_shap_rag.json",
+-      "results/groq/rq4_mas_coherence.json",
+-      "results/mock/phase2_conversational_baseline.json",
+-      "results/mock/phase3_risk_baseline.json",
+-      "results/mock/phase5_budget_baseline.json",
+-      "results/mock/phase5_transaction_window_comparison.json",
+-      "results/mock/phase8b_existing_customer_baseline.json",
+-      "results/mock/phase8b_push_mode_baseline.json",
+       "results/mock/rq3_full_stack.json",
+       "results/mock/rq3_shap_only.json",
+       "results/mock/rq3_shap_rag.json",
+-      "results/mock/rq4_mas_coherence.json",
+-      "results/mock/rq5_finqa_no_rag.json",
+-      "results/mock/rq5_finqa_with_rag.json",
+-      "scripts/compare_risk_model_variants.py",
+-      "scripts/recalibrate_risk_model_age_neutral.py",
+-      "scripts/regenerate_evidence.py",
+-      "scripts/train_risk_model.py",
+-      "tests/integration/test_orchestrator_pipeline.py",
+-      "tests/unit/test_banking77_evaluation.py",
+-      "tests/unit/test_explainability_agent.py",
+-      "tests/unit/test_risk_profiling_agent.py",
+-      "tests/unit/test_rq5_finqa_evaluation.py",
+-      "utils/llm_client.py",
+-      "agents/transaction_contract.py",
+-      "data/evaluation/",
+-      "evaluation/banking77_data.py",
+-      "evaluation/bootstrap.py",
+-      "evaluation/datasets.py",
+-      "evaluation/finqa_data.py",
+-      "evaluation/risk_rubric.py",
+-      "orchestrator/routing_policy.py",
+-      "results/_dirty_diffs/",
+-      "results/groq/phase2_banking77_stratified.json",
+-      "results/groq/phase2c_core_intent_baseline.json",
+-      "results/groq/rq1_confidence_calibration.json",
+-      "results/groq/rq1_confidence_recalibration.json",
+-      "results/groq/rq1_gold_risk_evaluation.json",
+-      "results/groq/rq1_robustness_layers.json",
+-      "results/groq/rq5_finqa_verified_no_rag.json",
+-      "results/groq/rq5_finqa_verified_rag_oracle.json",
+-      "results/groq/rq5_finqa_verified_rag_retrieved.json",
+-      "results/mock/rq4_multi_agent_coordination.json",
+-      "results_archive/20260812T044213Z_4d0512e/",
+-      "results_archive/20260812T045101Z_4d0512e-dirty/",
+-      "results_archive/20260812T045202Z_4d0512e-dirty/",
+-      "results_archive/20260819T153425Z_4d0512e-dirty/",
+-      "results_day2.zip",
+-      "revert_audit_fixes.sh",
+-      "rough_work",
+-      "scripts/build_gold_risk_dataset.py",
+-      "scripts/build_stress_customer_base.py",
+-      "scripts/calibrate_risk_confidence.py",
+-      "scripts/eval_banking77_stratified.py",
+-      "scripts/eval_confidence_calibration.py",
+-      "scripts/eval_robustness_layers.py",
+-      "scripts/eval_rq1_gold.py",
+-      "scripts/eval_rq5_finqa_verified.py",
+-      "scripts/measure_planner_determinism.py",
+-      "scripts/verify_audit_fixes.py",
+-      "tests/unit/test_audit_regressions.py",
+-      "tests/unit/test_evaluation_layers.py"
++      "results/_dirty_diffs/dd5c041-534c54642b4d.patch",
++      "results/_dirty_diffs/dd5c041-819681cbeb96.patch",
++      "results/_dirty_diffs/dd5c041-99fdaf4ddb7d.patch",
++      "results/_dirty_diffs/dd5c041-a10015237a45.patch",
++      "results/_dirty_diffs/dd5c041-bc45db413a32.patch",
++      "results/_dirty_diffs/dd5c041-cf64397fd049.patch",
++      "results/_dirty_diffs/dd5c041-df79bb995746.patch"
+     ],
+-    "git_diff_patch_path": "results/_dirty_diffs/4d0512e-fb1aeccbb033.patch",
++    "git_diff_patch_path": "results/_dirty_diffs/dd5c041-f8d95dadb693.patch",
+     "prompt_version": "v1.2",
+     "llm_mode": "groq",
+     "orchestrator_model": "openai/gpt-oss-120b",
+@@ -106,9 +32,9 @@
+     "llm_cache": {
+       "hits": 0,
+       "misses": 0,
+-      "writes": 4,
++      "writes": 0,
+       "errors": 0,
+-      "mode": "record",
++      "mode": "off",
+       "cache_dir": "/Users/aakankshadeshpande/Documents/thesis_final/data/llm_cache",
+       "hit_rate": null,
+       "clean_replay": false
+@@ -161,7 +87,7 @@
+     }
+   },
+   "sample_explanation": {
+-    "shap_narrative": "Based on coefficient estimates. Your higher loss tolerance and longer investment horizon both nudge the recommendation toward a more aggressive approach. At the same time, the $5,000 of existing debt pulls it toward a more conservative stance.",
++    "shap_narrative": "Based on coefficient estimates. Your willingness to tolerate losses and a ten\u2011year investment horizon both nudge the profile toward a more aggressive stance, while the $5,000 of existing debt pulls it back toward a more conservative approach.",
+     "rag_citations": [
+       {
+         "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
+@@ -178,11 +104,19 @@
+         "relevance": 0.4031,
+         "document_set": "regulatory",
+         "doc_id": "eu-mifid2-2014-65-0475-1"
++      },
++      {
++        "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
++        "source": "Irish/EU regulatory sources [D12]",
++        "text": "ve financial instruments, having regard to whether, inter alia, they are traded on a regulated market, an MTF or an OTF;",
++        "relevance": 0.3914,
++        "document_set": "regulatory",
++        "doc_id": "eu-mifid2-2014-65-0311-1"
+       }
+     ],
+     "counterfactual": null,
+-    "calibration_note": "If your net worth drops below $250,000 or you expect to need cash within three years, this recommendation should be reconsidered.",
+-    "full_explanation": "Based on coefficient estimates. Your higher loss tolerance and longer investment horizon both nudge the recommendation toward a more aggressive approach. At the same time, the $5,000 of existing debt pulls it toward a more conservative stance. Grounded in: Irish/EU regulatory sources [D12]: \"links with the investment firm or market operator operating the OTF.\" | Irish/EU regulatory sources [D12]: \"terest between the investment firm or market operator and its clients. EN 12.6.2014 Official Journal of the European Union L 173/403 8.\" If your net worth drops below $250,000 or you expect to need cash within three years, this recommendation should be reconsidered."
++    "calibration_note": "If your net worth drops below $250,000 or you expect to need the funds within three years, this recommendation should be reconsidered.",
++    "full_explanation": "Based on coefficient estimates. Your willingness to tolerate losses and a ten\u2011year investment horizon both nudge the profile toward a more aggressive stance, while the $5,000 of existing debt pulls it back toward a more conservative approach. Grounded in: Irish/EU regulatory sources [D12]: \"links with the investment firm or market operator operating the OTF.\" | Irish/EU regulatory sources [D12]: \"terest between the investment firm or market operator and its clients. EN 12.6.2014 Official Journal of the European Union L 173/403 8.\" If your net worth drops below $250,000 or you expect to need the funds within three years, this recommendation should be reconsidered."
+   },
+   "survey_note": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+ }
+\ No newline at end of file
+diff --git a/results/mock/rq3_full_stack.json b/results/mock/rq3_full_stack.json
+index d7c7028..3b9c918 100644
+--- a/results/mock/rq3_full_stack.json
++++ b/results/mock/rq3_full_stack.json
+@@ -1,7 +1,21 @@
+ {
+   "_meta": {
+-    "generated_at_utc": "2026-08-16T02:17:43.665339+00:00",
+-    "git_sha": "4d0512e-dirty",
++    "generated_at_utc": "2026-08-20T18:42:17.743049+00:00",
++    "git_sha": "dd5c041-dirty",
++    "git_dirty_files": [
++      "rag/embedder.py",
++      "rag/knowledge_base.py",
++      "rag/vector_store.py",
++      "results/mock/rq3_full_stack.json",
++      "results/mock/rq3_shap_only.json",
++      "results/mock/rq3_shap_rag.json",
++      "results/_dirty_diffs/dd5c041-534c54642b4d.patch",
++      "results/_dirty_diffs/dd5c041-819681cbeb96.patch",
++      "results/_dirty_diffs/dd5c041-99fdaf4ddb7d.patch",
++      "results/_dirty_diffs/dd5c041-cf64397fd049.patch",
++      "results/_dirty_diffs/dd5c041-df79bb995746.patch"
++    ],
++    "git_diff_patch_path": "results/_dirty_diffs/dd5c041-a10015237a45.patch",
+     "prompt_version": "v1.2",
+     "llm_mode": "mock",
+     "orchestrator_model": "openai/gpt-oss-120b",
+@@ -54,7 +68,8 @@
+         "mean_source_visible": 1.0,
+         "mean_counterfactual_useful": 0.88,
+         "mean_trust_appropriate": 0.92
+-      }
++      },
++      "data_provenance_warning": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+     },
+     "trust_calibration_index": {
+       "metric": "trust_calibration_index",
+@@ -65,7 +80,8 @@
+         "mean_quality": 4.1,
+         "mean_deviation": 0.025,
+         "interpretation": "Well-calibrated: trust tracks advice quality"
+-      }
++      },
++      "data_provenance_warning": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+     }
+   },
+   "sample_explanation": {
+@@ -86,11 +102,19 @@
+         "relevance": 0.4031,
+         "document_set": "regulatory",
+         "doc_id": "eu-mifid2-2014-65-0475-1"
++      },
++      {
++        "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
++        "source": "Irish/EU regulatory sources [D12]",
++        "text": "ve financial instruments, having regard to whether, inter alia, they are traded on a regulated market, an MTF or an OTF;",
++        "relevance": 0.3914,
++        "document_set": "regulatory",
++        "doc_id": "eu-mifid2-2014-65-0311-1"
+       }
+     ],
+     "counterfactual": "[MOCK RESPONSE] Agent role: 'You are generating the counterfactual explanation layer of a...' | User said: 'Current risk classification: moderate\nTo...' | Set OPENAI_API_KEY in .env for real API responses.",
+     "calibration_note": "[MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses.",
+     "full_explanation": "Based on coefficient estimates. [MOCK RESPONSE] Agent role: 'You are generating the SHAP explanation layer of a multi-age...' | User said: 'Feature attributions for 'moderate' clas...' | Set OPENAI_API_KEY in .env for real API responses. Grounded in: Irish/EU regulatory sources [D12]: \"links with the investment firm or market operator operating the OTF.\" | Irish/EU regulatory sources [D12]: \"terest between the investment firm or market operator and its clients. EN 12.6.2014 Official Journal of the European Union L 173/403 8.\" [MOCK RESPONSE] Agent role: 'You are generating the counterfactual explanation layer of a...' | User said: 'Current risk classification: moderate\nTo...' | Set OPENAI_API_KEY in .env for real API responses. [MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses."
+   },
+-  "survey_note": "Synthetic survey fixture \u2014 replace with real pilot study responses (n\u226520) before dissertation submission."
++  "survey_note": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+ }
+\ No newline at end of file
+diff --git a/results/mock/rq3_shap_only.json b/results/mock/rq3_shap_only.json
+index d3bcbd1..6a4ca79 100644
+--- a/results/mock/rq3_shap_only.json
++++ b/results/mock/rq3_shap_only.json
+@@ -1,17 +1,26 @@
+ {
+   "_meta": {
+-    "generated_at_utc": "2026-08-16T02:17:43.582529+00:00",
+-    "git_sha": "4d0512e-dirty",
++    "generated_at_utc": "2026-08-20T18:41:58.580988+00:00",
++    "git_sha": "dd5c041-dirty",
++    "git_dirty_files": [
++      "rag/embedder.py",
++      "rag/knowledge_base.py",
++      "rag/vector_store.py",
++      "results/mock/rq3_full_stack.json",
++      "results/mock/rq3_shap_only.json",
++      "results/mock/rq3_shap_rag.json",
++      "results/_dirty_diffs/dd5c041-534c54642b4d.patch",
++      "results/_dirty_diffs/dd5c041-99fdaf4ddb7d.patch",
++      "results/_dirty_diffs/dd5c041-cf64397fd049.patch"
++    ],
++    "git_diff_patch_path": "results/_dirty_diffs/dd5c041-df79bb995746.patch",
+     "prompt_version": "v1.2",
+     "llm_mode": "mock",
+     "orchestrator_model": "openai/gpt-oss-120b",
+     "specialist_model": "llama3.1:8b",
+     "judge_model": "qwen/qwen3.6-27b",
+     "environment": "development",
+-    "subsystem_modes": {
+-      "embedder": "sentence-transformers",
+-      "vector_store": "faiss"
+-    },
++    "subsystem_modes": {},
+     "llm_cache": {
+       "hits": 0,
+       "misses": 0,
+@@ -52,7 +61,8 @@
+         "mean_source_visible": 0.0,
+         "mean_counterfactual_useful": 0.44,
+         "mean_trust_appropriate": 0.64
+-      }
++      },
++      "data_provenance_warning": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+     },
+     "trust_calibration_index": {
+       "metric": "trust_calibration_index",
+@@ -63,7 +73,8 @@
+         "mean_quality": 3.2,
+         "mean_deviation": 0.1,
+         "interpretation": "Well-calibrated: trust tracks advice quality"
+-      }
++      },
++      "data_provenance_warning": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+     }
+   },
+   "sample_explanation": {
+@@ -73,5 +84,5 @@
+     "calibration_note": "[MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses.",
+     "full_explanation": "Based on coefficient estimates. [MOCK RESPONSE] Agent role: 'You are generating the SHAP explanation layer of a multi-age...' | User said: 'Feature attributions for 'moderate' clas...' | Set OPENAI_API_KEY in .env for real API responses. [MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses."
+   },
+-  "survey_note": "Synthetic survey fixture \u2014 replace with real pilot study responses (n\u226520) before dissertation submission."
++  "survey_note": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+ }
+\ No newline at end of file
+diff --git a/results/mock/rq3_shap_rag.json b/results/mock/rq3_shap_rag.json
+index 14b4ec5..79c41a4 100644
+--- a/results/mock/rq3_shap_rag.json
++++ b/results/mock/rq3_shap_rag.json
+@@ -1,7 +1,20 @@
+ {
+   "_meta": {
+-    "generated_at_utc": "2026-08-16T02:17:43.623921+00:00",
+-    "git_sha": "4d0512e-dirty",
++    "generated_at_utc": "2026-08-20T18:42:17.618847+00:00",
++    "git_sha": "dd5c041-dirty",
++    "git_dirty_files": [
++      "rag/embedder.py",
++      "rag/knowledge_base.py",
++      "rag/vector_store.py",
++      "results/mock/rq3_full_stack.json",
++      "results/mock/rq3_shap_only.json",
++      "results/mock/rq3_shap_rag.json",
++      "results/_dirty_diffs/dd5c041-534c54642b4d.patch",
++      "results/_dirty_diffs/dd5c041-99fdaf4ddb7d.patch",
++      "results/_dirty_diffs/dd5c041-cf64397fd049.patch",
++      "results/_dirty_diffs/dd5c041-df79bb995746.patch"
++    ],
++    "git_diff_patch_path": "results/_dirty_diffs/dd5c041-819681cbeb96.patch",
+     "prompt_version": "v1.2",
+     "llm_mode": "mock",
+     "orchestrator_model": "openai/gpt-oss-120b",
+@@ -53,7 +66,8 @@
+         "mean_source_visible": 1.0,
+         "mean_counterfactual_useful": 0.48,
+         "mean_trust_appropriate": 0.72
+-      }
++      },
++      "data_provenance_warning": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+     },
+     "trust_calibration_index": {
+       "metric": "trust_calibration_index",
+@@ -64,7 +78,8 @@
+         "mean_quality": 3.2,
+         "mean_deviation": 0.1,
+         "interpretation": "Well-calibrated: trust tracks advice quality"
+-      }
++      },
++      "data_provenance_warning": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+     }
+   },
+   "sample_explanation": {
+@@ -85,11 +100,19 @@
+         "relevance": 0.4031,
+         "document_set": "regulatory",
+         "doc_id": "eu-mifid2-2014-65-0475-1"
++      },
++      {
++        "claim": "moderate Based on your moderate profile we recommend the ETF. etf_broad Broad Global Equity ETF",
++        "source": "Irish/EU regulatory sources [D12]",
++        "text": "ve financial instruments, having regard to whether, inter alia, they are traded on a regulated market, an MTF or an OTF;",
++        "relevance": 0.3914,
++        "document_set": "regulatory",
++        "doc_id": "eu-mifid2-2014-65-0311-1"
+       }
+     ],
+     "counterfactual": null,
+     "calibration_note": "[MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses.",
+     "full_explanation": "Based on coefficient estimates. [MOCK RESPONSE] Agent role: 'You are generating the SHAP explanation layer of a multi-age...' | User said: 'Feature attributions for 'moderate' clas...' | Set OPENAI_API_KEY in .env for real API responses. Grounded in: Irish/EU regulatory sources [D12]: \"links with the investment firm or market operator operating the OTF.\" | Irish/EU regulatory sources [D12]: \"terest between the investment firm or market operator and its clients. EN 12.6.2014 Official Journal of the European Union L 173/403 8.\" [MOCK RESPONSE] Agent role: 'You are generating the trust calibration note for a multi-ag...' | User said: 'Risk classification: moderate (confidenc...' | Set OPENAI_API_KEY in .env for real API responses."
+   },
+-  "survey_note": "Synthetic survey fixture \u2014 replace with real pilot study responses (n\u226520) before dissertation submission."
++  "survey_note": "SYNTHETIC \u2014 n=5 hand-authored survey responses, not real pilot data. Do not cite this value in the dissertation without either replacing it with real pilot study responses (n>=20) or stating this limitation alongside it. No amount of additional synthetic data fixes this."
+ }
+\ No newline at end of file
+
+
+# --- untracked files (not included above; git diff cannot show a diff for a file git isn't tracking) ---
+# results/_dirty_diffs/dd5c041-48ce1f902550.patch
+# results/_dirty_diffs/dd5c041-534c54642b4d.patch
+# results/_dirty_diffs/dd5c041-819681cbeb96.patch
+# results/_dirty_diffs/dd5c041-99fdaf4ddb7d.patch
+# results/_dirty_diffs/dd5c041-a10015237a45.patch
+# results/_dirty_diffs/dd5c041-bc45db413a32.patch
+# results/_dirty_diffs/dd5c041-cf64397fd049.patch
+# results/_dirty_diffs/dd5c041-df79bb995746.patch
+# results/_dirty_diffs/dd5c041-f8d95dadb693.patch

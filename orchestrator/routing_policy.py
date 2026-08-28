@@ -1,13 +1,9 @@
 """
-orchestrator/routing_policy.py — the routing decision, extracted and made honest.
+The routing decision: given a classified intent and its confidence, decide
+whether to accept it, ask for confirmation, or fall back to a generic
+reply. Pure function, no I/O — see RoutingPolicy.decide().
 
 WHY THIS FILE EXISTS (fixes audit flaw #1)
-    The previous logic lived inline in Orchestrator._classify_intent and did
-    this:
-
-        intent, confidence = conv_agent.classify_only(message)
-        if confidence < 0.65:
-            return CONVERSATIONAL_ONLY, intent, confidence   # intent discarded
 
     Three separate defects were compressed into those two lines.
 

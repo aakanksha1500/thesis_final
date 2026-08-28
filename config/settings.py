@@ -148,6 +148,14 @@ class RiskConfig:
     confidence_calibrator_path: Path = (
         ROOT_DIR / "data" / "processed" / "risk_confidence_calibrator.pkl"
     )
+    use_quantile_tier_boundaries: bool = field(
+        default_factory=lambda: (
+            os.getenv("USE_QUANTILE_TIER_BOUNDARIES", "false").lower() == "true"
+        )
+    )
+    tier_boundaries_path: Path = (
+        ROOT_DIR / "data" / "processed" / "risk_tier_boundaries.json"
+    )
     german_credit_path: Path = ROOT_DIR / "data" / "raw" / "german_credit.data"
     bank_marketing_path: Path = ROOT_DIR / "data" / "raw" / "bank_marketing"
 

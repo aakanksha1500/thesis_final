@@ -2,10 +2,17 @@
 Phase - 8: Text embedding layer for the RAG knowledge base.
 
 REAL-MODE: sentence-transformers/all-MiniLM-L6-v2
-FALLBACK MODE: hashing-trick bag-og-words embedding - deterministic,
-    dependency-free, same output dimensionality, cosine-comparable.
-    Not semantically strong, but sufficient to exercise retrieval, ranking,
-    and ablation-condition plumbing without the model download.
+FALLBACK MODE: IDF-weighted hashing-trick bag-of-words embedding -
+    deterministic, dependency-free, same output dimensionality,
+    cosine-comparable. Not semantically strong (no paraphrase/synonym
+    matching), but a corpus-fitted IDF weighting materially improves
+    lexical discrimination over unweighted hashing: common cross-topic
+    words (e.g. boilerplate financial vocabulary shared by every
+    document_set) are down-weighted, while words that are rare across
+    the corpus and therefore topically distinctive are up-weighted.
+    Still not a substitute for a real semantic model — call fit_idf()
+    with the full corpus before encoding to activate the weighting;
+    without it, this degrades gracefully to unweighted hashing.
 
 The fallback is intentional and is flagged loudly, same as LLMClient - a reader
 of the logs should never wonder which mode ran.
@@ -57,6 +64,8 @@ class Embedder:
         self._model = None
         self._mode = "fallback"
         self._force_fallback = force_fallback
+        self._idf: list[float] | None = None
+        self._idf_n_docs: int = 0
         self._init_model()
 
     def _init_model(self) -> None:
@@ -125,6 +134,67 @@ class Embedder:
     def encode_one(self, text: str) -> list[float]:
         return self.encode([text])[0]
 
+    # IDF fitting (fallback mode only) - persistence support
+
+    def fit_idf(self, corpus_texts: Sequence[str]) -> None:
+        """
+        Compute per-bucket inverse document frequency over `corpus_texts`
+        and activate IDF weighting for subsequent _hash_embed() calls.
+
+        Only meaningful in fallback mode - a no-op call in sentence-
+        transformers mode does no harm but has no effect on encode().
+        Must be called with the SAME corpus used to build the index
+        (typically all document chunks), and the resulting weights must
+        be persisted (get_idf) and restored (set_idf) before encoding
+        queries against a loaded index, or query and document vectors
+        drift into different weightings.
+        """
+        n_docs = len(corpus_texts)
+        if n_docs == 0:
+            self._idf = None
+            self._idf_n_docs = 0
+            return
+
+        doc_freq = [0] * self.dim
+        for text in corpus_texts:
+            tokens = {
+                t for t in _TOKEN_RE.findall(text.lower()) if t not in _STOPWORDS
+            }
+            buckets = {
+                int(hashlib.sha256(t.encode("utf-8")).hexdigest()[:8], 16) % self.dim
+                for t in tokens
+            }
+            for bucket in buckets:
+                doc_freq[bucket] += 1
+
+        # Smoothed IDF, sklearn-style: log((n+1)/(df+1)) + 1 - always
+        # positive, and a bucket that appears in every document (df == n)
+        # still gets weight 1 rather than collapsing to 0.
+        self._idf = [
+            math.log((n_docs + 1) / (df + 1)) + 1.0 for df in doc_freq
+        ]
+        self._idf_n_docs = n_docs
+        logger.info(
+            f"[Embedder] Fitted IDF weighting over {n_docs} documents "
+            f"(dim={self.dim})."
+        )
+
+    def get_idf(self) -> list[float] | None:
+        """Return the fitted IDF vector, for persistence alongside the index."""
+        return self._idf
+
+    def set_idf(self, idf: list[float] | None) -> None:
+        """Restore a previously-fitted IDF vector (e.g. after loading a
+        persisted index), so query-time encoding matches document-time
+        encoding."""
+        if idf is not None and len(idf) != self.dim:
+            logger.warning(
+                f"[Embedder] set_idf() vector length {len(idf)} != dim "
+                f"{self.dim} - ignoring, falling back to unweighted hashing."
+            )
+            return
+        self._idf = idf
+
     # Fallback embedder - deterministic hashing trick
 
     def _hash_embed(self, text: str) -> list[float]:
@@ -152,7 +222,8 @@ class Embedder:
             digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
             bucket = int(digest[:8], 16) % self.dim
             sign = 1.0 if int(digest[8:9], 16) % 2 == 0 else -1.0
-            vec[bucket] += sign
+            weight = self._idf[bucket] if self._idf is not None else 1.0
+            vec[bucket] += sign * weight
 
         norm = math.sqrt(sum(v * v for v in vec))
         if norm == 0:

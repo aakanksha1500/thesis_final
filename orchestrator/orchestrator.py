@@ -1,12 +1,14 @@
 """
-Phase 7 - HALO style hierarchical Orchestrator
-ddresses RQ4: multi-agent vs monolithic coherence.
+Orchestrator — the central coordinator. Owns one user session end to end:
+classify what the user wants, decide which specialist agents to call and
+in what order, run them, resolve any conflicts between their outputs, and
+return a single response with everything logged for audit.
 
-HALO three-layer hierarchy:
-  Layer 1 — Goal decomposition: parse intent → routing decision
-  Layer 2 — Agent selection:   route sub-tasks → specialist agents
-  Layer 3 — Execution monitoring: conflict detection, constraint validation,
-             failure recovery, synthesis
+Structured as HALO's three layers (Hou et al.):
+  1. Goal decomposition   — classify_intent() / routing_policy.decide()
+  2. Agent selection      — planner.py builds and validates the call sequence
+  3. Execution monitoring — conflict_resolver.py, failure_handler.py, the
+                             approval gate, and audit_log.py
 
 Additional design decisions implemented:
   O2 — LangChain-compatible abstraction (agent registry pattern)
